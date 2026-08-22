@@ -19,11 +19,12 @@
 - [x] Milestone 14 - AI-driven conversation
 - [x] Milestone 15 - AI itinerary generation
 - [x] Milestone 16 - Save trip
-- [ ] Milestone 17 - Google Places enrichment
-- [ ] Milestone 18 - Mapbox trip map
-- [ ] Milestone 19 - Arcjet free quota
-- [ ] Milestone 20 - Clerk Billing paid access
-- [ ] Milestone 21 - Production readiness and Vercel deployment
+- [x] Milestone 17 - View trip data page
+- [ ] Milestone 18 - Google Places enrichment
+- [ ] Milestone 19 - Mapbox trip map
+- [ ] Milestone 20 - Arcjet free quota
+- [ ] Milestone 21 - Clerk Billing paid access
+- [ ] Milestone 22 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -740,3 +741,48 @@ Open issues:
 
 Next milestone:
 - Milestone 17
+
+## Milestone 17 - View Trip Data Page
+
+Changed:
+- Refined the secure Convex trip view query to return explicit view states for unauthenticated, malformed ID, not found, unauthorized, malformed legacy data, and valid trip data.
+- Kept Convex identity and ownership checks as the authoritative data boundary.
+- Kept the Next.js dynamic route on the current async App Router `params` API.
+- Reworked the saved trip page into a minimal data view with direct props instead of a TripDetailContext.
+- Rendered a compact trip header with destination, source, duration, budget, group size, created date, and trip ID.
+- Reduced itinerary presentation to summary/count data only; no Google Places, Mapbox, Arcjet, billing, or external network calls were added.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `sed -n ... convex/trips.ts convex/schema.ts app/(app)/view-trip/[tripId]/page.tsx components/trips/saved-trip-detail.tsx`
+- `npx convex dev --once`
+- `node --input-type=module ... Convex view-state smoke test`
+- `npx convex run --inline-query ... valid-missing-ID candidate search`
+- `npm run lint`
+- `npm run build`
+- `npx convex codegen`
+- `rg -nP '[^\\x00-\\x7F]' app components convex lib docs`
+- `rg "Google Places|GOOGLE_PLACE|mapbox|Mapbox|arcjet|billing|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|fetch\\(" ...`
+
+Results:
+- `npx convex dev --once` passed and Convex functions were ready.
+- Valid owned trip query returned `ok`.
+- Malformed route ID query returned `malformed_id`.
+- Another synthetic user's trip query returned `unauthorized`.
+- Unauthenticated query returned `unauthenticated`.
+- Legacy/draft trip query returned `malformed_legacy_data`.
+- A bounded search did not find a syntactically valid missing Convex trip ID in the current development deployment, so the implemented `not_found` branch was not exercised without adding destructive or test-only code.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `npx convex codegen` passed.
+- Source scans found no Google Places, Mapbox, Arcjet, billing, OpenRouter secret access, fetch calls, or non-ASCII edits in the touched path.
+
+Open issues:
+- Full browser E2E through Clerk still requires signing into the local app with a Clerk test user to view an actual saved trip page.
+- The `not_found` state is implemented for valid Convex IDs that no longer exist, but it was not automatically reproduced because this milestone did not add deletion/debug code.
+- Existing development Convex data still includes legacy test trips from earlier milestones; those now render a distinct legacy-data state.
+- If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
+
+Next milestone:
+- Milestone 18

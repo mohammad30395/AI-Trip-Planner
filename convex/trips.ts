@@ -213,14 +213,58 @@ export const getCurrentUserTripByPublicId = query({
     tripId: v.string(),
   },
   handler: async (ctx, args) => {
+    const ownerIdentity = await ctx.auth.getUserIdentity()
+
+    if (ownerIdentity === null) {
+      return {
+        status: "unauthenticated" as const,
+      }
+    }
+
     const tripId = ctx.db.normalizeId("trips", args.tripId)
 
     if (tripId === null) {
-      throw new ConvexError("TRIP_NOT_FOUND")
+      return {
+        status: "malformed_id" as const,
+      }
     }
 
-    const trip = await getOwnedTripOrThrow(ctx, tripId)
+    const trip = await ctx.db.get(tripId)
 
-    return toClientTrip(trip)
+    if (trip === null) {
+      return {
+        status: "not_found" as const,
+      }
+    }
+
+    if (trip.ownerIdentityKey !== ownerIdentity.tokenIdentifier) {
+      return {
+        status: "unauthorized" as const,
+      }
+    }
+
+    if (!hasFinalItineraryPayload(trip.generatedTripPayload)) {
+      return {
+        status: "malformed_legacy_data" as const,
+        trip: toClientTrip(trip),
+      }
+    }
+
+    return {
+      status: "ok" as const,
+      trip: toClientTrip(trip),
+    }
   },
 })
+
+function hasFinalItineraryPayload(
+  value: Doc<"trips">["generatedTripPayload"]
+) {
+  return (
+    value !== undefined &&
+    "travelPlan" in value &&
+    "summary" in value &&
+    "hotels" in value &&
+    "itinerary" in value
+  )
+}
