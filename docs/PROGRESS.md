@@ -9,15 +9,16 @@
 - [x] Milestone 04 - Landing page
 - [x] Milestone 05 - Route skeletons
 - [x] Milestone 06 - Clerk authentication
-- [ ] Milestone 07 - Convex backend foundation
-- [ ] Milestone 08 - Trip planning input flow
-- [ ] Milestone 09 - AI itinerary generation
-- [ ] Milestone 10 - Google Places enrichment
-- [ ] Milestone 11 - Saved trips
-- [ ] Milestone 12 - Mapbox trip map
-- [ ] Milestone 13 - Arcjet free quota
-- [ ] Milestone 14 - Clerk Billing paid access
-- [ ] Milestone 15 - Production readiness and Vercel deployment
+- [x] Milestone 07 - Convex + Clerk auth bridge
+- [x] Milestone 08 - Database schema and authorization
+- [ ] Milestone 09 - Trip planning input flow
+- [ ] Milestone 10 - AI itinerary generation
+- [ ] Milestone 11 - Google Places enrichment
+- [ ] Milestone 12 - Saved trips
+- [ ] Milestone 13 - Mapbox trip map
+- [ ] Milestone 14 - Arcjet free quota
+- [ ] Milestone 15 - Clerk Billing paid access
+- [ ] Milestone 16 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -248,3 +249,125 @@ Open issues:
 
 Next milestone:
 - Milestone 07
+
+## Milestone 07 - Convex + Clerk Auth Bridge
+
+Changed:
+- Installed the allowed `convex` dependency.
+- Initialized an anonymous local Convex deployment with `npx convex dev --once`.
+- Added a client-side `ConvexClientProvider` using `ConvexProviderWithClerk` and Clerk's `useAuth` hook.
+- Wrapped the existing `ClerkProvider` children with the Convex provider in the root layout.
+- Added `convex/auth.config.ts` using `process.env.CLERK_JWT_ISSUER_DOMAIN` and `applicationID: "convex"`.
+- Added a temporary `convex/auth.ts` `whoAmI` query that reads `ctx.auth.getUserIdentity()` and returns only safe debug booleans.
+- Added an authenticated `/create-trip` Convex identity check component.
+- Added `NEXT_PUBLIC_CONVEX_SITE_URL` to environment docs as a generated Convex variable name.
+
+Commands run:
+- `git status --short --branch`
+- `find app components lib -maxdepth 4 -type f | sort`
+- `find . -maxdepth 3 -name 'convex' -o -name '_generated' -o -name '.env*'`
+- `node -e "... checked Convex and Clerk variable-name presence without printing values ..."`
+- `npm install convex`
+- `npx convex dev --once`
+- `npx convex env --help`
+- `npx convex dev`
+- `npx convex env --deployment local set CLERK_JWT_ISSUER_DOMAIN ...`
+- `npx convex codegen --help`
+- `npx convex codegen`
+- `npx convex dev --once`
+- `node -e "... checked Convex variable-name presence without printing values ..."`
+- `npx convex env --deployment local list --names-only`
+- `node -e "... derived Clerk issuer without printing it and ran npx convex dev --once with CLERK_JWT_ISSUER_DOMAIN in the child environment ..."`
+- `node -e "... checked Convex and Clerk variable-name presence and format without printing values ..."`
+- `npx convex dev --once`
+- `rg "auth" convex/_generated/api.d.ts convex/_generated/api.js -n`
+- `npx convex run auth:whoAmI`
+- `npx convex run auth:whoAmI --identity '{"subject":"debug-subject","issuer":"https://debug.example","emailVerified":true}'`
+- `rg "userId|currentUser|emailAddress|firstName|lastName|tokenIdentifier|identity\\.email|identity\\.name|identity\\.givenName|identity\\.familyName" app components convex -n`
+- `npm run lint`
+- `npm run build`
+- `npm run start`
+- `curl -sS -o /tmp/m07-home.html -w '/ %{http_code}\n' http://localhost:3000/`
+- `curl -sS -o /tmp/m07-pricing.html -w '/pricing %{http_code}\n' http://localhost:3000/pricing`
+- `curl -sS -o /tmp/m07-sign-in.html -w '/sign-in %{http_code}\n' http://localhost:3000/sign-in`
+- `curl -sS -o /tmp/m07-sign-up.html -w '/sign-up %{http_code}\n' http://localhost:3000/sign-up`
+- `curl -sS -o /tmp/m07-create-trip.html -D /tmp/m07-create-trip.headers -w '/create-trip %{http_code}\n' http://localhost:3000/create-trip`
+- `curl -sS -o /tmp/m07-my-trips.html -D /tmp/m07-my-trips.headers -w '/my-trips %{http_code}\n' http://localhost:3000/my-trips`
+- `curl -sS -o /tmp/m07-view-trip.html -D /tmp/m07-view-trip.headers -w '/view-trip/sample-trip-123 %{http_code}\n' http://localhost:3000/view-trip/sample-trip-123`
+- `awk 'BEGIN{IGNORECASE=1} /^location:/{...}' /tmp/m07-create-trip.headers /tmp/m07-my-trips.headers /tmp/m07-view-trip.headers`
+- `rg -q 'AI Trip Planner|Create Trip' /tmp/m07-home.html`
+- `rg -q 'Pricing|Free access|Paid access' /tmp/m07-pricing.html`
+- `rg -q 'Sign in|Sign up|clerk|Clerk' /tmp/m07-sign-in.html`
+- `rg -q 'Sign up|Sign in|clerk|Clerk' /tmp/m07-sign-up.html`
+
+Results:
+- `npm install convex` completed, audited 614 packages, and reported 0 vulnerabilities.
+- `npx convex dev --once` initialized a local anonymous Convex deployment and generated `convex/_generated/*`.
+- Convex wrote generated Convex variable names to `.env.local`; values were not printed.
+- `npx convex dev` prepared existing functions, then stopped after `convex/auth.config.ts` was added because `CLERK_JWT_ISSUER_DOMAIN` is not set in the Convex deployment environment.
+- `npx convex codegen` also stopped on the same missing Convex environment variable, so generated API types do not yet include `api.auth.whoAmI`.
+- Follow-up verification after manual setup still reports `CLERK_JWT_ISSUER_DOMAIN` missing from the Convex deployment environment.
+- `.env.local` contains generated Convex variable names, but `CLERK_JWT_ISSUER_DOMAIN` was not present by name when checked.
+- Passing `CLERK_JWT_ISSUER_DOMAIN` through the shell to `npx convex dev --once` did not satisfy Convex; it must be configured in the Convex deployment environment.
+- Follow-up verification after configuring the cloud development deployment succeeded with `npx convex dev --once`.
+- Generated Convex API types now include `api.auth.whoAmI`.
+- `npx convex run auth:whoAmI` completed successfully for the unauthenticated/null contract.
+- A synthetic Convex identity run returned only the safe debug booleans from `whoAmI`.
+- Authored code does not return or render client-supplied user IDs, email addresses, names, photos, or Convex token identifiers.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2 and `.env.local` loaded.
+- Production route checks returned HTTP 200 for `/`, `/pricing`, `/sign-in`, and `/sign-up`.
+- Signed-out production requests to `/create-trip`, `/my-trips`, and `/view-trip/sample-trip-123` returned HTTP 307 redirects to the sign-in route.
+
+Open issues:
+- Full browser-authenticated Convex token exchange still requires signing in through Clerk in a browser session. The server and Convex side are configured and synced; automated checks verified the unauthenticated contract and function behavior with a synthetic Convex identity.
+- npm repeated allow-scripts review warnings for `unrs-resolver` and `esbuild`; no action was taken.
+
+Next milestone:
+- Milestone 08
+
+## Milestone 08 - Database Schema and Authorization
+
+Changed:
+- Added Convex schema tables for `users` and `trips`.
+- Added required indexes for user lookup by authenticated identity key and trip listing by owner/creation time.
+- Added conservative validators for trip status, enrichment status, and a placeholder structured trip payload.
+- Added `users:upsertCurrentUserFromIdentity`, deriving the stored user identity from `ctx.auth.getUserIdentity()`.
+- Added secure trip functions to create, save, list, and get current-user trips.
+- Returned sanitized trip records to clients without the internal `ownerIdentityKey`.
+- Recorded the decision to use Convex document IDs as trip identifiers for now.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg "ownerIdentityKey|tokenIdentifier|identity\\.email|identity\\.name|identity\\.givenName|identity\\.familyName" app components -n`
+- `rg "ownerId|ownerIdentityKey|user_id|userId|email" convex/trips.ts convex/users.ts -n`
+- `npx convex dev --once`
+- `npx convex run trips:listCurrentUserTrips`
+- `npx convex run trips:createTrip '{"source":"Dhaka","destination":"Tokyo","durationDays":5,"budget":"moderate","groupSize":2}'`
+- `npx convex run users:upsertCurrentUserFromIdentity`
+- `npx convex run users:upsertCurrentUserFromIdentity --identity ...`
+- `npx convex run trips:createTrip ... --identity ...`
+- `npx convex run trips:getCurrentUserTrip ... --identity ...`
+- `npx convex run trips:listCurrentUserTrips --identity ...`
+- `rg "ownerIdentityKey" /tmp/m08-list-owner-a.json`
+- `npx convex run trips:saveTrip ... --identity ...`
+- `npm run lint`
+- `npm run build`
+
+Results:
+- `npx convex dev --once` passed and synced the schema/functions.
+- Unauthenticated `users` and `trips` functions rejected with `UNAUTHENTICATED`.
+- Synthetic authenticated user upsert, trip create, trip get, trip list, and trip save checks passed.
+- A different synthetic identity was rejected from reading another identity's trip with `UNAUTHORIZED`.
+- Trip list output did not include the internal `ownerIdentityKey`.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+
+Open issues:
+- The trip payload validator is intentionally conservative and must be tightened when the AI itinerary and Google Places enrichment schemas are implemented.
+- Synthetic debug user/trip records were created in the development Convex deployment during smoke testing.
+- Full browser-authenticated Convex calls still depend on signing in through Clerk in a local browser session.
+
+Next milestone:
+- Milestone 09

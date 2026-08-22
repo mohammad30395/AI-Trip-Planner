@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { auth } from "@clerk/nextjs/server"
 
+import { ConvexAuthStatus } from "@/components/auth/convex-auth-status"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,9 +28,18 @@ async function CreateTripPage() {
         </CardHeader>
         <CardContent>
           <p className="app-muted leading-7">
-            Clerk verified an active session for this request. Future Convex and
-            server action work must repeat auth checks at the data boundary.
+            Clerk verified an active session for this request. Convex must also
+            verify the session before any data access.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card className="app-card max-w-2xl">
+        <CardHeader>
+          <CardTitle>Convex identity check</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ConvexAuthStatus />
         </CardContent>
       </Card>
 

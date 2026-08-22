@@ -6,6 +6,8 @@
 - Use `proxy.ts` for request interception on Next.js 16+. Use `middleware.ts` only if the installed framework version requires it.
 - Use Clerk for authentication and billing.
 - Convex authentication must use verified server identity. Never authorize with a client-supplied `userId`.
+- Use Convex document IDs as trip identifiers until a public slug requirement is introduced.
+- Store trip ownership with the Convex-authenticated identity key derived on the server, never with a client-supplied owner field.
 - Call OpenRouter only from a server route through the OpenAI SDK compatible endpoint.
 - Prefer strict JSON Schema structured output when the selected model and endpoint support it.
 - Call Google Places API (New) server-side.
