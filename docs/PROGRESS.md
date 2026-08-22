@@ -21,11 +21,12 @@
 - [x] Milestone 16 - Save trip
 - [x] Milestone 17 - View trip data page
 - [x] Milestone 18 - Trip presentation components
-- [ ] Milestone 19 - Google Places enrichment
-- [ ] Milestone 20 - Mapbox trip map
-- [ ] Milestone 21 - Arcjet free quota
-- [ ] Milestone 22 - Clerk Billing paid access
-- [ ] Milestone 23 - Production readiness and Vercel deployment
+- [x] Milestone 19 - My trips
+- [ ] Milestone 20 - Google Places enrichment
+- [ ] Milestone 21 - Mapbox trip map
+- [ ] Milestone 22 - Arcjet free quota
+- [ ] Milestone 23 - Clerk Billing paid access
+- [ ] Milestone 24 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -822,3 +823,44 @@ Open issues:
 
 Next milestone:
 - Milestone 19
+
+## Milestone 19 - My Trips
+
+Changed:
+- Replaced the `/my-trips` placeholder with a signed-in saved-trip dashboard.
+- Added `components/trips/my-trips-dashboard.tsx` using the owner-scoped `trips:listCurrentUserTrips` Convex query.
+- Added responsive saved-trip cards with destination, source, duration, budget/group label, created date, status, enrichment state, placeholder imagery, and links to `/view-trip/[tripId]`.
+- Added a loading skeleton, empty state with Create Trip CTA, and route-level error state.
+- Added a pure `lib/trips/dashboard.ts` adapter for defensive card formatting.
+- Kept sorting newest first through the existing `by_owner_created_at` index and `order("desc")` query.
+- Did not add delete/archive, Google Places, Mapbox, billing, Arcjet, external fetches, or dependencies.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `sed -n ... app/(app)/my-trips/page.tsx components/trips/*.tsx lib/trips/*.ts convex/trips.ts`
+- `npm run lint`
+- `npm run build`
+- `node --input-type=module ... Convex list dashboard smoke test`
+- `rg -nP '[^\\x00-\\x7F]' app components convex lib docs`
+- `rg "owner|email|userId|user_id|Google Places|GOOGLE_PLACE|mapbox|Mapbox|arcjet|billing|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|fetch\\(|axios|delete|archive" ...`
+- `curl -sS -o /tmp/m19-my-trips.html -D /tmp/m19-my-trips.headers -w '/my-trips %{http_code}\\n' http://localhost:3000/my-trips`
+
+Results:
+- Convex smoke test passed for a synthetic user with zero trips.
+- Convex smoke test passed for a synthetic user with one saved trip.
+- Convex smoke test passed for a synthetic user with several saved trips.
+- Newest-first ordering was verified for newly created synthetic fixtures.
+- A second synthetic user could not see another user's trips.
+- Signed-out `/my-trips` returned HTTP 307 to the sign-in flow.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Source scans found no route/query owner, email, or user ID parameter handling in the dashboard path, and no Google Places, Mapbox, Arcjet, billing, fetch/Axios, delete/archive, or non-ASCII edits.
+
+Open issues:
+- Full authenticated browser E2E through Clerk still requires signing into the local app with a Clerk test user and opening `/my-trips`.
+- Trip card images remain placeholders until Google Places enrichment is implemented.
+- If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
+
+Next milestone:
+- Milestone 20

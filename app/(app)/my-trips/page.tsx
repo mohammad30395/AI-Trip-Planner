@@ -1,9 +1,7 @@
-import Link from "next/link"
 import { auth } from "@clerk/nextjs/server"
 
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { MyTripsDashboard } from "@/components/trips/my-trips-dashboard"
 
 async function MyTripsPage() {
   await auth.protect()
@@ -16,27 +14,12 @@ async function MyTripsPage() {
           My Trips
         </h1>
         <p className="app-muted mt-3 leading-7">
-          Saved trips will appear here after authentication and Convex
-          persistence are implemented in later milestones.
+          Review the itineraries saved to your account. Trip ownership is
+          resolved from your authenticated session.
         </p>
       </div>
 
-      <Card className="app-card max-w-2xl">
-        <CardHeader>
-          <CardTitle>No saved trips yet</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="app-muted leading-7">
-            This placeholder does not read from a database or external service.
-          </p>
-        </CardContent>
-      </Card>
-
-      <div>
-        <Link href="/create-trip" className={buttonVariants()}>
-          Create Trip
-        </Link>
-      </div>
+      <MyTripsDashboard />
     </section>
   )
 }
