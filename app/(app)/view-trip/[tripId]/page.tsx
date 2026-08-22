@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { auth } from "@clerk/nextjs/server"
 
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -11,6 +12,8 @@ type ViewTripPageProps = {
 }
 
 async function ViewTripPage({ params }: ViewTripPageProps) {
+  await auth.protect()
+
   const { tripId } = await params
 
   return (

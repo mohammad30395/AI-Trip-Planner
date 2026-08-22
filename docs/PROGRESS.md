@@ -8,7 +8,7 @@
 - [x] Milestone 03 - UI foundation
 - [x] Milestone 04 - Landing page
 - [x] Milestone 05 - Route skeletons
-- [ ] Milestone 06 - Authentication foundation
+- [x] Milestone 06 - Clerk authentication
 - [ ] Milestone 07 - Convex backend foundation
 - [ ] Milestone 08 - Trip planning input flow
 - [ ] Milestone 09 - AI itinerary generation
@@ -178,3 +178,73 @@ Open issues:
 
 Next milestone:
 - Milestone 06
+
+## Milestone 06 - Clerk Authentication
+
+Changed:
+- Installed `@clerk/nextjs` 7.8.0.
+- Wrapped the App Router root with `ClerkProvider` inside `body`.
+- Added Next.js 16 request interception with root-level `proxy.ts` and `clerkMiddleware()`.
+- Added public Clerk component routes at `/sign-in` and `/sign-up`.
+- Added shared auth controls that render signed-out sign-in/create-trip CTAs and signed-in `UserButton` without rendering user identifiers.
+- Protected `/create-trip`, `/my-trips`, and `/view-trip/[tripId]` with server-side `auth.protect()`.
+- Kept `/pricing` public and recorded that decision in `docs/DECISIONS.md`.
+- Added a simple authenticated status check on `/create-trip` that does not expose user data.
+- Updated `docs/ENVIRONMENT.md` with Clerk custom auth route variable names only.
+
+Commands run:
+- `git status --short --branch`
+- `find app components lib -maxdepth 4 -type f | sort`
+- `find . -maxdepth 2 -name '.env*' -type f | sort`
+- `npm install @clerk/nextjs`
+- `node -p "require('./package.json').dependencies['@clerk/nextjs']"`
+- `rg "export .*ClerkProvider|export .*Show|export .*SignIn|export .*SignUp|export .*UserButton" node_modules/@clerk/nextjs -n --glob '*.d.ts'`
+- `rg "clerkMiddleware|auth\\.protect|function auth|declare const auth" node_modules/@clerk/nextjs -n --glob '*.d.ts'`
+- `node -e "for (const name of ['NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY','CLERK_SECRET_KEY','NEXT_PUBLIC_CLERK_SIGN_IN_URL','NEXT_PUBLIC_CLERK_SIGN_UP_URL','NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL','NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL']) console.log(name + '=' + (process.env[name] ? 'present' : 'missing'))"`
+- `npm run lint`
+- `npm run build`
+- `npm run start`
+- `curl -sS -o /tmp/auth-home.html -w '/ %{http_code}\n' http://localhost:3000/`
+- `curl -sS -o /tmp/auth-pricing.html -w '/pricing %{http_code}\n' http://localhost:3000/pricing`
+- `curl -sS -o /tmp/auth-sign-in.html -w '/sign-in %{http_code}\n' http://localhost:3000/sign-in`
+- `curl -sS -o /tmp/auth-sign-up.html -w '/sign-up %{http_code}\n' http://localhost:3000/sign-up`
+- `curl -sS -o /tmp/auth-create-trip.html -D /tmp/auth-create-trip.headers -w '/create-trip %{http_code}\n' http://localhost:3000/create-trip`
+- `curl -sS -o /tmp/auth-my-trips.html -D /tmp/auth-my-trips.headers -w '/my-trips %{http_code}\n' http://localhost:3000/my-trips`
+- `curl -sS -o /tmp/auth-view-trip.html -D /tmp/auth-view-trip.headers -w '/view-trip/sample-trip-123 %{http_code}\n' http://localhost:3000/view-trip/sample-trip-123`
+- `rg "userId|currentUser|emailAddress|firstName|lastName" app components -n`
+- `rg "@clerk|convex|arcjet|openai|openrouter|mapbox|google|@clerk/ui" package.json app components proxy.ts docs -n`
+- `git status --short --branch`
+- `node -e "... verified required Clerk variable names are present without printing values ..."`
+- `npm run lint`
+- `npm run build`
+- `npm run start`
+- `curl -sS -o /tmp/m06-home.html -w '/ %{http_code}\n' http://localhost:3000/`
+- `curl -sS -o /tmp/m06-pricing.html -w '/pricing %{http_code}\n' http://localhost:3000/pricing`
+- `curl -sS -o /tmp/m06-sign-in.html -w '/sign-in %{http_code}\n' http://localhost:3000/sign-in`
+- `curl -sS -o /tmp/m06-sign-up.html -w '/sign-up %{http_code}\n' http://localhost:3000/sign-up`
+- `curl -sS -o /tmp/m06-create-trip.html -D /tmp/m06-create-trip.headers -w '/create-trip %{http_code}\n' http://localhost:3000/create-trip`
+- `curl -sS -o /tmp/m06-my-trips.html -D /tmp/m06-my-trips.headers -w '/my-trips %{http_code}\n' http://localhost:3000/my-trips`
+- `curl -sS -o /tmp/m06-view-trip.html -D /tmp/m06-view-trip.headers -w '/view-trip/sample-trip-123 %{http_code}\n' http://localhost:3000/view-trip/sample-trip-123`
+- `awk 'BEGIN{IGNORECASE=1} /^location:/{...}' /tmp/m06-create-trip.headers /tmp/m06-my-trips.headers /tmp/m06-view-trip.headers`
+- `rg -q 'AI Trip Planner|Create Trip' /tmp/m06-home.html`
+- `rg -q 'Pricing|Free access|Paid access' /tmp/m06-pricing.html`
+- `rg -q 'Sign in|Sign up|clerk|Clerk' /tmp/m06-sign-in.html`
+- `rg -q 'Sign up|Sign in|clerk|Clerk' /tmp/m06-sign-up.html`
+
+Results:
+- `npm install @clerk/nextjs` completed, audited 609 packages, and reported 0 vulnerabilities.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Required Clerk variable names are present in `.env.local`; values were not printed.
+- Production runtime no longer fails on missing Clerk configuration.
+- Public routes `/` and `/pricing` returned HTTP 200.
+- Clerk routes `/sign-in` and `/sign-up` returned HTTP 200 with Clerk/auth content present.
+- Signed-out requests to `/create-trip`, `/my-trips`, and `/view-trip/sample-trip-123` returned HTTP 307 redirects to the sign-in route.
+
+Open issues:
+- Interactive sign-in, sign-out, and authenticated page access still require a browser session. The in-app browser automation tool was unavailable in this session, so this final human-in-the-browser check remains manual.
+- Future Convex, route handlers, and server actions must repeat authorization at the server/data boundary; route protection alone is not authorization.
+- npm repeated the allow-scripts review warning for `unrs-resolver`; no action was taken.
+
+Next milestone:
+- Milestone 07

@@ -1,14 +1,17 @@
 import Link from "next/link"
+import { auth } from "@clerk/nextjs/server"
 
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-function MyTripsPage() {
+async function MyTripsPage() {
+  await auth.protect()
+
   return (
     <section className="grid min-w-0 gap-6">
       <div className="max-w-2xl">
-        <Badge variant="outline">Route placeholder</Badge>
+        <Badge variant="outline">Authenticated route</Badge>
         <h1 className="mt-4 font-heading text-3xl font-semibold tracking-tight">
           My Trips
         </h1>

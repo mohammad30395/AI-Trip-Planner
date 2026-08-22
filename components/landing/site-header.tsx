@@ -1,8 +1,7 @@
 import Link from "next/link"
 
+import { AuthControls } from "@/components/auth/auth-controls"
 import { AppContainer } from "@/components/app-container"
-import { buttonVariants } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 
 const navItems = [
   { href: "/my-trips", label: "My Trips" },
@@ -41,12 +40,7 @@ function SiteHeader() {
           ))}
         </nav>
 
-        <Link
-          href="/create-trip"
-          className={cn(buttonVariants({ size: "lg" }), "sm:inline-flex")}
-        >
-          Create Trip
-        </Link>
+        <AuthControls />
       </AppContainer>
     </header>
   )

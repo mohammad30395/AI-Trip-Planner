@@ -15,3 +15,4 @@
 - The free tier default is one successful trip generation per rolling/day policy documented in one config.
 - Paid Clerk Billing entitlement bypasses the free quota.
 - Run Mapbox client-side and clean up map instances on unmount.
+- Keep `/pricing` public so unauthenticated visitors can review access options before signing in. Enforce paid entitlement checks later at billing-protected server/data boundaries, not by hiding the pricing page.

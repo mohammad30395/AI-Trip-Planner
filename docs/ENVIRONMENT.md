@@ -6,6 +6,10 @@ Variable names only. Never commit or print values.
 | --- | --- | --- |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Client-safe | Clerk browser initialization |
 | `CLERK_SECRET_KEY` | Server-only | Clerk server operations |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | Client-safe | Clerk custom sign-in route |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | Client-safe | Clerk custom sign-up route |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL` | Client-safe | Clerk post sign-in fallback redirect |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL` | Client-safe | Clerk post sign-up fallback redirect |
 | `NEXT_PUBLIC_CONVEX_URL` | Client-safe | Convex client URL |
 | `CONVEX_DEPLOYMENT` | Server-only | Generated Convex deployment identifier, if present |
 | `CLERK_JWT_ISSUER_DOMAIN` | Server-only | Convex auth configuration for Clerk JWT issuer |
