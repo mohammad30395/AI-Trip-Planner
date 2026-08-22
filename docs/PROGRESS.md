@@ -20,11 +20,12 @@
 - [x] Milestone 15 - AI itinerary generation
 - [x] Milestone 16 - Save trip
 - [x] Milestone 17 - View trip data page
-- [ ] Milestone 18 - Google Places enrichment
-- [ ] Milestone 19 - Mapbox trip map
-- [ ] Milestone 20 - Arcjet free quota
-- [ ] Milestone 21 - Clerk Billing paid access
-- [ ] Milestone 22 - Production readiness and Vercel deployment
+- [x] Milestone 18 - Trip presentation components
+- [ ] Milestone 19 - Google Places enrichment
+- [ ] Milestone 20 - Mapbox trip map
+- [ ] Milestone 21 - Arcjet free quota
+- [ ] Milestone 22 - Clerk Billing paid access
+- [ ] Milestone 23 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -786,3 +787,38 @@ Open issues:
 
 Next milestone:
 - Milestone 18
+
+## Milestone 18 - Trip Presentation Components
+
+Changed:
+- Added a pure trip presentation adapter in `lib/trips/presentation.ts` that validates stored model payloads and normalizes display data.
+- Added focused trip presentation components for the summary/header, hotel list/cards, day-by-day timeline, and activity/place cards.
+- Rendered stored itinerary content defensively with optional field handling and fallback messages.
+- Labeled unverified prices and place details as AI-generated estimates.
+- Added local photo placeholders for hotels and activities without calling Google Places.
+- Reworked the saved trip view container to handle Convex view states and pass valid trip data directly to presentation components.
+- Kept Google Places, Mapbox, payments, Arcjet, external fetches, and new dependencies out of this milestone.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `sed -n ... components/trips/saved-trip-detail.tsx lib/ai/contract.ts app/(app)/view-trip/[tripId]/page.tsx convex/trips.ts`
+- `node ... in-memory TypeScript smoke test for buildTripPresentation`
+- `npm run lint`
+- `npm run build`
+- `rg -nP '[^\\x00-\\x7F]' app components convex lib docs`
+- `rg "Google Places|GOOGLE_PLACE|mapbox|Mapbox|arcjet|billing|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|fetch\\(|axios|Aceternity|Magic UI" ...`
+
+Results:
+- Pure presentation smoke test passed for a 1-day trip, a 7-day trip, long place names, missing optional hotel/place fields, and malformed missing payload rejection.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Source scans found no Google Places, Mapbox, Arcjet, billing, OpenRouter secret access, fetch/Axios usage, Aceternity/Magic UI dependency, or non-ASCII edits in the touched path.
+
+Open issues:
+- Full browser E2E through Clerk still requires signing into the local app with a Clerk test user and opening a saved trip.
+- Place photos are placeholders until Google Places enrichment is implemented.
+- If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
+
+Next milestone:
+- Milestone 19
