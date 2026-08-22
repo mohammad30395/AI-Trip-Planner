@@ -6,16 +6,17 @@
 - [x] Milestone 01 - Next.js scaffold
 - [x] Milestone 02 - Project governance and source of truth
 - [x] Milestone 03 - UI foundation
-- [ ] Milestone 04 - Authentication foundation
-- [ ] Milestone 05 - Convex backend foundation
-- [ ] Milestone 06 - Trip planning input flow
-- [ ] Milestone 07 - AI itinerary generation
-- [ ] Milestone 08 - Google Places enrichment
-- [ ] Milestone 09 - Saved trips
-- [ ] Milestone 10 - Mapbox trip map
-- [ ] Milestone 11 - Arcjet free quota
-- [ ] Milestone 12 - Clerk Billing paid access
-- [ ] Milestone 13 - Production readiness and Vercel deployment
+- [x] Milestone 04 - Landing page
+- [ ] Milestone 05 - Authentication foundation
+- [ ] Milestone 06 - Convex backend foundation
+- [ ] Milestone 07 - Trip planning input flow
+- [ ] Milestone 08 - AI itinerary generation
+- [ ] Milestone 09 - Google Places enrichment
+- [ ] Milestone 10 - Saved trips
+- [ ] Milestone 11 - Mapbox trip map
+- [ ] Milestone 12 - Arcjet free quota
+- [ ] Milestone 13 - Clerk Billing paid access
+- [ ] Milestone 14 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -104,3 +105,37 @@ Open issues:
 
 Next milestone:
 - Milestone 04
+
+## Milestone 04 - Landing Page
+
+Changed:
+- Replaced the minimal home page with a public landing page shell.
+- Added server-rendered landing components for the header, hero, how-it-works section, destination grid, product preview placeholder, and footer.
+- Added local generated destination images under `public/landing/`.
+- Linked the primary Create Trip CTA to `/create-trip` without implementing that route.
+- Kept the page static with no authentication, database, AI, Arcjet, Google Places, Mapbox, billing, Magic UI, or Aceternity integration.
+- Added explicit border-box base styling to prevent mobile width overflow.
+
+Commands run:
+- `git status --porcelain=v1 --branch`
+- `rg --files -uu -g '!.git' -g '!node_modules' -g '!.next'`
+- `sips -g pixelWidth -g pixelHeight`
+- `magick ... -crop ...`
+- `npm run lint`
+- `npm run build`
+- `npm run start`
+- Headless Chrome desktop screenshot at `1440px`
+- Headless Chrome emulated mobile screenshots at `390px`
+
+Results:
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Desktop production screenshot looked coherent.
+- Emulated mobile viewport reported `scrollWidth` equal to `clientWidth` at 390px.
+- Mobile production screenshots covered the hero, destination cards, product preview, and footer without text overlap or horizontal overflow.
+
+Open issues:
+- None currently known.
+
+Next milestone:
+- Milestone 05
