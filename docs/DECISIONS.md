@@ -14,6 +14,10 @@
 - Parse unknown model output through dependency-free guards that return typed data or explicit validation errors.
 - Call OpenRouter only from a server route through the OpenAI SDK compatible endpoint.
 - Prefer strict JSON Schema structured output when the selected model and endpoint support it.
+- Use the official OpenRouter OpenAI-compatible base URL in a server-only client module.
+- Protect temporary AI smoke routes with Clerk before provider work begins.
+- Treat OpenRouter provider errors as server diagnostics only; browser responses must not include raw provider errors, headers, request IDs, or key material.
+- Apply explicit timeout/abort handling to OpenRouter calls before wiring product flows.
 - Call Google Places API (New) server-side.
 - Treat Google Places API (New) as authoritative for place IDs, canonical coordinates, and photos.
 - Do not trust model-generated coordinates as canonical.

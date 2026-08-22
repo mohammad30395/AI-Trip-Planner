@@ -15,13 +15,14 @@
 - [x] Milestone 10 - Create trip UI shell
 - [x] Milestone 11 - Generative UI component mapping
 - [x] Milestone 12 - AI contract and schema
-- [ ] Milestone 13 - AI itinerary generation
-- [ ] Milestone 14 - Google Places enrichment
-- [ ] Milestone 15 - Saved trips
-- [ ] Milestone 16 - Mapbox trip map
-- [ ] Milestone 17 - Arcjet free quota
-- [ ] Milestone 18 - Clerk Billing paid access
-- [ ] Milestone 19 - Production readiness and Vercel deployment
+- [x] Milestone 13 - OpenRouter server client
+- [ ] Milestone 14 - AI itinerary generation
+- [ ] Milestone 15 - Google Places enrichment
+- [ ] Milestone 16 - Saved trips
+- [ ] Milestone 17 - Mapbox trip map
+- [ ] Milestone 18 - Arcjet free quota
+- [ ] Milestone 19 - Clerk Billing paid access
+- [ ] Milestone 20 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -540,3 +541,50 @@ Open issues:
 
 Next milestone:
 - Milestone 13
+
+## Milestone 13 - OpenRouter Server Client
+
+Changed:
+- Installed the `openai` package for OpenRouter's OpenAI-compatible API.
+- Added a server-only OpenRouter client module in `lib/ai/openrouter.ts`.
+- Added server-side validation for `OPEN_ROUTER_API_KEY` and `OPEN_ROUTER_MODEL` without printing values.
+- Configured the OpenAI SDK with the OpenRouter base URL, app title header, no automatic retries, and a 20 second timeout.
+- Added a temporary protected `/api/openrouter-smoke` route that requests strict JSON Schema structured output using the conversational contract from Milestone 12.
+- Sanitized browser responses so raw provider errors, headers, request IDs, and key material are not exposed.
+- Documented the OpenRouter server boundary and provider-error handling decisions.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `npm install openai`
+- `node -p "require('./package.json').dependencies.openai"`
+- `test -d node_modules/server-only`
+- `rg "baseURL|defaultHeaders|timeout|signal|response_format" node_modules/openai -n --glob '*.d.ts'`
+- `npm run build`
+- `npm run lint`
+- `node ... environment presence check for OPEN_ROUTER_API_KEY and OPEN_ROUTER_MODEL`
+- `npm run dev`
+- `curl -sS -o /tmp/m13-openrouter-smoke-anon.html -D /tmp/m13-openrouter-smoke-anon.headers -w '/api/openrouter-smoke %{http_code}\n' http://localhost:3000/api/openrouter-smoke`
+- `curl -sS -o /tmp/m13-home.html -w '/ %{http_code}\n' http://localhost:3000/`
+- `node --env-file=.env.local --experimental-strip-types --input-type=module ... OpenRouter structured-output smoke call`
+- `curl -sS -o /tmp/m13-openrouter-smoke-anon-2.html -D /tmp/m13-openrouter-smoke-anon-2.headers -w '/api/openrouter-smoke %{http_code}\n' http://localhost:3000/api/openrouter-smoke`
+- `curl -sS -o /tmp/m13-home-2.html -w '/ %{http_code}\n' http://localhost:3000/`
+
+Results:
+- `npm install openai` completed, audited 615 packages, and reported 0 vulnerabilities.
+- `OPEN_ROUTER_API_KEY` is present by name.
+- `OPEN_ROUTER_MODEL` is present by name.
+- The live server-side OpenRouter smoke call succeeded with schema-valid JSON, assistant text present, `nextUISelector` set to `source`, provider model metadata present, and finish reason `stop`.
+- Signed-out `/api/openrouter-smoke` returned HTTP 307 to `/sign-in`, verifying the route is not anonymously callable.
+- Public `/` returned HTTP 200.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- The smoke request uses OpenRouter `provider.require_parameters: true` and a 600 token cap so structured-output routing has enough completion budget.
+- Plain Node still cannot directly import `lib/ai/openrouter.ts` because its Next.js bundler-style extensionless import differs from Node's stripped TypeScript resolver, so the live command imported the shared contract directly and used the same SDK/base URL/request shape.
+
+Open issues:
+- If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during this milestone. Do not share or paste the old value anywhere.
+- npm repeated allow-scripts review warnings for `unrs-resolver` and `esbuild`; no action was taken.
+
+Next milestone:
+- Milestone 14

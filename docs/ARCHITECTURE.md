@@ -30,6 +30,20 @@ Server-only responsibilities:
 
 AI, Google Places, and Arcjet logic must not run in client components.
 
+## OpenRouter Server Boundary
+
+OpenRouter is configured only in `lib/ai/openrouter.ts`, which imports
+`server-only` and must never be imported by a client component.
+
+The temporary `/api/openrouter-smoke` route is protected by Clerk before it can
+perform provider work. It validates `OPEN_ROUTER_API_KEY` and
+`OPEN_ROUTER_MODEL` on the server, uses the OpenAI SDK compatible OpenRouter
+endpoint, requests strict JSON Schema structured output, applies a timeout, and
+returns only sanitized success or failure metadata to the browser. Structured
+output smoke calls request OpenRouter provider routing with required parameter
+support so the request is not sent to endpoints that cannot honor JSON Schema
+output.
+
 ## AI Contract Boundary
 
 Model responses must pass through the shared contract in `lib/ai/contract.ts`
