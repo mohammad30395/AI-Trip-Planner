@@ -12,7 +12,7 @@
 - [x] Milestone 07 - Convex + Clerk auth bridge
 - [x] Milestone 08 - Database schema and authorization
 - [x] Milestone 09 - User profile sync
-- [ ] Milestone 10 - Trip planning input flow
+- [x] Milestone 10 - Create trip UI shell
 - [ ] Milestone 11 - AI itinerary generation
 - [ ] Milestone 12 - Google Places enrichment
 - [ ] Milestone 13 - Saved trips
@@ -420,3 +420,42 @@ Open issues:
 
 Next milestone:
 - Milestone 10
+
+## Milestone 10 - Create Trip UI Shell
+
+Changed:
+- Replaced the placeholder `/create-trip` authenticated page content with a client-driven local trip-planning shell.
+- Added a two-column responsive layout with a conversation/selection panel and a live trip preview panel.
+- Added typed local flow models for message role, UI selector, budget tier, group type, requirements, current step, loading state, and error state.
+- Added deterministic mock assistant progression for source, destination, duration, budget, group, review, and complete states.
+- Added UI-boundary validation for required text, duration range, group type, and group size.
+- Added Reset/Start Over behavior.
+- Kept all flow logic local; no AI, Convex persistence, Google Places, Mapbox, Arcjet, billing, fetch, or save calls were added.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `sed -n ... app/(app)/create-trip/page.tsx app/(app)/layout.tsx components/ui/*.tsx app/globals.css`
+- `npm run lint`
+- `npm run build`
+- `rg "convex|api\\.|openai|openrouter|arcjet|mapbox|google|fetch\\(|axios|saveTrip|createTrip\\(" app/(app)/create-trip components/create-trip -n`
+- `node --experimental-strip-types --input-type=module ... create-trip-flow reducer smoke test`
+- `npm run dev`
+- `curl -sS -o /tmp/m10-create-trip.html -D /tmp/m10-create-trip.headers -w '/create-trip %{http_code}\\n' http://localhost:3000/create-trip`
+- `curl -sS -o /tmp/m10-home.html -w '/ %{http_code}\\n' http://localhost:3000/`
+
+Results:
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Source scan found no AI, Convex, Google, Mapbox, Arcjet, fetch, Axios, or save calls in the create-trip shell.
+- Reducer smoke test validated missing-source error, bad-duration error, full local completion, message growth, destination state, and reset back to the source step.
+- Local dev server started successfully on `http://localhost:3000`.
+- Signed-out `/create-trip` returned HTTP 307, preserving Clerk route protection.
+- Public `/` returned HTTP 200.
+
+Open issues:
+- Browser automation for desktop/mobile authenticated completion could not be run because the required browser JavaScript execution tool was not exposed in this session. The flow still needs a manual browser pass after signing in through Clerk.
+- The Node reducer smoke test emitted a module-type warning because the project package is not marked as an ES module; no package metadata was changed.
+
+Next milestone:
+- Milestone 11
