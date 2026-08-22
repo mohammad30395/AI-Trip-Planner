@@ -53,9 +53,12 @@ export type CreateTripState = {
   currentStep: TripRequirementStep
   isLoading: boolean
   isGeneratingFinal: boolean
+  isSavingTrip: boolean
   error: string | null
   finalError: string | null
+  saveError: string | null
   finalItinerary: FinalItineraryResponse | null
+  savedTripId: string | null
 }
 
 export type CreateTripAction =
@@ -75,6 +78,9 @@ export type CreateTripAction =
   | { type: "finalGenerationStarted" }
   | { type: "finalGenerationSucceeded"; itinerary: FinalItineraryResponse }
   | { type: "finalGenerationFailed"; error: string }
+  | { type: "saveTripStarted" }
+  | { type: "saveTripSucceeded"; tripId: string }
+  | { type: "saveTripFailed"; error: string }
   | { type: "reset" }
 
 export const budgetOptions: Array<{
@@ -124,9 +130,12 @@ export const initialCreateTripState: CreateTripState = {
   currentStep: "source",
   isLoading: false,
   isGeneratingFinal: false,
+  isSavingTrip: false,
   error: null,
   finalError: null,
+  saveError: null,
   finalItinerary: null,
+  savedTripId: null,
   messages: [
     {
       id: "assistant-source",
@@ -228,6 +237,7 @@ export function createTripReducer(
         ...state,
         isGeneratingFinal: true,
         finalError: null,
+        saveError: null,
       }
     case "finalGenerationSucceeded":
       return {
@@ -235,12 +245,34 @@ export function createTripReducer(
         isGeneratingFinal: false,
         finalError: null,
         finalItinerary: action.itinerary,
+        isSavingTrip: false,
+        saveError: null,
+        savedTripId: null,
       }
     case "finalGenerationFailed":
       return {
         ...state,
         isGeneratingFinal: false,
         finalError: action.error,
+      }
+    case "saveTripStarted":
+      return {
+        ...state,
+        isSavingTrip: true,
+        saveError: null,
+      }
+    case "saveTripSucceeded":
+      return {
+        ...state,
+        isSavingTrip: false,
+        saveError: null,
+        savedTripId: action.tripId,
+      }
+    case "saveTripFailed":
+      return {
+        ...state,
+        isSavingTrip: false,
+        saveError: action.error,
       }
     case "reset":
       return initialCreateTripState

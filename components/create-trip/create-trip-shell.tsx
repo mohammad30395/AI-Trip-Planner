@@ -1,8 +1,11 @@
 "use client"
 
 import { useReducer, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { useMutation } from "convex/react"
 
 import { Badge } from "@/components/ui/badge"
+import { api } from "@/convex/_generated/api"
 import { parseTripConversationResponseEnvelope } from "@/lib/ai/conversation"
 import { parseFinalItineraryResponseEnvelope } from "@/lib/ai/itinerary"
 
@@ -23,12 +26,15 @@ import {
 import { TripPreviewPanel } from "./trip-preview-panel"
 
 function CreateTripShell() {
+  const router = useRouter()
   const [state, dispatch] = useReducer(
     createTripReducer,
     initialCreateTripState
   )
+  const saveGeneratedTrip = useMutation(api.trips.saveGeneratedTrip)
   const requestSequence = useRef(0)
   const finalRequestSequence = useRef(0)
+  const saveRequestKey = useRef<string | null>(null)
   const pendingController = useRef<AbortController | null>(null)
   const pendingFinalController = useRef<AbortController | null>(null)
   const selector = getCurrentSelector(state.currentStep)
@@ -174,6 +180,8 @@ function CreateTripShell() {
         return
       }
 
+      saveRequestKey.current = crypto.randomUUID()
+
       dispatch({
         type: "finalGenerationSucceeded",
         itinerary: parsedResponse.data,
@@ -204,9 +212,60 @@ function CreateTripShell() {
     }
   }
 
+  async function saveTrip() {
+    if (state.isSavingTrip || state.finalItinerary === null) {
+      return
+    }
+
+    const requirements = getFinalItineraryRequirements(state.requirements)
+
+    if (requirements === null) {
+      dispatch({
+        type: "saveTripFailed",
+        error: "Complete all trip requirements before saving the itinerary.",
+      })
+      return
+    }
+
+    if (saveRequestKey.current === null) {
+      saveRequestKey.current = crypto.randomUUID()
+    }
+
+    dispatch({ type: "saveTripStarted" })
+
+    try {
+      const tripId = await saveGeneratedTrip({
+        saveRequestKey: saveRequestKey.current,
+        source: requirements.source,
+        destination: requirements.destination,
+        durationDays: requirements.durationDays,
+        budget: requirements.budgetTier,
+        groupSize: requirements.groupSize,
+        groupType: requirements.groupType,
+        generatedTripPayload: state.finalItinerary,
+      })
+
+      dispatch({ type: "saveTripSucceeded", tripId })
+      router.push(`/view-trip/${tripId}`)
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Save generated trip diagnostic", {
+          name: error instanceof Error ? error.name : "UnknownError",
+        })
+      }
+
+      dispatch({
+        type: "saveTripFailed",
+        error:
+          "The itinerary could not be saved. Your generated trip is preserved; retry saving.",
+      })
+    }
+  }
+
   function resetFlow() {
     requestSequence.current += 1
     finalRequestSequence.current += 1
+    saveRequestKey.current = null
     pendingController.current?.abort()
     pendingFinalController.current?.abort()
     pendingController.current = null
@@ -223,9 +282,8 @@ function CreateTripShell() {
         </h1>
         <p className="app-muted mt-3 max-w-2xl leading-7">
           Collect trip requirements with a server-side AI interviewer, then
-          generate a typed itinerary after review. Saved trips, quota checks,
-          billing, maps, and place enrichment are intentionally not connected
-          yet.
+          generate a typed itinerary after review. Save the generated trip to
+          your account when the itinerary is ready.
         </p>
       </div>
 
@@ -234,6 +292,7 @@ function CreateTripShell() {
           onConfirm={() => submitRequirements(state.requirements)}
           onGenerateFinal={generateFinalItinerary}
           onReset={resetFlow}
+          onSaveTrip={saveTrip}
           onSelectBudget={(value: BudgetTier) =>
             submitRequirements({
               ...state.requirements,

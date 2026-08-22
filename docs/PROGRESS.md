@@ -18,8 +18,8 @@
 - [x] Milestone 13 - OpenRouter server client
 - [x] Milestone 14 - AI-driven conversation
 - [x] Milestone 15 - AI itinerary generation
-- [ ] Milestone 16 - Google Places enrichment
-- [ ] Milestone 17 - Saved trips
+- [x] Milestone 16 - Save trip
+- [ ] Milestone 17 - Google Places enrichment
 - [ ] Milestone 18 - Mapbox trip map
 - [ ] Milestone 19 - Arcjet free quota
 - [ ] Milestone 20 - Clerk Billing paid access
@@ -694,3 +694,49 @@ Open issues:
 
 Next milestone:
 - Milestone 16
+
+## Milestone 16 - Save Trip
+
+Changed:
+- Tightened new Convex trip saves to the validated final itinerary schema from Milestones 12 and 15.
+- Added a server-authorized `trips:saveGeneratedTrip` mutation that derives ownership from `ctx.auth.getUserIdentity()`.
+- Used Convex document IDs as the saved trip identifiers; no UUID dependency was added.
+- Added a `saveRequestKey` index and mutation lookup for idempotent save retries.
+- Added `groupType` and final itinerary payload support to saved trip records.
+- Kept explicit legacy read compatibility for earlier development trip records with old placeholder payloads and old budget labels; new save mutations only accept current budget tiers and final itinerary payloads.
+- Added client save state, Save Trip/Retry Save controls, duplicate-submit prevention, and redirect to `/view-trip/[tripId]` after a successful save.
+- Updated `/view-trip/[tripId]` to load saved trip data through an owner-authorized Convex query.
+- Kept Google Places enrichment, Mapbox, Arcjet quota, and billing disconnected.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `sed -n ... convex/schema.ts convex/trips.ts components/create-trip/*.ts* app/(app)/view-trip/[tripId]/page.tsx`
+- `npx convex dev --once`
+- `npx convex data trips --format json | node ... minimal legacy-shape inspection`
+- `node --input-type=module ... Convex save idempotency and owner/other-user authorization smoke test`
+- `node --input-type=module ... unauthenticated save rejection and public-id query smoke test`
+- `npm run lint`
+- `npm run build`
+- `npx convex codegen`
+
+Results:
+- Initial `npx convex dev --once` failed because existing development `trips` documents used legacy budget values from older milestones.
+- After adding explicit legacy read compatibility, `npx convex dev --once` passed and Convex functions were ready.
+- Convex smoke test saved a generated itinerary for a synthetic authenticated identity.
+- Repeating the same save with the same `saveRequestKey` returned the same trip ID.
+- The owner identity could fetch the saved trip, and a different identity was rejected with `UNAUTHORIZED`.
+- An unauthenticated save was rejected with `UNAUTHENTICATED`.
+- The string-based `/view-trip/[tripId]` Convex query succeeded for the owner.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `npx convex codegen` passed.
+
+Open issues:
+- Full browser E2E through Clerk still requires signing into the local app with a Clerk test user, then running create -> generate -> save -> redirect.
+- Existing development Convex data includes legacy test trips from earlier milestones. The schema keeps them readable, but new trip saves use the current final itinerary contract.
+- Generated hotels, prices, addresses, and place names remain unverified model output until Google Places enrichment is implemented.
+- If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
+
+Next milestone:
+- Milestone 17

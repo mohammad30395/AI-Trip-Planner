@@ -28,10 +28,14 @@ type RenderGenerativeUIProps = {
   onSubmitGroup: (value: GroupSelection) => void
   onConfirm: () => void
   onGenerateFinal: () => void
+  onSaveTrip: () => void
   onReset: () => void
   finalError: string | null
   finalItinerary: FinalItineraryResponse | null
   isGeneratingFinal: boolean
+  isSavingTrip: boolean
+  saveError: string | null
+  savedTripId: string | null
 }
 
 function renderGenerativeUI({
@@ -39,11 +43,15 @@ function renderGenerativeUI({
   finalError,
   finalItinerary,
   isGeneratingFinal,
+  isSavingTrip,
+  saveError,
+  savedTripId,
   selector,
   requirements,
   onConfirm,
   onGenerateFinal,
   onReset,
+  onSaveTrip,
   onSelectBudget,
   onSubmitDestination,
   onSubmitDuration,
@@ -116,9 +124,13 @@ function renderGenerativeUI({
           disabled={disabled}
           error={finalError}
           isGenerating={isGeneratingFinal}
+          isSaving={isSavingTrip}
           itinerary={finalItinerary}
           onGenerate={onGenerateFinal}
           onReset={onReset}
+          onSave={onSaveTrip}
+          saveError={saveError}
+          savedTripId={savedTripId}
         />
       )
     default:
@@ -440,8 +452,12 @@ type FinalItineraryUIProps = {
   error: string | null
   itinerary: FinalItineraryResponse | null
   isGenerating: boolean
+  isSaving: boolean
   onGenerate: () => void
   onReset: () => void
+  onSave: () => void
+  saveError: string | null
+  savedTripId: string | null
 }
 
 function FinalItineraryUI({
@@ -449,9 +465,15 @@ function FinalItineraryUI({
   error,
   itinerary,
   isGenerating,
+  isSaving,
   onGenerate,
   onReset,
+  onSave,
+  saveError,
+  savedTripId,
 }: FinalItineraryUIProps) {
+  const hasSavedTrip = savedTripId !== null
+
   return (
     <div className="grid gap-4 rounded-lg border bg-muted/30 p-4">
       <div>
@@ -467,21 +489,38 @@ function FinalItineraryUI({
       {itinerary === null ? (
         <Button
           className="w-full sm:w-fit"
-          disabled={disabled || isGenerating}
+          disabled={disabled || isGenerating || isSaving}
           type="button"
           onClick={onGenerate}
         >
           {isGenerating ? "Generating Itinerary..." : "Generate Itinerary"}
         </Button>
       ) : (
-        <GeneratedItinerary itinerary={itinerary} />
+        <>
+          <GeneratedItinerary itinerary={itinerary} />
+          {saveError !== null ? <InlineError message={saveError} /> : null}
+          <Button
+            className="w-full sm:w-fit"
+            disabled={disabled || isSaving || hasSavedTrip}
+            type="button"
+            onClick={onSave}
+          >
+            {hasSavedTrip
+              ? "Saved"
+              : isSaving
+                ? "Saving Trip..."
+                : saveError === null
+                  ? "Save Trip"
+                  : "Retry Save"}
+          </Button>
+        </>
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row">
         {itinerary !== null ? (
           <Button
             className="w-full sm:w-fit"
-            disabled={disabled || isGenerating}
+            disabled={disabled || isGenerating || isSaving || hasSavedTrip}
             type="button"
             variant="outline"
             onClick={onGenerate}
@@ -491,7 +530,7 @@ function FinalItineraryUI({
         ) : null}
         <Button
           className="w-full sm:w-fit"
-          disabled={disabled || isGenerating}
+          disabled={disabled || isGenerating || isSaving}
           type="button"
           variant="outline"
           onClick={onReset}

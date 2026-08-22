@@ -4,7 +4,9 @@ import type { Doc, Id } from "./_generated/dataModel"
 import type { MutationCtx, QueryCtx } from "./_generated/server"
 import { mutation, query } from "./_generated/server"
 import {
+  budgetTierValidator,
   enrichmentStatusValidator,
+  groupTypeValidator,
   tripPayloadValidator,
   tripStatusValidator,
 } from "./schema"
@@ -46,6 +48,7 @@ function toClientTrip(trip: Doc<"trips">) {
     durationDays: trip.durationDays,
     budget: trip.budget,
     groupSize: trip.groupSize,
+    groupType: trip.groupType,
     generatedTripPayload: trip.generatedTripPayload,
     enrichmentStatus: trip.enrichmentStatus,
     createdAt: trip.createdAt,
@@ -57,8 +60,9 @@ const tripInputArgs = {
   source: v.string(),
   destination: v.string(),
   durationDays: v.number(),
-  budget: v.string(),
+  budget: budgetTierValidator,
   groupSize: v.number(),
+  groupType: v.optional(groupTypeValidator),
 }
 
 export const createTrip = mutation({
@@ -80,8 +84,61 @@ export const createTrip = mutation({
       durationDays: args.durationDays,
       budget: args.budget,
       groupSize: args.groupSize,
+      groupType: args.groupType,
       generatedTripPayload: args.generatedTripPayload,
       enrichmentStatus: args.enrichmentStatus ?? "not_started",
+      createdAt: now,
+      updatedAt: now,
+    })
+  },
+})
+
+export const saveGeneratedTrip = mutation({
+  args: {
+    saveRequestKey: v.string(),
+    source: v.string(),
+    destination: v.string(),
+    durationDays: v.number(),
+    budget: budgetTierValidator,
+    groupSize: v.number(),
+    groupType: groupTypeValidator,
+    generatedTripPayload: tripPayloadValidator,
+  },
+  handler: async (ctx, args) => {
+    const ownerIdentityKey = await requireOwnerIdentityKey(ctx)
+    const saveRequestKey = args.saveRequestKey.trim()
+
+    if (saveRequestKey.length < 8 || saveRequestKey.length > 160) {
+      throw new ConvexError("INVALID_SAVE_REQUEST_KEY")
+    }
+
+    const existing = await ctx.db
+      .query("trips")
+      .withIndex("by_owner_save_request", (q) =>
+        q
+          .eq("ownerIdentityKey", ownerIdentityKey)
+          .eq("saveRequestKey", saveRequestKey)
+      )
+      .unique()
+
+    if (existing !== null) {
+      return existing._id
+    }
+
+    const now = Date.now()
+
+    return await ctx.db.insert("trips", {
+      ownerIdentityKey,
+      saveRequestKey,
+      status: "complete",
+      source: args.source.trim(),
+      destination: args.destination.trim(),
+      durationDays: args.durationDays,
+      budget: args.budget,
+      groupSize: args.groupSize,
+      groupType: args.groupType,
+      generatedTripPayload: args.generatedTripPayload,
+      enrichmentStatus: "not_started",
       createdAt: now,
       updatedAt: now,
     })
@@ -146,6 +203,23 @@ export const getCurrentUserTrip = query({
   },
   handler: async (ctx, args) => {
     const trip = await getOwnedTripOrThrow(ctx, args.tripId)
+
+    return toClientTrip(trip)
+  },
+})
+
+export const getCurrentUserTripByPublicId = query({
+  args: {
+    tripId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tripId = ctx.db.normalizeId("trips", args.tripId)
+
+    if (tripId === null) {
+      throw new ConvexError("TRIP_NOT_FOUND")
+    }
+
+    const trip = await getOwnedTripOrThrow(ctx, tripId)
 
     return toClientTrip(trip)
   },

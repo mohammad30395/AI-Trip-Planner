@@ -27,6 +27,7 @@ type ConversationPanelProps = {
   onSubmitGroup: (value: GroupSelection) => void
   onConfirm: () => void
   onGenerateFinal: () => void
+  onSaveTrip: () => void
   onReset: () => void
 }
 
@@ -34,6 +35,7 @@ function ConversationPanel({
   onConfirm,
   onGenerateFinal,
   onReset,
+  onSaveTrip,
   onSelectBudget,
   onSubmitDestination,
   onSubmitDuration,
@@ -43,7 +45,8 @@ function ConversationPanel({
   state,
 }: ConversationPanelProps) {
   const isComplete = state.currentStep === "readyForFinal"
-  const isBusy = state.isLoading || state.isGeneratingFinal
+  const isBusy = state.isLoading || state.isGeneratingFinal || state.isSavingTrip
+  const statusLabel = getStatusLabel(state, isComplete)
 
   return (
     <Card className="app-card min-w-0">
@@ -56,13 +59,7 @@ function ConversationPanel({
             </p>
           </div>
           <Badge variant={isComplete ? "default" : "secondary"}>
-            {state.isGeneratingFinal
-              ? "Generating"
-              : state.isLoading
-                ? "Thinking"
-                : isComplete
-                  ? "Ready"
-                  : "Draft"}
+            {statusLabel}
           </Badge>
         </div>
       </CardHeader>
@@ -104,9 +101,13 @@ function ConversationPanel({
           onConfirm,
           onGenerateFinal,
           onReset,
+          onSaveTrip,
           finalError: state.finalError,
           finalItinerary: state.finalItinerary,
           isGeneratingFinal: state.isGeneratingFinal,
+          isSavingTrip: state.isSavingTrip,
+          saveError: state.saveError,
+          savedTripId: state.savedTripId,
         })}
       </CardContent>
       <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-between">
@@ -122,6 +123,22 @@ function ConversationPanel({
       </CardFooter>
     </Card>
   )
+}
+
+function getStatusLabel(state: CreateTripState, isComplete: boolean) {
+  if (state.isSavingTrip) {
+    return "Saving"
+  }
+
+  if (state.isGeneratingFinal) {
+    return "Generating"
+  }
+
+  if (state.isLoading) {
+    return "Thinking"
+  }
+
+  return isComplete ? "Ready" : "Draft"
 }
 
 function getStepNumber(step: CreateTripState["currentStep"]) {
