@@ -13,9 +13,21 @@ function SiteFooter() {
           </Link>
           <Link
             className="app-focus-ring rounded-md hover:text-foreground"
-            href="#how-it-works"
+            href="/#how-it-works"
           >
             How it works
+          </Link>
+          <Link
+            className="app-focus-ring rounded-md hover:text-foreground"
+            href="/my-trips"
+          >
+            My Trips
+          </Link>
+          <Link
+            className="app-focus-ring rounded-md hover:text-foreground"
+            href="/pricing"
+          >
+            Pricing
           </Link>
           <Link
             className="app-focus-ring rounded-md hover:text-foreground"

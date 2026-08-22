@@ -7,16 +7,17 @@
 - [x] Milestone 02 - Project governance and source of truth
 - [x] Milestone 03 - UI foundation
 - [x] Milestone 04 - Landing page
-- [ ] Milestone 05 - Authentication foundation
-- [ ] Milestone 06 - Convex backend foundation
-- [ ] Milestone 07 - Trip planning input flow
-- [ ] Milestone 08 - AI itinerary generation
-- [ ] Milestone 09 - Google Places enrichment
-- [ ] Milestone 10 - Saved trips
-- [ ] Milestone 11 - Mapbox trip map
-- [ ] Milestone 12 - Arcjet free quota
-- [ ] Milestone 13 - Clerk Billing paid access
-- [ ] Milestone 14 - Production readiness and Vercel deployment
+- [x] Milestone 05 - Route skeletons
+- [ ] Milestone 06 - Authentication foundation
+- [ ] Milestone 07 - Convex backend foundation
+- [ ] Milestone 08 - Trip planning input flow
+- [ ] Milestone 09 - AI itinerary generation
+- [ ] Milestone 10 - Google Places enrichment
+- [ ] Milestone 11 - Saved trips
+- [ ] Milestone 12 - Mapbox trip map
+- [ ] Milestone 13 - Arcjet free quota
+- [ ] Milestone 14 - Clerk Billing paid access
+- [ ] Milestone 15 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -139,3 +140,41 @@ Open issues:
 
 Next milestone:
 - Milestone 05
+
+## Milestone 05 - Route Skeletons
+
+Changed:
+- Added placeholder route pages for `/create-trip`, `/my-trips`, `/pricing`, and `/view-trip/[tripId]`.
+- Added a shared app route-group layout for trip-related routes without enforcing authentication.
+- Updated public header and footer navigation to point at real route boundaries.
+- Read the dynamic trip route `tripId` from async App Router `params` and displayed it as placeholder content.
+
+Commands run:
+- `git status --short --branch`
+- `rg --files -g '!node_modules' -g '!.next'`
+- `npm run lint`
+- `rg 'use client|@clerk|convex|arcjet|openai|openrouter|mapbox|google' app components docs package.json -n`
+- `npm run build`
+- `npm run start`
+- `curl -sS -o /tmp/ai-trip-create-trip.html -w '/create-trip %{http_code}\n' http://localhost:3000/create-trip`
+- `curl -sS -o /tmp/ai-trip-my-trips.html -w '/my-trips %{http_code}\n' http://localhost:3000/my-trips`
+- `curl -sS -o /tmp/ai-trip-pricing.html -w '/pricing %{http_code}\n' http://localhost:3000/pricing`
+- `curl -sS -o /tmp/ai-trip-view-trip.html -w '/view-trip/sample-trip-123 %{http_code}\n' http://localhost:3000/view-trip/sample-trip-123`
+- `rg -q 'Create Trip' /tmp/ai-trip-create-trip.html && rg -q 'Planned inputs' /tmp/ai-trip-create-trip.html`
+- `rg -q 'My Trips' /tmp/ai-trip-my-trips.html && rg -q 'No saved trips yet' /tmp/ai-trip-my-trips.html`
+- `rg -q 'Pricing' /tmp/ai-trip-pricing.html && rg -q 'Free access' /tmp/ai-trip-pricing.html && rg -q 'Paid access' /tmp/ai-trip-pricing.html`
+- `rg -q 'sample-trip-123' /tmp/ai-trip-view-trip.html && rg -q 'Dynamic route placeholder' /tmp/ai-trip-view-trip.html`
+
+Results:
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Production route visits returned HTTP 200 for `/create-trip`, `/my-trips`, `/pricing`, and `/view-trip/sample-trip-123`.
+- Placeholder content was present in each visited route.
+- No Clerk, Convex, AI, Arcjet, Google Places, Mapbox, billing, loading, or data-fetching behavior was implemented.
+
+Open issues:
+- In-app browser automation was unavailable because the required Node browser-control tool was not exposed in this session, so route visits were verified through the local production server and direct HTTP requests.
+- The next prompt should confirm whether the shifted milestone order keeps authentication as Milestone 06.
+
+Next milestone:
+- Milestone 06

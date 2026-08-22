@@ -5,9 +5,8 @@ import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const navItems = [
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#destinations", label: "Destinations" },
-  { href: "#preview", label: "Preview" },
+  { href: "/my-trips", label: "My Trips" },
+  { href: "/pricing", label: "Pricing" },
 ]
 
 function SiteHeader() {
@@ -44,7 +43,7 @@ function SiteHeader() {
 
         <Link
           href="/create-trip"
-          className={cn(buttonVariants({ size: "lg" }), "hidden sm:inline-flex")}
+          className={cn(buttonVariants({ size: "lg" }), "sm:inline-flex")}
         >
           Create Trip
         </Link>
