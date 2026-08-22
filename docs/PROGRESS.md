@@ -11,14 +11,15 @@
 - [x] Milestone 06 - Clerk authentication
 - [x] Milestone 07 - Convex + Clerk auth bridge
 - [x] Milestone 08 - Database schema and authorization
-- [ ] Milestone 09 - Trip planning input flow
-- [ ] Milestone 10 - AI itinerary generation
-- [ ] Milestone 11 - Google Places enrichment
-- [ ] Milestone 12 - Saved trips
-- [ ] Milestone 13 - Mapbox trip map
-- [ ] Milestone 14 - Arcjet free quota
-- [ ] Milestone 15 - Clerk Billing paid access
-- [ ] Milestone 16 - Production readiness and Vercel deployment
+- [x] Milestone 09 - User profile sync
+- [ ] Milestone 10 - Trip planning input flow
+- [ ] Milestone 11 - AI itinerary generation
+- [ ] Milestone 12 - Google Places enrichment
+- [ ] Milestone 13 - Saved trips
+- [ ] Milestone 14 - Mapbox trip map
+- [ ] Milestone 15 - Arcjet free quota
+- [ ] Milestone 16 - Clerk Billing paid access
+- [ ] Milestone 17 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -371,3 +372,51 @@ Open issues:
 
 Next milestone:
 - Milestone 09
+
+## Milestone 09 - User Profile Sync
+
+Changed:
+- Added a silent `UserProfileSync` client component that runs inside the existing Convex/Clerk provider after Clerk has loaded and the user is signed in.
+- Updated `users:upsertCurrentUserFromIdentity` to accept only optional display text while still deriving the identity key from `ctx.auth.getUserIdentity()`.
+- Added `users:getCurrentUserProfile` for safe profile smoke checks.
+- Removed the temporary visible Convex identity UI from `/create-trip`.
+- Kept the small server-side `auth:whoAmI` query as a low-risk auth bridge test function.
+- Recorded that Clerk remains the source of truth for authentication and billing, while Convex stores only minimal app profile data.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg --files app components convex docs`
+- `sed -n ... app/layout.tsx components/convex-client-provider.tsx components/auth/convex-auth-status.tsx app/(app)/create-trip/page.tsx convex/*.ts`
+- `npx convex dev --once`
+- `npm run lint`
+- `npm run build`
+- `npx convex run users:upsertCurrentUserFromIdentity '{"displayName":"Milestone Nine A"}' --identity ...`
+- `npx convex run users:upsertCurrentUserFromIdentity '{"displayName":"Milestone Nine B"}' --identity ...`
+- `diff -u /tmp/m09-user-a-1 /tmp/m09-user-a-2`
+- `cmp -s /tmp/m09-user-a-1 /tmp/m09-user-b`
+- `npx convex run users:getCurrentUserProfile --identity ...`
+- `npx convex run trips:createTrip ... --identity ...`
+- `npx convex run trips:getCurrentUserTrip ... --identity ...`
+- `npx convex run trips:listCurrentUserTrips --identity ...`
+- `rg "$trip_id" /tmp/m09-list-b`
+- `rg "ConvexAuthStatus|whoAmI|api\\.auth\\.whoAmI" app components convex -n -g '!convex/_generated/**'`
+- `rg "ownerId|ownerIdentityKey|user_id|userId|emailAddress|primaryEmailAddress|imageUrl|token" app components convex -n -g '!convex/_generated/**'`
+
+Results:
+- `npx convex dev --once` passed and regenerated/synced Convex functions.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Repeating the same synthetic authenticated profile upsert returned the same profile id.
+- Two synthetic authenticated identities returned distinct Convex profile ids.
+- Safe profile queries returned only `_id`, `displayName`, `createdAt`, and `updatedAt`.
+- A trip created by one synthetic identity could not be read by the other; Convex returned `UNAUTHORIZED`.
+- The other identity's trip list did not include the first identity's trip id.
+- No client code passes owner ids, emails, image URLs, tokens, or Clerk metadata to Convex authorization.
+
+Open issues:
+- Full verification with two real Clerk test users still requires signing into the app in a browser with two Clerk accounts. Automated checks verified the same Convex authorization boundary with two synthetic authenticated identities.
+- Synthetic debug profile/trip records were created in the development Convex deployment during smoke testing.
+
+Next milestone:
+- Milestone 10

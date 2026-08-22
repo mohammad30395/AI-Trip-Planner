@@ -1,7 +1,6 @@
 import Link from "next/link"
 import { auth } from "@clerk/nextjs/server"
 
-import { ConvexAuthStatus } from "@/components/auth/convex-auth-status"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,22 +23,13 @@ async function CreateTripPage() {
 
       <Card className="app-card max-w-2xl">
         <CardHeader>
-          <CardTitle>Authentication status</CardTitle>
+          <CardTitle>Account status</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="app-muted leading-7">
-            Clerk verified an active session for this request. Convex must also
-            verify the session before any data access.
+            Clerk verified an active session for this request. Your minimal
+            Convex profile syncs automatically after sign-in.
           </p>
-        </CardContent>
-      </Card>
-
-      <Card className="app-card max-w-2xl">
-        <CardHeader>
-          <CardTitle>Convex identity check</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ConvexAuthStatus />
         </CardContent>
       </Card>
 
