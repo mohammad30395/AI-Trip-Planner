@@ -5,16 +5,17 @@
 - [x] Milestone 00 - Read-only preflight
 - [x] Milestone 01 - Next.js scaffold
 - [x] Milestone 02 - Project governance and source of truth
-- [ ] Milestone 03 - Authentication foundation
-- [ ] Milestone 04 - Convex backend foundation
-- [ ] Milestone 05 - Trip planning input flow
-- [ ] Milestone 06 - AI itinerary generation
-- [ ] Milestone 07 - Google Places enrichment
-- [ ] Milestone 08 - Saved trips
-- [ ] Milestone 09 - Mapbox trip map
-- [ ] Milestone 10 - Arcjet free quota
-- [ ] Milestone 11 - Clerk Billing paid access
-- [ ] Milestone 12 - Production readiness and Vercel deployment
+- [x] Milestone 03 - UI foundation
+- [ ] Milestone 04 - Authentication foundation
+- [ ] Milestone 05 - Convex backend foundation
+- [ ] Milestone 06 - Trip planning input flow
+- [ ] Milestone 07 - AI itinerary generation
+- [ ] Milestone 08 - Google Places enrichment
+- [ ] Milestone 09 - Saved trips
+- [ ] Milestone 10 - Mapbox trip map
+- [ ] Milestone 11 - Arcjet free quota
+- [ ] Milestone 12 - Clerk Billing paid access
+- [ ] Milestone 13 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -64,3 +65,42 @@ Open issues:
 
 Next milestone:
 - Milestone 03
+
+## Milestone 03 - UI Foundation
+
+Changed:
+- Initialized shadcn/ui with the current CLI for the existing Next.js and Tailwind CSS v4 project.
+- Added only the `button`, `card`, `input`, and `badge` UI primitives.
+- Added `components/app-container.tsx` for shared page width and padding.
+- Added app-level CSS vocabulary for page containers, section spacing, card radius, muted text, and focus-visible rings.
+- Kept the home page minimal and server-rendered.
+- Set `agentRules: false` in `next.config.ts` so `next dev` preserves the concise project `AGENTS.md`.
+- Removed `tw-animate-css` and `lucide-react` after shadcn setup because no selected primitive requires them in this milestone.
+
+Commands run:
+- `git status --porcelain=v1 --branch`
+- `rg --files -uu -g '!.git' -g '!node_modules' -g '!.next'`
+- `npx shadcn@latest init --help`
+- `npx shadcn@latest init --defaults --no-monorepo`
+- `npx shadcn@latest add card input badge`
+- `npm uninstall tw-animate-css`
+- `npm uninstall lucide-react`
+- `rg 'use client|lucide|tw-animate|@clerk|convex|arcjet|openai|openrouter|mapbox|google' -n . -g '!node_modules' -g '!.git' -g '!.next'`
+- `npm run lint`
+- `npm run build`
+- `npm run dev`
+- `curl -sS -I http://localhost:3000`
+- `curl -sS http://localhost:3000`
+
+Results:
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Local dev render returned HTTP 200 and included the expected minimal home page content.
+- No app-authored `"use client"` directives were introduced.
+- No Clerk, Convex, AI, Arcjet, Google Places, Mapbox, billing, Magic UI, or Aceternity packages were added.
+
+Open issues:
+- Browser console inspection was limited because the browser plugin's required Node execution tool was not exposed in this session. The app was verified with server render, dev logs, lint, build, and absence of app-authored client components.
+
+Next milestone:
+- Milestone 04
