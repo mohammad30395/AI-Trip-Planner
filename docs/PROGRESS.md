@@ -13,13 +13,15 @@
 - [x] Milestone 08 - Database schema and authorization
 - [x] Milestone 09 - User profile sync
 - [x] Milestone 10 - Create trip UI shell
-- [ ] Milestone 11 - AI itinerary generation
-- [ ] Milestone 12 - Google Places enrichment
-- [ ] Milestone 13 - Saved trips
-- [ ] Milestone 14 - Mapbox trip map
-- [ ] Milestone 15 - Arcjet free quota
-- [ ] Milestone 16 - Clerk Billing paid access
-- [ ] Milestone 17 - Production readiness and Vercel deployment
+- [x] Milestone 11 - Generative UI component mapping
+- [x] Milestone 12 - AI contract and schema
+- [ ] Milestone 13 - AI itinerary generation
+- [ ] Milestone 14 - Google Places enrichment
+- [ ] Milestone 15 - Saved trips
+- [ ] Milestone 16 - Mapbox trip map
+- [ ] Milestone 17 - Arcjet free quota
+- [ ] Milestone 18 - Clerk Billing paid access
+- [ ] Milestone 19 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -459,3 +461,82 @@ Open issues:
 
 Next milestone:
 - Milestone 11
+
+## Milestone 11 - Generative UI Component Mapping
+
+Changed:
+- Added a single `renderGenerativeUI` mapping from a narrow selector union to pre-built React components.
+- Added focused typed UI blocks for source/destination input, duration input, budget selection, group size/type, review/confirm, and final placeholder states.
+- Replaced the rough prompt-10 controls in `ConversationPanel` with the renderer output.
+- Changed the create-trip reducer to accept typed submissions from components instead of rough field mutations.
+- Added safe fallback rendering for unknown selector values.
+- Kept canonical requirement state only in the reducer; assistant messages do not duplicate selector state.
+- Added a persistent decision that AI/data may select pre-built components but must never generate JSX.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `sed -n ... components/create-trip/*.tsx components/create-trip/*.ts`
+- `npm run lint`
+- `npm run build`
+- `node --experimental-strip-types --input-type=module ... create-trip-flow selector smoke test`
+- `rg "convex|api\\.|openai|openrouter|arcjet|mapbox|google|fetch\\(|axios|saveTrip|createTrip\\(" app/(app)/create-trip components/create-trip -n`
+- `rg "renderGenerativeUI|UnknownSelectorFallback|aria-pressed|aria-label|onSubmit|onSelect" components/create-trip -n`
+- `tool_search` for browser JavaScript execution tooling
+- `npm run dev`
+- `curl -sS -o /tmp/m11-create-trip.html -D /tmp/m11-create-trip.headers -w '/create-trip %{http_code}\\n' http://localhost:3000/create-trip`
+- `curl -sS -o /tmp/m11-home.html -w '/ %{http_code}\\n' http://localhost:3000/`
+
+Results:
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Selector smoke test walked `source > destination > duration > budget > group > review > final`, completed the flow, reset to `source`, and preserved validation for an empty source.
+- Source scan found no AI, Convex persistence, Google, Mapbox, Arcjet, fetch, Axios, or save calls in the create-trip shell.
+- Accessibility scan confirmed the mapped controls include labeled inputs, `aria-pressed` selection state, and typed submit/select callbacks.
+- Local dev server started successfully on `http://localhost:3000`.
+- Signed-out `/create-trip` returned HTTP 307, preserving Clerk route protection.
+- Public `/` returned HTTP 200.
+
+Open issues:
+- Authenticated browser testing of every rendered selector still requires signing in through Clerk. Browser automation could not be used because the required JavaScript execution tool was not exposed in this session.
+- The Node selector smoke test emitted the same module-type warning as the previous milestone because the project package is not marked as an ES module; no package metadata was changed.
+
+Next milestone:
+- Milestone 12
+
+## Milestone 12 - AI Contract and Schema
+
+Changed:
+- Added shared AI contract types and strict JSON Schemas in `lib/ai/contract.ts`.
+- Defined the conversational step response: assistant text, next UI selector, and optional normalized requirement update.
+- Defined the final itinerary response: `travelPlan`, summary, hotels, and day-by-day itinerary activities.
+- Added dependency-free pure parsers/guards that convert `unknown` data into typed data or explicit validation errors.
+- Added valid and invalid fixtures in `lib/ai/fixtures.ts` for manual and future unit-test use.
+- Reused shared budget, group, and UI selector types from the AI contract in the create-trip flow.
+- Documented the AI boundary in `docs/ARCHITECTURE.md` and persistent contract decisions in `docs/DECISIONS.md`.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg --files app components convex lib docs`
+- `sed -n ... convex/schema.ts components/create-trip/*.ts components/create-trip/*.tsx`
+- `node --experimental-strip-types --input-type=module ... AI parser fixture smoke test`
+- `rg "latitude|longitude|lat|lng|placeId|photo|canonical|additionalProperties|parseConversationalStepResponse|parseFinalItineraryResponse" lib/ai docs components/create-trip -n`
+- `npm run lint`
+- `npm run build`
+
+Results:
+- Valid conversational and final itinerary fixtures parsed successfully.
+- Invalid conversational fixtures failed validation.
+- Invalid final itinerary fixtures failed validation, including rejection of model-provided coordinate fields.
+- Source scan confirmed strict schema markers, parser exports, and the documented canonical Google Places boundary.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+
+Open issues:
+- No OpenRouter network call is connected yet.
+- Existing Convex `generatedTripPayload` validation remains the earlier conservative placeholder; it should be migrated carefully before saving real AI itinerary responses because development records may still use the placeholder shape.
+- The Node parser smoke test emitted the same module-type warning as earlier milestones because the project package is not marked as an ES module; no package metadata was changed.
+
+Next milestone:
+- Milestone 13

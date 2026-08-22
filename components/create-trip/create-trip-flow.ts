@@ -1,16 +1,14 @@
+import type {
+  BudgetTier,
+  GenerativeUISelector,
+  GroupType,
+} from "@/lib/ai/contract"
+
+export type { BudgetTier, GroupType } from "@/lib/ai/contract"
+
 export type MessageRole = "assistant" | "user"
 
-export type UISelector =
-  | "source"
-  | "destination"
-  | "duration"
-  | "budget"
-  | "group"
-  | "review"
-
-export type BudgetTier = "budget" | "mid-range" | "premium"
-
-export type GroupType = "solo" | "couple" | "family" | "friends" | "business"
+export type UISelector = GenerativeUISelector
 
 export type TripRequirementStep =
   | "source"
@@ -36,6 +34,11 @@ export type TripRequirements = {
   groupType: GroupType | null
 }
 
+export type GroupSelection = {
+  groupType: GroupType
+  groupSize: number
+}
+
 export type CreateTripState = {
   requirements: TripRequirements
   messages: ConversationMessage[]
@@ -45,12 +48,12 @@ export type CreateTripState = {
 }
 
 export type CreateTripAction =
-  | { type: "setText"; field: "source" | "destination"; value: string }
-  | { type: "setDuration"; value: string }
-  | { type: "setBudget"; value: BudgetTier }
-  | { type: "setGroupSize"; value: string }
-  | { type: "setGroupType"; value: GroupType }
-  | { type: "continue" }
+  | { type: "submitSource"; value: string }
+  | { type: "submitDestination"; value: string }
+  | { type: "submitDuration"; value: number }
+  | { type: "submitBudget"; value: BudgetTier }
+  | { type: "submitGroup"; value: GroupSelection }
+  | { type: "confirm" }
   | { type: "reset" }
 
 export const budgetOptions: Array<{
@@ -114,53 +117,34 @@ export function createTripReducer(
   action: CreateTripAction
 ): CreateTripState {
   switch (action.type) {
-    case "setText":
-      return {
-        ...state,
-        error: null,
-        requirements: {
-          ...state.requirements,
-          [action.field]: action.value,
-        },
-      }
-    case "setDuration":
-      return {
-        ...state,
-        error: null,
-        requirements: {
-          ...state.requirements,
-          durationDays: parsePositiveNumber(action.value),
-        },
-      }
-    case "setBudget":
-      return {
-        ...state,
-        error: null,
-        requirements: {
-          ...state.requirements,
-          budgetTier: action.value,
-        },
-      }
-    case "setGroupSize":
-      return {
-        ...state,
-        error: null,
-        requirements: {
-          ...state.requirements,
-          groupSize: parsePositiveNumber(action.value),
-        },
-      }
-    case "setGroupType":
-      return {
-        ...state,
-        error: null,
-        requirements: {
-          ...state.requirements,
-          groupType: action.value,
-        },
-      }
-    case "continue":
-      return continueFlow(state)
+    case "submitSource":
+      return continueFlow(state, {
+        ...state.requirements,
+        source: action.value.trim(),
+      })
+    case "submitDestination":
+      return continueFlow(state, {
+        ...state.requirements,
+        destination: action.value.trim(),
+      })
+    case "submitDuration":
+      return continueFlow(state, {
+        ...state.requirements,
+        durationDays: action.value,
+      })
+    case "submitBudget":
+      return continueFlow(state, {
+        ...state.requirements,
+        budgetTier: action.value,
+      })
+    case "submitGroup":
+      return continueFlow(state, {
+        ...state.requirements,
+        groupSize: action.value.groupSize,
+        groupType: action.value.groupType,
+      })
+    case "confirm":
+      return continueFlow(state, state.requirements)
     case "reset":
       return initialCreateTripState
   }
@@ -168,22 +152,23 @@ export function createTripReducer(
 
 export function getCurrentSelector(step: TripRequirementStep): UISelector {
   if (step === "complete") {
-    return "review"
+    return "final"
   }
 
   return step
 }
 
-function continueFlow(state: CreateTripState): CreateTripState {
-  const validationError = validateCurrentStep(
-    state.currentStep,
-    state.requirements
-  )
+function continueFlow(
+  state: CreateTripState,
+  requirements: TripRequirements
+): CreateTripState {
+  const validationError = validateCurrentStep(state.currentStep, requirements)
 
   if (validationError !== null) {
     return {
       ...state,
       error: validationError,
+      requirements,
     }
   }
 
@@ -192,14 +177,15 @@ function continueFlow(state: CreateTripState): CreateTripState {
   }
 
   const nextStep = getNextStep(state.currentStep)
-  const userMessage = buildUserMessage(state.currentStep, state.requirements)
+  const userMessage = buildUserMessage(state.currentStep, requirements)
   const assistantMessage =
     nextStep === "complete"
       ? "Your local trip brief is ready. The AI itinerary generator will replace this mock flow in a later milestone."
-      : getAssistantPrompt(nextStep, state.requirements)
+      : getAssistantPrompt(nextStep, requirements)
 
   return {
     ...state,
+    requirements,
     currentStep: nextStep,
     isLoading: false,
     error: null,
@@ -244,9 +230,9 @@ function getAssistantPrompt(
 ) {
   switch (step) {
     case "destination":
-      return `Starting from ${requirements.source.trim()}. Where do you want to go?`
+      return `Starting from ${requirements.source}. Where do you want to go?`
     case "duration":
-      return `Great. How many days should the ${requirements.destination.trim()} trip last?`
+      return `Great. How many days should the ${requirements.destination} trip last?`
     case "budget":
       return "What budget tier should guide the plan?"
     case "group":
@@ -308,9 +294,9 @@ function buildUserMessage(
 ) {
   switch (step) {
     case "source":
-      return `Start from ${requirements.source.trim()}`
+      return `Start from ${requirements.source}`
     case "destination":
-      return `Travel to ${requirements.destination.trim()}`
+      return `Travel to ${requirements.destination}`
     case "duration":
       return `${requirements.durationDays} day${requirements.durationDays === 1 ? "" : "s"}`
     case "budget":
@@ -341,14 +327,4 @@ export function formatGroupType(value: GroupType | null) {
     groupTypeOptions.find((option) => option.value === value)?.label.toLowerCase() ??
     value
   )
-}
-
-function parsePositiveNumber(value: string) {
-  const parsed = Number(value)
-
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return null
-  }
-
-  return parsed
 }

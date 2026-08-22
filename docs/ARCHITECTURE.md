@@ -30,6 +30,27 @@ Server-only responsibilities:
 
 AI, Google Places, and Arcjet logic must not run in client components.
 
+## AI Contract Boundary
+
+Model responses must pass through the shared contract in `lib/ai/contract.ts`
+before they update UI state or persistence.
+
+The contract has two response classes:
+- Conversational step response: assistant text, the next Generative UI selector,
+  and optional normalized requirement updates for source, destination, duration,
+  budget tier, group size, and group type.
+- Final itinerary response: `travelPlan`, summary, hotel recommendations, and
+  day-by-day itinerary activities.
+
+The JSON Schemas are strict and use `additionalProperties: false` for object
+shapes. Runtime parsers accept `unknown` data and return typed data or a clear
+validation error.
+
+AI output may include place names, addresses, and approximate area hints. It must
+not provide canonical `placeId`, latitude/longitude, photo, or map data. Google
+Places enrichment is the later authoritative source for place IDs, canonical
+coordinates, and photos.
+
 ## Persistence
 
 Convex is the persistent backend for users, saved trips, itinerary records, quota records, and enriched place references.

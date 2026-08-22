@@ -9,6 +9,9 @@
 - Use Convex document IDs as trip identifiers until a public slug requirement is introduced.
 - Store trip ownership with the Convex-authenticated identity key derived on the server, never with a client-supplied owner field.
 - Keep Convex user profiles minimal for app display/state. Clerk remains the source of truth for authentication and billing.
+- Use a Generative UI mapping where model/data output selects from pre-built typed React components; model output must never generate JSX.
+- Define AI response contracts in shared TypeScript plus strict JSON Schemas before any model call is connected.
+- Parse unknown model output through dependency-free guards that return typed data or explicit validation errors.
 - Call OpenRouter only from a server route through the OpenAI SDK compatible endpoint.
 - Prefer strict JSON Schema structured output when the selected model and endpoint support it.
 - Call Google Places API (New) server-side.
