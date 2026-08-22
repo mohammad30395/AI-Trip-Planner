@@ -23,6 +23,16 @@ type OpenRouterSmokeResult = {
   model: string
 }
 
+type OpenRouterConversationMessage = {
+  role: "system" | "assistant" | "user"
+  content: string
+}
+
+type OpenRouterConversationRequest = {
+  messages: OpenRouterConversationMessage[]
+  maxTokens?: number
+}
+
 type OpenRouterChatCompletionResponse = {
   model?: string
   choices?: Array<{
@@ -94,6 +104,30 @@ function createOpenRouterClient(config: OpenRouterConfig) {
 async function runOpenRouterSmokeCall(
   signal?: AbortSignal
 ): Promise<ValidationResult<OpenRouterSmokeResult>> {
+  return runOpenRouterConversationStep(
+    {
+      messages: [
+        {
+          role: "system",
+          content:
+            "Return only schema-valid JSON for a smoke test. Do not plan a trip.",
+        },
+        {
+          role: "user",
+          content:
+            "Return a short assistant text confirming the API is reachable and select the source UI.",
+        },
+      ],
+      maxTokens: 600,
+    },
+    signal
+  )
+}
+
+async function runOpenRouterConversationStep(
+  request: OpenRouterConversationRequest,
+  signal?: AbortSignal
+): Promise<ValidationResult<OpenRouterSmokeResult>> {
   const config = getOpenRouterConfig()
   const client = createOpenRouterClient(config)
 
@@ -103,18 +137,7 @@ async function runOpenRouterSmokeCall(
       {
         body: {
           model: config.model,
-          messages: [
-            {
-              role: "system",
-              content:
-                "Return only schema-valid JSON for a smoke test. Do not plan a trip.",
-            },
-            {
-              role: "user",
-              content:
-                "Return a short assistant text confirming the API is reachable and select the source UI.",
-            },
-          ],
+          messages: request.messages,
           response_format: {
             type: "json_schema",
             json_schema: {
@@ -124,7 +147,7 @@ async function runOpenRouterSmokeCall(
             },
           },
           temperature: 0,
-          max_tokens: 600,
+          max_tokens: request.maxTokens ?? 700,
           provider: {
             require_parameters: true,
           },
@@ -225,6 +248,8 @@ function logSafeOpenRouterError(error: unknown) {
 
 export {
   OpenRouterConfigurationError,
+  runOpenRouterConversationStep,
   runOpenRouterSmokeCall,
   OPENROUTER_TIMEOUT_MS,
+  type OpenRouterConversationMessage,
 }

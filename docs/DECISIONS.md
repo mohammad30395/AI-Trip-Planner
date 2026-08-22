@@ -18,6 +18,8 @@
 - Protect temporary AI smoke routes with Clerk before provider work begins.
 - Treat OpenRouter provider errors as server diagnostics only; browser responses must not include raw provider errors, headers, request IDs, or key material.
 - Apply explicit timeout/abort handling to OpenRouter calls before wiring product flows.
+- Use `/api/ai-model` as the authenticated AI conversation boundary. The client sends compact context only, never secrets or authorization identifiers.
+- Keep final itinerary generation deterministic-disabled until the dedicated itinerary milestone; completed requirements transition to `READY_FOR_FINAL` only.
 - Call Google Places API (New) server-side.
 - Treat Google Places API (New) as authoritative for place IDs, canonical coordinates, and photos.
 - Do not trust model-generated coordinates as canonical.

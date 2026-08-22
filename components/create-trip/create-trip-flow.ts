@@ -1,7 +1,13 @@
 import type {
+  ConversationRequirements,
+  ConversationRequestMessage,
+} from "@/lib/ai/conversation"
+import type {
   BudgetTier,
+  ConversationalStepResponse,
   GenerativeUISelector,
   GroupType,
+  NormalizedRequirementUpdate,
 } from "@/lib/ai/contract"
 
 export type { BudgetTier, GroupType } from "@/lib/ai/contract"
@@ -17,7 +23,7 @@ export type TripRequirementStep =
   | "budget"
   | "group"
   | "review"
-  | "complete"
+  | "readyForFinal"
 
 export type ConversationMessage = {
   id: string
@@ -48,12 +54,19 @@ export type CreateTripState = {
 }
 
 export type CreateTripAction =
-  | { type: "submitSource"; value: string }
-  | { type: "submitDestination"; value: string }
-  | { type: "submitDuration"; value: number }
-  | { type: "submitBudget"; value: BudgetTier }
-  | { type: "submitGroup"; value: GroupSelection }
-  | { type: "confirm" }
+  | {
+      type: "localValidationFailed"
+      requirements: TripRequirements
+      error: string
+    }
+  | {
+      type: "aiRequestStarted"
+      requirements: TripRequirements
+      userMessage: string
+    }
+  | { type: "aiRequestSucceeded"; response: ConversationalStepResponse }
+  | { type: "aiRequestFailed"; error: string }
+  | { type: "markReadyForFinal" }
   | { type: "reset" }
 
 export const budgetOptions: Array<{
@@ -117,135 +130,188 @@ export function createTripReducer(
   action: CreateTripAction
 ): CreateTripState {
   switch (action.type) {
-    case "submitSource":
-      return continueFlow(state, {
-        ...state.requirements,
-        source: action.value.trim(),
-      })
-    case "submitDestination":
-      return continueFlow(state, {
-        ...state.requirements,
-        destination: action.value.trim(),
-      })
-    case "submitDuration":
-      return continueFlow(state, {
-        ...state.requirements,
-        durationDays: action.value,
-      })
-    case "submitBudget":
-      return continueFlow(state, {
-        ...state.requirements,
-        budgetTier: action.value,
-      })
-    case "submitGroup":
-      return continueFlow(state, {
-        ...state.requirements,
-        groupSize: action.value.groupSize,
-        groupType: action.value.groupType,
-      })
-    case "confirm":
-      return continueFlow(state, state.requirements)
+    case "localValidationFailed":
+      return {
+        ...state,
+        requirements: action.requirements,
+        isLoading: false,
+        error: action.error,
+      }
+    case "aiRequestStarted":
+      return {
+        ...state,
+        requirements: action.requirements,
+        isLoading: true,
+        error: null,
+        messages: [
+          ...state.messages,
+          {
+            id: `user-${state.currentStep}-${state.messages.length}`,
+            role: "user",
+            content: action.userMessage,
+          },
+        ],
+      }
+    case "aiRequestSucceeded": {
+      const requirements = applyRequirementUpdate(
+        state.requirements,
+        action.response.requirementUpdate
+      )
+
+      return {
+        ...state,
+        requirements,
+        currentStep: getStepFromSelector(
+          action.response.nextUISelector,
+          requirements
+        ),
+        isLoading: false,
+        error: null,
+        messages: [
+          ...state.messages,
+          {
+            id: `assistant-${action.response.nextUISelector}-${state.messages.length}`,
+            role: "assistant",
+            content: action.response.assistantText,
+          },
+        ],
+      }
+    }
+    case "aiRequestFailed":
+      return {
+        ...state,
+        isLoading: false,
+        error: action.error,
+      }
+    case "markReadyForFinal":
+      if (!areRequirementsComplete(state.requirements)) {
+        return {
+          ...state,
+          isLoading: false,
+          error: "Complete all trip requirements before continuing.",
+        }
+      }
+
+      return {
+        ...state,
+        currentStep: "readyForFinal",
+        isLoading: false,
+        error: null,
+        messages: [
+          ...state.messages,
+          {
+            id: `user-review-${state.messages.length}`,
+            role: "user",
+            content: "Trip brief confirmed",
+          },
+          {
+            id: `assistant-ready-${state.messages.length}`,
+            role: "assistant",
+            content:
+              "READY_FOR_FINAL: your trip brief is complete. The next milestone will generate the itinerary.",
+          },
+        ],
+      }
     case "reset":
       return initialCreateTripState
   }
 }
 
 export function getCurrentSelector(step: TripRequirementStep): UISelector {
-  if (step === "complete") {
+  if (step === "readyForFinal") {
     return "final"
   }
 
   return step
 }
 
-function continueFlow(
-  state: CreateTripState,
-  requirements: TripRequirements
-): CreateTripState {
-  const validationError = validateCurrentStep(state.currentStep, requirements)
-
-  if (validationError !== null) {
-    return {
-      ...state,
-      error: validationError,
-      requirements,
-    }
+export function applyRequirementUpdate(
+  requirements: TripRequirements,
+  update: NormalizedRequirementUpdate | undefined
+): TripRequirements {
+  if (update === undefined) {
+    return requirements
   }
-
-  if (state.currentStep === "complete") {
-    return state
-  }
-
-  const nextStep = getNextStep(state.currentStep)
-  const userMessage = buildUserMessage(state.currentStep, requirements)
-  const assistantMessage =
-    nextStep === "complete"
-      ? "Your local trip brief is ready. The AI itinerary generator will replace this mock flow in a later milestone."
-      : getAssistantPrompt(nextStep, requirements)
 
   return {
-    ...state,
-    requirements,
-    currentStep: nextStep,
-    isLoading: false,
-    error: null,
-    messages: [
-      ...state.messages,
-      {
-        id: `user-${state.currentStep}-${state.messages.length}`,
-        role: "user",
-        content: userMessage,
-      },
-      {
-        id: `assistant-${nextStep}-${state.messages.length}`,
-        role: "assistant",
-        content: assistantMessage,
-      },
-    ],
+    ...requirements,
+    ...(update.source !== undefined ? { source: update.source } : {}),
+    ...(update.destination !== undefined
+      ? { destination: update.destination }
+      : {}),
+    ...(update.durationDays !== undefined
+      ? { durationDays: update.durationDays }
+      : {}),
+    ...(update.budgetTier !== undefined ? { budgetTier: update.budgetTier } : {}),
+    ...(update.groupSize !== undefined ? { groupSize: update.groupSize } : {}),
+    ...(update.groupType !== undefined ? { groupType: update.groupType } : {}),
   }
 }
 
-function getNextStep(step: TripRequirementStep): TripRequirementStep {
-  switch (step) {
-    case "source":
-      return "destination"
-    case "destination":
-      return "duration"
-    case "duration":
-      return "budget"
-    case "budget":
-      return "group"
-    case "group":
-      return "review"
-    case "review":
-      return "complete"
-    case "complete":
-      return "complete"
-  }
-}
-
-function getAssistantPrompt(
-  step: TripRequirementStep,
+export function getCompactRequirements(
   requirements: TripRequirements
-) {
-  switch (step) {
-    case "destination":
-      return `Starting from ${requirements.source}. Where do you want to go?`
-    case "duration":
-      return `Great. How many days should the ${requirements.destination} trip last?`
-    case "budget":
-      return "What budget tier should guide the plan?"
-    case "group":
-      return "Who is traveling, and how many people are in the group?"
-    case "review":
-      return "Review the trip brief. If it looks right, continue to lock this local shell state."
-    case "source":
-    case "complete":
-      return "Where will your trip start?"
+): ConversationRequirements {
+  return {
+    ...(requirements.source.trim().length > 0
+      ? { source: requirements.source.trim() }
+      : {}),
+    ...(requirements.destination.trim().length > 0
+      ? { destination: requirements.destination.trim() }
+      : {}),
+    ...(requirements.durationDays !== null
+      ? { durationDays: requirements.durationDays }
+      : {}),
+    ...(requirements.budgetTier !== null
+      ? { budgetTier: requirements.budgetTier }
+      : {}),
+    ...(requirements.groupSize !== null ? { groupSize: requirements.groupSize } : {}),
+    ...(requirements.groupType !== null ? { groupType: requirements.groupType } : {}),
   }
 }
 
-function validateCurrentStep(
+export function getRecentConversationContext(
+  messages: ConversationMessage[],
+  nextUserMessage: string
+): ConversationRequestMessage[] {
+  return [
+    ...messages.map((message) => ({
+      role: message.role,
+      content: message.content,
+    })),
+    {
+      role: "user" as const,
+      content: nextUserMessage,
+    },
+  ].slice(-8)
+}
+
+export function getStepFromSelector(
+  selector: UISelector,
+  requirements: TripRequirements
+): TripRequirementStep {
+  if (selector === "final") {
+    return areRequirementsComplete(requirements) ? "readyForFinal" : "review"
+  }
+
+  return selector
+}
+
+export function areRequirementsComplete(requirements: TripRequirements) {
+  return (
+    requirements.source.trim().length > 0 &&
+    requirements.destination.trim().length > 0 &&
+    requirements.durationDays !== null &&
+    requirements.durationDays >= 1 &&
+    requirements.durationDays <= 30 &&
+    requirements.budgetTier !== null &&
+    requirements.groupSize !== null &&
+    requirements.groupSize >= 1 &&
+    requirements.groupSize <= 20 &&
+    requirements.groupType !== null
+  )
+}
+
+export function validateCurrentStep(
   step: TripRequirementStep,
   requirements: TripRequirements
 ) {
@@ -279,7 +345,7 @@ function validateCurrentStep(
       }
       return null
     case "review":
-    case "complete":
+    case "readyForFinal":
       return null
   }
 }
@@ -288,7 +354,7 @@ function validateRequiredText(value: string, message: string) {
   return value.trim().length > 0 ? null : message
 }
 
-function buildUserMessage(
+export function buildUserMessage(
   step: TripRequirementStep,
   requirements: TripRequirements
 ) {
@@ -305,8 +371,8 @@ function buildUserMessage(
       return `${requirements.groupSize} ${formatGroupType(requirements.groupType)} traveler${requirements.groupSize === 1 ? "" : "s"}`
     case "review":
       return "Trip brief confirmed"
-    case "complete":
-      return "Complete"
+    case "readyForFinal":
+      return "Ready for final itinerary"
   }
 }
 

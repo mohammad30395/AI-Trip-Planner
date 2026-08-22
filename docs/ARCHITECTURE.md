@@ -44,6 +44,13 @@ output smoke calls request OpenRouter provider routing with required parameter
 support so the request is not sent to endpoints that cannot honor JSON Schema
 output.
 
+The `/api/ai-model` route is the authenticated server boundary for the
+conversation interviewer. It accepts compact conversation messages and normalized
+requirements, validates them before any provider call, and returns only the
+strict conversational schema. The client validates the response envelope again
+before choosing a pre-built UI component. Final itinerary generation remains
+disconnected; a complete brief transitions only to `READY_FOR_FINAL`.
+
 ## AI Contract Boundary
 
 Model responses must pass through the shared contract in `lib/ai/contract.ts`

@@ -16,13 +16,14 @@
 - [x] Milestone 11 - Generative UI component mapping
 - [x] Milestone 12 - AI contract and schema
 - [x] Milestone 13 - OpenRouter server client
-- [ ] Milestone 14 - AI itinerary generation
-- [ ] Milestone 15 - Google Places enrichment
-- [ ] Milestone 16 - Saved trips
-- [ ] Milestone 17 - Mapbox trip map
-- [ ] Milestone 18 - Arcjet free quota
-- [ ] Milestone 19 - Clerk Billing paid access
-- [ ] Milestone 20 - Production readiness and Vercel deployment
+- [x] Milestone 14 - AI-driven conversation
+- [ ] Milestone 15 - AI itinerary generation
+- [ ] Milestone 16 - Google Places enrichment
+- [ ] Milestone 17 - Saved trips
+- [ ] Milestone 18 - Mapbox trip map
+- [ ] Milestone 19 - Arcjet free quota
+- [ ] Milestone 20 - Clerk Billing paid access
+- [ ] Milestone 21 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -588,3 +589,54 @@ Open issues:
 
 Next milestone:
 - Milestone 14
+
+## Milestone 14 - AI-Driven Conversation
+
+Changed:
+- Added `lib/ai/conversation.ts` with dependency-free request and response envelope validation for compact trip conversation payloads.
+- Added authenticated `/api/ai-model` as the server boundary for AI trip-interviewer turns.
+- Generalized `lib/ai/openrouter.ts` with `runOpenRouterConversationStep` while keeping the Milestone 13 smoke helper.
+- Built a system instruction that collects only source, destination, duration, budget, and group details, returns the strict conversational schema, and does not generate final itineraries.
+- Replaced deterministic mock progression in `/create-trip` with client calls to `/api/ai-model`.
+- Preserved local UI boundary validation, disabled duplicate submissions while pending, and added abort/stale-response handling for reset.
+- Added safe client fallback behavior for invalid or failed AI responses while preserving collected fields.
+- Added deterministic `READY_FOR_FINAL` state after review confirmation; final itinerary generation remains disconnected.
+- Updated create-trip copy and preview text to reflect the AI conversation boundary.
+- Documented the AI conversation route and READY_FOR_FINAL decision.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg --files app components lib convex docs`
+- `sed -n ... components/create-trip/*.tsx components/create-trip/*.ts lib/ai/*.ts app/api/*.ts`
+- `npm run lint`
+- `npm run build`
+- `node ... environment presence check for OPEN_ROUTER_API_KEY and OPEN_ROUTER_MODEL`
+- `rg "arcjet|saveTrip|createTrip\\(|Google|Places|mapbox|billing|finalItinerary|parseFinalItinerary|hotels|itinerary" app/api/ai-model components/create-trip lib/ai/openrouter.ts -n`
+- `rg "auth\\.protect|runOpenRouterConversationStep|parseTripConversationRequest|parseTripConversationResponseEnvelope|READY_FOR_FINAL|isLoading|AbortController" app/api/ai-model components/create-trip lib/ai -n`
+- `npm run dev`
+- `curl -sS -o /tmp/m14-ai-model-anon.html -D /tmp/m14-ai-model-anon.headers -w '/api/ai-model %{http_code}\n' -X POST http://localhost:3000/api/ai-model ...`
+- `curl -sS -o /tmp/m14-create-trip.html -D /tmp/m14-create-trip.headers -w '/create-trip %{http_code}\n' http://localhost:3000/create-trip`
+- `curl -sS -o /tmp/m14-home.html -w '/ %{http_code}\n' http://localhost:3000/`
+- `node --env-file=.env.local --experimental-strip-types --input-type=module ... OpenRouter conversation smoke call`
+- `node --experimental-strip-types --input-type=module ... create-trip reducer smoke test`
+
+Results:
+- `OPEN_ROUTER_API_KEY` is present by name.
+- `OPEN_ROUTER_MODEL` is present by name.
+- Signed-out `/api/ai-model` returned HTTP 307 to `/sign-in`, verifying the route is not anonymously callable.
+- Signed-out `/create-trip` returned HTTP 307 to `/sign-in`, preserving route protection.
+- Public `/` returned HTTP 200 and expected home content.
+- A live server-side OpenRouter conversation smoke call succeeded with schema-valid JSON, assistant text present, `nextUISelector` set to `destination`, provider model metadata present, and finish reason `stop`.
+- Reducer smoke testing passed for non-linear AI-selected steps, READY_FOR_FINAL transition, and reset.
+- Source scans found no Arcjet integration, Convex trip saving, Google Places calls, Mapbox integration, billing checks, or final itinerary parsing/generation connected to the create-trip conversation.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+
+Open issues:
+- Full authenticated browser end-to-end testing through Clerk still requires signing into the local app with a Clerk test user. Automated checks covered route protection, live provider response shape, and reducer behavior.
+- The Node reducer smoke test emitted the existing module-type warning because the project package is not marked as an ES module; no package metadata was changed.
+- If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
+
+Next milestone:
+- Milestone 15

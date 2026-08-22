@@ -19,6 +19,7 @@ import {
 type RenderGenerativeUIProps = {
   selector: UISelector | string
   requirements: TripRequirements
+  disabled: boolean
   onSubmitSource: (value: string) => void
   onSubmitDestination: (value: string) => void
   onSubmitDuration: (value: number) => void
@@ -29,6 +30,7 @@ type RenderGenerativeUIProps = {
 }
 
 function renderGenerativeUI({
+  disabled,
   selector,
   requirements,
   onConfirm,
@@ -48,6 +50,7 @@ function renderGenerativeUI({
           label="Starting point"
           placeholder="Dhaka"
           value={requirements.source}
+          disabled={disabled}
           onSubmit={onSubmitSource}
         />
       )
@@ -59,6 +62,7 @@ function renderGenerativeUI({
           label="Destination"
           placeholder="Tokyo"
           value={requirements.destination}
+          disabled={disabled}
           onSubmit={onSubmitDestination}
         />
       )
@@ -66,18 +70,24 @@ function renderGenerativeUI({
       return (
         <DurationSelectionUI
           key="duration"
+          disabled={disabled}
           value={requirements.durationDays}
           onSubmit={onSubmitDuration}
         />
       )
     case "budget":
       return (
-        <BudgetUI value={requirements.budgetTier} onSelect={onSelectBudget} />
+        <BudgetUI
+          disabled={disabled}
+          value={requirements.budgetTier}
+          onSelect={onSelectBudget}
+        />
       )
     case "group":
       return (
         <GroupSizeUI
           key="group"
+          disabled={disabled}
           groupSize={requirements.groupSize}
           groupType={requirements.groupType}
           onSubmit={onSubmitGroup}
@@ -85,10 +95,14 @@ function renderGenerativeUI({
       )
     case "review":
       return (
-        <ReviewConfirmUI requirements={requirements} onSubmit={onConfirm} />
+        <ReviewConfirmUI
+          disabled={disabled}
+          requirements={requirements}
+          onSubmit={onConfirm}
+        />
       )
     case "final":
-      return <FinalGeneratingPlaceholder onSubmit={onReset} />
+      return <FinalGeneratingPlaceholder disabled={disabled} onSubmit={onReset} />
     default:
       return <UnknownSelectorFallback selector={selector} />
   }
@@ -99,6 +113,7 @@ type SourceDestinationInputUIProps = {
   helper: string
   placeholder: string
   value: string
+  disabled: boolean
   onSubmit: (value: string) => void
 }
 
@@ -107,6 +122,7 @@ function SourceDestinationInputUI({
   label,
   placeholder,
   value,
+  disabled,
   onSubmit,
 }: SourceDestinationInputUIProps) {
   const [draft, setDraft] = useState(value)
@@ -134,6 +150,7 @@ function SourceDestinationInputUI({
         aria-invalid={error !== null}
         aria-label={label}
         autoComplete="off"
+        disabled={disabled}
         placeholder={placeholder}
         value={draft}
         onChange={(event) => {
@@ -142,7 +159,7 @@ function SourceDestinationInputUI({
         }}
       />
       {error !== null ? <InlineError message={error} /> : null}
-      <Button className="w-full sm:w-fit" type="submit">
+      <Button className="w-full sm:w-fit" disabled={disabled} type="submit">
         Use {label}
       </Button>
     </form>
@@ -151,10 +168,15 @@ function SourceDestinationInputUI({
 
 type DurationSelectionUIProps = {
   value: number | null
+  disabled: boolean
   onSubmit: (value: number) => void
 }
 
-function DurationSelectionUI({ value, onSubmit }: DurationSelectionUIProps) {
+function DurationSelectionUI({
+  disabled,
+  value,
+  onSubmit,
+}: DurationSelectionUIProps) {
   const [draft, setDraft] = useState(value?.toString() ?? "")
   const [error, setError] = useState<string | null>(null)
 
@@ -184,6 +206,7 @@ function DurationSelectionUI({ value, onSubmit }: DurationSelectionUIProps) {
       <Input
         aria-invalid={error !== null}
         aria-label="Duration in days"
+        disabled={disabled}
         inputMode="numeric"
         min={1}
         max={30}
@@ -196,7 +219,7 @@ function DurationSelectionUI({ value, onSubmit }: DurationSelectionUIProps) {
         }}
       />
       {error !== null ? <InlineError message={error} /> : null}
-      <Button className="w-full sm:w-fit" type="submit">
+      <Button className="w-full sm:w-fit" disabled={disabled} type="submit">
         Use Duration
       </Button>
     </form>
@@ -205,10 +228,11 @@ function DurationSelectionUI({ value, onSubmit }: DurationSelectionUIProps) {
 
 type BudgetUIProps = {
   value: BudgetTier | null
+  disabled: boolean
   onSelect: (value: BudgetTier) => void
 }
 
-function BudgetUI({ value, onSelect }: BudgetUIProps) {
+function BudgetUI({ disabled, value, onSelect }: BudgetUIProps) {
   return (
     <div className="grid gap-3">
       <FieldText label="Budget tier" helper="Choose the planning style." />
@@ -225,6 +249,7 @@ function BudgetUI({ value, onSelect }: BudgetUIProps) {
                 isSelected &&
                   "border-primary bg-primary text-primary-foreground hover:bg-primary"
               )}
+              disabled={disabled}
               type="button"
               onClick={() => onSelect(option.value)}
             >
@@ -248,10 +273,16 @@ function BudgetUI({ value, onSelect }: BudgetUIProps) {
 type GroupSizeUIProps = {
   groupType: GroupType | null
   groupSize: number | null
+  disabled: boolean
   onSubmit: (value: GroupSelection) => void
 }
 
-function GroupSizeUI({ groupSize, groupType, onSubmit }: GroupSizeUIProps) {
+function GroupSizeUI({
+  disabled,
+  groupSize,
+  groupType,
+  onSubmit,
+}: GroupSizeUIProps) {
   const [selectedType, setSelectedType] = useState<GroupType | null>(groupType)
   const [draftSize, setDraftSize] = useState(groupSize?.toString() ?? "")
   const [error, setError] = useState<string | null>(null)
@@ -293,6 +324,7 @@ function GroupSizeUI({ groupSize, groupType, onSubmit }: GroupSizeUIProps) {
             <Button
               key={option.value}
               aria-pressed={selectedType === option.value}
+              disabled={disabled}
               type="button"
               variant={selectedType === option.value ? "default" : "outline"}
               onClick={() => {
@@ -310,6 +342,7 @@ function GroupSizeUI({ groupSize, groupType, onSubmit }: GroupSizeUIProps) {
         <Input
           aria-invalid={error !== null}
           aria-label="Group size"
+          disabled={disabled}
           inputMode="numeric"
           min={1}
           max={20}
@@ -323,7 +356,7 @@ function GroupSizeUI({ groupSize, groupType, onSubmit }: GroupSizeUIProps) {
         />
       </div>
       {error !== null ? <InlineError message={error} /> : null}
-      <Button className="w-full sm:w-fit" type="submit">
+      <Button className="w-full sm:w-fit" disabled={disabled} type="submit">
         Use Travelers
       </Button>
     </form>
@@ -332,17 +365,22 @@ function GroupSizeUI({ groupSize, groupType, onSubmit }: GroupSizeUIProps) {
 
 type ReviewConfirmUIProps = {
   requirements: TripRequirements
+  disabled: boolean
   onSubmit: () => void
 }
 
-function ReviewConfirmUI({ requirements, onSubmit }: ReviewConfirmUIProps) {
+function ReviewConfirmUI({
+  disabled,
+  requirements,
+  onSubmit,
+}: ReviewConfirmUIProps) {
   return (
     <div className="grid gap-4 rounded-lg border bg-muted/30 p-4">
       <div>
         <p className="text-sm font-medium">Review the local trip brief</p>
         <p className="app-muted mt-1 text-sm leading-6">
-          Confirming only completes the local UI state. It does not call AI or
-          save data.
+          Confirming moves this conversation to READY_FOR_FINAL. It does not
+          generate an itinerary or save data yet.
         </p>
       </div>
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
@@ -367,7 +405,12 @@ function ReviewConfirmUI({ requirements, onSubmit }: ReviewConfirmUIProps) {
           )} traveler${requirements.groupSize === 1 ? "" : "s"}`}
         />
       </dl>
-      <Button className="w-full sm:w-fit" type="button" onClick={onSubmit}>
+      <Button
+        className="w-full sm:w-fit"
+        disabled={disabled}
+        type="button"
+        onClick={onSubmit}
+      >
         Confirm Brief
       </Button>
     </div>
@@ -375,20 +418,29 @@ function ReviewConfirmUI({ requirements, onSubmit }: ReviewConfirmUIProps) {
 }
 
 type FinalGeneratingPlaceholderProps = {
+  disabled: boolean
   onSubmit: () => void
 }
 
-function FinalGeneratingPlaceholder({ onSubmit }: FinalGeneratingPlaceholderProps) {
+function FinalGeneratingPlaceholder({
+  disabled,
+  onSubmit,
+}: FinalGeneratingPlaceholderProps) {
   return (
     <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
       <div>
-        <p className="text-sm font-medium">Final placeholder</p>
+        <p className="text-sm font-medium">READY_FOR_FINAL</p>
         <p className="app-muted mt-1 text-sm leading-6">
-          The local brief is complete. A later milestone will swap this area for
-          a real generating state and itinerary renderer.
+          The trip brief is complete. A later milestone will generate the final
+          itinerary from this state.
         </p>
       </div>
-      <Button className="w-full sm:w-fit" type="button" onClick={onSubmit}>
+      <Button
+        className="w-full sm:w-fit"
+        disabled={disabled}
+        type="button"
+        onClick={onSubmit}
+      >
         Start Another Brief
       </Button>
     </div>

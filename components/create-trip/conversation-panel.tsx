@@ -1,5 +1,3 @@
-import type { Dispatch } from "react"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -12,8 +10,9 @@ import {
 import { cn } from "@/lib/utils"
 
 import {
-  type CreateTripAction,
   type CreateTripState,
+  type BudgetTier,
+  type GroupSelection,
   type UISelector,
 } from "./create-trip-flow"
 import { renderGenerativeUI } from "./generative-ui"
@@ -21,15 +20,27 @@ import { renderGenerativeUI } from "./generative-ui"
 type ConversationPanelProps = {
   state: CreateTripState
   selector: UISelector
-  dispatch: Dispatch<CreateTripAction>
+  onSubmitSource: (value: string) => void
+  onSubmitDestination: (value: string) => void
+  onSubmitDuration: (value: number) => void
+  onSelectBudget: (value: BudgetTier) => void
+  onSubmitGroup: (value: GroupSelection) => void
+  onConfirm: () => void
+  onReset: () => void
 }
 
 function ConversationPanel({
-  dispatch,
+  onConfirm,
+  onReset,
+  onSelectBudget,
+  onSubmitDestination,
+  onSubmitDuration,
+  onSubmitGroup,
+  onSubmitSource,
   selector,
   state,
 }: ConversationPanelProps) {
-  const isComplete = state.currentStep === "complete"
+  const isComplete = state.currentStep === "readyForFinal"
 
   return (
     <Card className="app-card min-w-0">
@@ -42,7 +53,7 @@ function ConversationPanel({
             </p>
           </div>
           <Badge variant={isComplete ? "default" : "secondary"}>
-            {isComplete ? "Ready" : "Draft"}
+            {state.isLoading ? "Thinking" : isComplete ? "Ready" : "Draft"}
           </Badge>
         </div>
       </CardHeader>
@@ -73,19 +84,16 @@ function ConversationPanel({
         ) : null}
 
         {renderGenerativeUI({
+          disabled: state.isLoading,
           selector,
           requirements: state.requirements,
-          onSubmitSource: (value) =>
-            dispatch({ type: "submitSource", value }),
-          onSubmitDestination: (value) =>
-            dispatch({ type: "submitDestination", value }),
-          onSubmitDuration: (value) =>
-            dispatch({ type: "submitDuration", value }),
-          onSelectBudget: (value) =>
-            dispatch({ type: "submitBudget", value }),
-          onSubmitGroup: (value) => dispatch({ type: "submitGroup", value }),
-          onConfirm: () => dispatch({ type: "confirm" }),
-          onReset: () => dispatch({ type: "reset" }),
+          onSubmitSource,
+          onSubmitDestination,
+          onSubmitDuration,
+          onSelectBudget,
+          onSubmitGroup,
+          onConfirm,
+          onReset,
         })}
       </CardContent>
       <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-between">
@@ -94,7 +102,7 @@ function ConversationPanel({
           disabled={state.isLoading}
           type="button"
           variant="outline"
-          onClick={() => dispatch({ type: "reset" })}
+          onClick={onReset}
         >
           Start Over
         </Button>
@@ -116,7 +124,7 @@ function getStepNumber(step: CreateTripState["currentStep"]) {
     case "group":
       return 5
     case "review":
-    case "complete":
+    case "readyForFinal":
       return 6
   }
 }

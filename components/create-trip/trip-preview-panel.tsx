@@ -68,8 +68,8 @@ function TripPreviewPanel({ requirements, step }: TripPreviewPanelProps) {
               <CardTitle>Trip Brief</CardTitle>
               <p className="app-muted mt-1 text-sm">Local preview</p>
             </div>
-            <Badge variant={step === "complete" ? "default" : "outline"}>
-              {step === "complete" ? "Complete" : "In progress"}
+            <Badge variant={step === "readyForFinal" ? "default" : "outline"}>
+              {step === "readyForFinal" ? "Ready" : "In progress"}
             </Badge>
           </div>
         </CardHeader>
@@ -98,8 +98,8 @@ function TripPreviewPanel({ requirements, step }: TripPreviewPanelProps) {
         </CardHeader>
         <CardContent>
           <ul className="grid gap-2 text-sm text-muted-foreground">
-            <li>AI response adapter replaces the mock assistant messages.</li>
-            <li>Convex persistence saves confirmed trip drafts later.</li>
+            <li>Final itinerary generation starts from READY_FOR_FINAL later.</li>
+            <li>Convex persistence saves confirmed trip drafts in a later milestone.</li>
             <li>Quota, billing, maps, and place enrichment stay disconnected.</li>
           </ul>
         </CardContent>
