@@ -19,7 +19,9 @@
 - Treat OpenRouter provider errors as server diagnostics only; browser responses must not include raw provider errors, headers, request IDs, or key material.
 - Apply explicit timeout/abort handling to OpenRouter calls before wiring product flows.
 - Use `/api/ai-model` as the authenticated AI conversation boundary. The client sends compact context only, never secrets or authorization identifiers.
-- Keep final itinerary generation deterministic-disabled until the dedicated itinerary milestone; completed requirements transition to `READY_FOR_FINAL` only.
+- Use `/api/ai-itinerary` as the distinct authenticated final-generation boundary so conversational and itinerary schemas cannot be confused.
+- Store generated final itineraries in client state only until the Convex persistence milestone.
+- Treat model-generated prices, place details, ratings, business availability, and coordinates as unverified; UI price labels must say they are generated estimates.
 - Call Google Places API (New) server-side.
 - Treat Google Places API (New) as authoritative for place IDs, canonical coordinates, and photos.
 - Do not trust model-generated coordinates as canonical.

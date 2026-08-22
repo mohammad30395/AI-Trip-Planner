@@ -2,6 +2,7 @@ import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import type { FinalItineraryResponse } from "@/lib/ai/contract"
 import { cn } from "@/lib/utils"
 
 import {
@@ -26,14 +27,22 @@ type RenderGenerativeUIProps = {
   onSelectBudget: (value: BudgetTier) => void
   onSubmitGroup: (value: GroupSelection) => void
   onConfirm: () => void
+  onGenerateFinal: () => void
   onReset: () => void
+  finalError: string | null
+  finalItinerary: FinalItineraryResponse | null
+  isGeneratingFinal: boolean
 }
 
 function renderGenerativeUI({
   disabled,
+  finalError,
+  finalItinerary,
+  isGeneratingFinal,
   selector,
   requirements,
   onConfirm,
+  onGenerateFinal,
   onReset,
   onSelectBudget,
   onSubmitDestination,
@@ -102,7 +111,16 @@ function renderGenerativeUI({
         />
       )
     case "final":
-      return <FinalGeneratingPlaceholder disabled={disabled} onSubmit={onReset} />
+      return (
+        <FinalItineraryUI
+          disabled={disabled}
+          error={finalError}
+          isGenerating={isGeneratingFinal}
+          itinerary={finalItinerary}
+          onGenerate={onGenerateFinal}
+          onReset={onReset}
+        />
+      )
     default:
       return <UnknownSelectorFallback selector={selector} />
   }
@@ -417,36 +435,195 @@ function ReviewConfirmUI({
   )
 }
 
-type FinalGeneratingPlaceholderProps = {
+type FinalItineraryUIProps = {
   disabled: boolean
-  onSubmit: () => void
+  error: string | null
+  itinerary: FinalItineraryResponse | null
+  isGenerating: boolean
+  onGenerate: () => void
+  onReset: () => void
 }
 
-function FinalGeneratingPlaceholder({
+function FinalItineraryUI({
   disabled,
-  onSubmit,
-}: FinalGeneratingPlaceholderProps) {
+  error,
+  itinerary,
+  isGenerating,
+  onGenerate,
+  onReset,
+}: FinalItineraryUIProps) {
   return (
-    <div className="grid gap-3 rounded-lg border bg-muted/30 p-4">
+    <div className="grid gap-4 rounded-lg border bg-muted/30 p-4">
       <div>
         <p className="text-sm font-medium">READY_FOR_FINAL</p>
         <p className="app-muted mt-1 text-sm leading-6">
-          The trip brief is complete. A later milestone will generate the final
-          itinerary from this state.
+          Generate a structured itinerary from the confirmed brief. Prices are
+          generated estimates until later enrichment verifies real place data.
         </p>
       </div>
-      <Button
-        className="w-full sm:w-fit"
-        disabled={disabled}
-        type="button"
-        onClick={onSubmit}
-      >
-        Start Another Brief
-      </Button>
+
+      {error !== null ? <InlineError message={error} /> : null}
+
+      {itinerary === null ? (
+        <Button
+          className="w-full sm:w-fit"
+          disabled={disabled || isGenerating}
+          type="button"
+          onClick={onGenerate}
+        >
+          {isGenerating ? "Generating Itinerary..." : "Generate Itinerary"}
+        </Button>
+      ) : (
+        <GeneratedItinerary itinerary={itinerary} />
+      )}
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        {itinerary !== null ? (
+          <Button
+            className="w-full sm:w-fit"
+            disabled={disabled || isGenerating}
+            type="button"
+            variant="outline"
+            onClick={onGenerate}
+          >
+            {isGenerating ? "Regenerating..." : "Retry Generation"}
+          </Button>
+        ) : null}
+        <Button
+          className="w-full sm:w-fit"
+          disabled={disabled || isGenerating}
+          type="button"
+          variant="outline"
+          onClick={onReset}
+        >
+          Start Another Brief
+        </Button>
+      </div>
     </div>
   )
 }
 
+function GeneratedItinerary({
+  itinerary,
+}: {
+  itinerary: FinalItineraryResponse
+}) {
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-lg bg-background p-4 ring-1 ring-border">
+        <p className="text-sm font-medium">Trip Summary</p>
+        <p className="app-muted mt-2 text-sm leading-6">{itinerary.summary}</p>
+      </div>
+
+      <div className="grid gap-3">
+        <p className="text-sm font-medium">Hotels</p>
+        <div className="grid gap-3">
+          {itinerary.hotels.map((hotel) => (
+            <div
+              key={`${hotel.name}-${hotel.area ?? hotel.address ?? "hotel"}`}
+              className="rounded-lg bg-background p-4 ring-1 ring-border"
+            >
+              <p className="text-sm font-medium">{hotel.name}</p>
+              <p className="app-muted mt-1 text-sm leading-6">
+                {hotel.description}
+              </p>
+              <dl className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                <GeneratedDetail label="Area" value={hotel.area} />
+                <GeneratedDetail label="Address" value={hotel.address} />
+                <GeneratedDetail
+                  label="Budget"
+                  value={hotel.priceTier ?? "Generated estimate"}
+                />
+                <GeneratedDetail
+                  label="Generated estimate"
+                  value={hotel.estimatedPriceText}
+                />
+              </dl>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-3">
+        <p className="text-sm font-medium">Day-by-day itinerary</p>
+        {itinerary.itinerary.map((day) => (
+          <div
+            key={day.dayNumber}
+            className="grid gap-3 rounded-lg bg-background p-4 ring-1 ring-border"
+          >
+            <div>
+              <p className="text-sm font-medium">
+                Day {day.dayNumber}: {day.title}
+              </p>
+            </div>
+            <div className="grid gap-3">
+              {day.activities.map((activity) => (
+                <div
+                  key={`${day.dayNumber}-${activity.title}-${activity.timeWindow}`}
+                  className="rounded-lg border bg-muted/20 p-3"
+                >
+                  <p className="text-sm font-medium">{activity.title}</p>
+                  <p className="app-muted mt-1 text-sm leading-6">
+                    {activity.description}
+                  </p>
+                  <dl className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                    <GeneratedDetail
+                      label="Time window"
+                      value={activity.timeWindow}
+                    />
+                    <GeneratedDetail label="Duration" value={activity.duration} />
+                    <GeneratedDetail
+                      label="Generated estimate"
+                      value={activity.estimatedPriceText}
+                    />
+                    <GeneratedDetail
+                      label="Place"
+                      value={activity.place?.placeName}
+                    />
+                    <GeneratedDetail
+                      label="Address"
+                      value={activity.place?.address}
+                    />
+                  </dl>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {itinerary.practicalNotes !== undefined ? (
+        <div className="rounded-lg bg-background p-4 ring-1 ring-border">
+          <p className="text-sm font-medium">Practical notes</p>
+          <ul className="mt-2 grid gap-2 text-sm text-muted-foreground">
+            {itinerary.practicalNotes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function GeneratedDetail({
+  label,
+  value,
+}: {
+  label: string
+  value: string | undefined
+}) {
+  if (value === undefined || value.trim().length === 0) {
+    return null
+  }
+
+  return (
+    <div>
+      <dt className="font-medium text-foreground">{label}</dt>
+      <dd className="mt-1 break-words">{value}</dd>
+    </div>
+  )
+}
 function UnknownSelectorFallback({ selector }: { selector: string }) {
   return (
     <div className="rounded-lg border bg-muted/30 p-4">

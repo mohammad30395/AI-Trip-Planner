@@ -36,7 +36,9 @@ export type ItineraryActivity = {
   title: string
   description: string
   timeOfDay?: "morning" | "afternoon" | "evening" | "night" | "flexible"
+  timeWindow: string
   duration?: string
+  estimatedPriceText: string
   place?: PlaceTextHint
 }
 
@@ -52,6 +54,7 @@ export type HotelRecommendation = {
   area?: string
   address?: string
   priceTier?: BudgetTier
+  estimatedPriceText: string
 }
 
 export type FinalItineraryResponse = {
@@ -142,7 +145,7 @@ export const finalItineraryResponseSchema = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["name", "description"],
+        required: ["name", "description", "estimatedPriceText"],
         properties: {
           name: { type: "string", minLength: 1 },
           description: { type: "string", minLength: 1 },
@@ -152,6 +155,7 @@ export const finalItineraryResponseSchema = {
             type: "string",
             enum: ["budget", "mid-range", "premium"],
           },
+          estimatedPriceText: { type: "string", minLength: 1 },
         },
       },
     },
@@ -171,7 +175,12 @@ export const finalItineraryResponseSchema = {
             items: {
               type: "object",
               additionalProperties: false,
-              required: ["title", "description"],
+              required: [
+                "title",
+                "description",
+                "timeWindow",
+                "estimatedPriceText",
+              ],
               properties: {
                 title: { type: "string", minLength: 1 },
                 description: { type: "string", minLength: 1 },
@@ -179,7 +188,9 @@ export const finalItineraryResponseSchema = {
                   type: "string",
                   enum: ["morning", "afternoon", "evening", "night", "flexible"],
                 },
+                timeWindow: { type: "string", minLength: 1 },
                 duration: { type: "string", minLength: 1 },
+                estimatedPriceText: { type: "string", minLength: 1 },
                 place: {
                   type: "object",
                   additionalProperties: false,
@@ -543,6 +554,7 @@ function parseHotelRecommendation(
     "area",
     "address",
     "priceTier",
+    "estimatedPriceText",
   ])
 
   if (unknownKeysError !== null) {
@@ -563,6 +575,11 @@ function parseHotelRecommendation(
     "priceTier" in object.data
       ? readEnum(object.data, "priceTier", budgetTiers, path)
       : optionalEnum<BudgetTier>()
+  const estimatedPriceText = readRequiredString(
+    object.data,
+    "estimatedPriceText",
+    path
+  )
 
   if (!name.ok) {
     return name
@@ -579,6 +596,9 @@ function parseHotelRecommendation(
   if (!priceTier.ok) {
     return priceTier
   }
+  if (!estimatedPriceText.ok) {
+    return estimatedPriceText
+  }
 
   return {
     ok: true,
@@ -588,6 +608,7 @@ function parseHotelRecommendation(
       ...(area.data !== undefined ? { area: area.data } : {}),
       ...(address.data !== undefined ? { address: address.data } : {}),
       ...(priceTier.data !== undefined ? { priceTier: priceTier.data } : {}),
+      estimatedPriceText: estimatedPriceText.data,
     },
   }
 }
@@ -654,7 +675,9 @@ function parseActivity(
     "title",
     "description",
     "timeOfDay",
+    "timeWindow",
     "duration",
+    "estimatedPriceText",
     "place",
   ])
 
@@ -668,10 +691,16 @@ function parseActivity(
     "timeOfDay" in object.data
       ? readEnum(object.data, "timeOfDay", timeOfDayValues, path)
       : optionalEnum<NonNullable<ItineraryActivity["timeOfDay"]>>()
+  const timeWindow = readRequiredString(object.data, "timeWindow", path)
   const duration =
     "duration" in object.data
       ? readRequiredString(object.data, "duration", path)
       : optionalString()
+  const estimatedPriceText = readRequiredString(
+    object.data,
+    "estimatedPriceText",
+    path
+  )
   const place =
     "place" in object.data
       ? parsePlaceTextHint(object.data.place, `${path}.place`)
@@ -688,8 +717,14 @@ function parseActivity(
   if (!timeOfDay.ok) {
     return timeOfDay
   }
+  if (!timeWindow.ok) {
+    return timeWindow
+  }
   if (!duration.ok) {
     return duration
+  }
+  if (!estimatedPriceText.ok) {
+    return estimatedPriceText
   }
   if (!place.ok) {
     return place
@@ -701,7 +736,9 @@ function parseActivity(
       title: title.data,
       description: description.data,
       ...(timeOfDay.data !== undefined ? { timeOfDay: timeOfDay.data } : {}),
+      timeWindow: timeWindow.data,
       ...(duration.data !== undefined ? { duration: duration.data } : {}),
+      estimatedPriceText: estimatedPriceText.data,
       ...(place.data !== undefined ? { place: place.data } : {}),
     },
   }

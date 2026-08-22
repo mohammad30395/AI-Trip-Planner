@@ -17,7 +17,7 @@
 - [x] Milestone 12 - AI contract and schema
 - [x] Milestone 13 - OpenRouter server client
 - [x] Milestone 14 - AI-driven conversation
-- [ ] Milestone 15 - AI itinerary generation
+- [x] Milestone 15 - AI itinerary generation
 - [ ] Milestone 16 - Google Places enrichment
 - [ ] Milestone 17 - Saved trips
 - [ ] Milestone 18 - Mapbox trip map
@@ -640,3 +640,57 @@ Open issues:
 
 Next milestone:
 - Milestone 15
+
+## Milestone 15 - Final Itinerary Generation
+
+Changed:
+- Added `lib/ai/itinerary.ts` with dependency-free validation for complete final-generation requests, response envelopes, and itinerary day-count matching.
+- Extended the final itinerary contract with required `estimatedPriceText` fields and activity `timeWindow` fields.
+- Added authenticated `/api/ai-itinerary` as a distinct final-generation route separate from conversational `/api/ai-model`.
+- Added `runOpenRouterFinalItinerary` to the server-only OpenRouter module with strict final itinerary JSON Schema output.
+- Added minimal/excluded reasoning controls and a larger token budget for final itinerary calls so structured JSON has enough output room.
+- Added final-generation reducer actions separate from conversational actions.
+- Added client-side final itinerary generation from `READY_FOR_FINAL`, with pending-state duplicate prevention, retry behavior, stale-response handling, and reset aborts.
+- Stored generated itineraries only in client state.
+- Rendered generated summaries, hotels, day-by-day activities, time windows, generated estimate text, and practical notes in the create-trip UI.
+- Labeled presented prices as generated estimates and kept Google Places, Convex persistence, Arcjet, Mapbox, and billing disconnected.
+- Updated architecture and decision docs for the final itinerary boundary and generated-estimate policy.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg --files app components lib docs`
+- `sed -n ... lib/ai/*.ts components/create-trip/*.tsx components/create-trip/*.ts`
+- `npm run lint`
+- `npm run build`
+- `npm run dev`
+- `curl -sS -o /tmp/m15-ai-itinerary-anon.html -D /tmp/m15-ai-itinerary-anon.headers -w '/api/ai-itinerary %{http_code}\n' -X POST http://localhost:3000/api/ai-itinerary ...`
+- `curl -sS -o /tmp/m15-home.html -w '/ %{http_code}\n' http://localhost:3000/`
+- `node ... environment presence check for OPEN_ROUTER_API_KEY and OPEN_ROUTER_MODEL`
+- `node --env-file=.env.local --experimental-strip-types --input-type=module ... three OpenRouter final itinerary smoke calls`
+- `node --env-file=.env.local --experimental-strip-types --input-type=module ... Bali final itinerary retry with minimal reasoning`
+- `node ... inline itinerary day-count mismatch validation smoke check`
+- `rg "convex|saveTrip|createTrip\\(|GOOGLE|Google Places|mapbox|Mapbox|arcjet|billing|CLERK_SECRET|OPEN_ROUTER_API_KEY" app/api/ai-itinerary components/create-trip lib/ai -n`
+
+Results:
+- `OPEN_ROUTER_API_KEY` is present by name.
+- `OPEN_ROUTER_MODEL` is present by name.
+- Signed-out `/api/ai-itinerary` returned HTTP 307 to `/sign-in`, verifying the route is not anonymously callable.
+- Public `/` returned HTTP 200.
+- Live final-generation smoke tests passed for Tokyo 3 days, Paris 2 days, and Bali 1 day.
+- Each passing live final-generation response parsed through the strict final itinerary schema and had itinerary day count matching requested duration.
+- The first Bali 1-day attempt hit provider `finishReason: length`; increasing final token budget and sending minimal/excluded reasoning produced a passing retry.
+- Inline day-count mismatch validation returned the clear error `generated itinerary day count did not match the requested duration`.
+- Source scan found no Convex persistence, Google Places integration, Mapbox integration, Arcjet integration, or billing enforcement in the final-generation path.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+
+Open issues:
+- Full authenticated browser E2E through Clerk still requires signing into the local app with a Clerk test user.
+- Generated hotels, prices, addresses, and place names are unverified model output until Google Places enrichment is implemented.
+- Final itinerary results are client-state only and are not persisted to Convex yet.
+- The Node live-smoke commands emitted the existing module-type warning because the project package is not marked as an ES module; no package metadata was changed.
+- If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
+
+Next milestone:
+- Milestone 16

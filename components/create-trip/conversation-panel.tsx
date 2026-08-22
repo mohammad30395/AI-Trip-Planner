@@ -26,11 +26,13 @@ type ConversationPanelProps = {
   onSelectBudget: (value: BudgetTier) => void
   onSubmitGroup: (value: GroupSelection) => void
   onConfirm: () => void
+  onGenerateFinal: () => void
   onReset: () => void
 }
 
 function ConversationPanel({
   onConfirm,
+  onGenerateFinal,
   onReset,
   onSelectBudget,
   onSubmitDestination,
@@ -41,6 +43,7 @@ function ConversationPanel({
   state,
 }: ConversationPanelProps) {
   const isComplete = state.currentStep === "readyForFinal"
+  const isBusy = state.isLoading || state.isGeneratingFinal
 
   return (
     <Card className="app-card min-w-0">
@@ -53,7 +56,13 @@ function ConversationPanel({
             </p>
           </div>
           <Badge variant={isComplete ? "default" : "secondary"}>
-            {state.isLoading ? "Thinking" : isComplete ? "Ready" : "Draft"}
+            {state.isGeneratingFinal
+              ? "Generating"
+              : state.isLoading
+                ? "Thinking"
+                : isComplete
+                  ? "Ready"
+                  : "Draft"}
           </Badge>
         </div>
       </CardHeader>
@@ -84,7 +93,7 @@ function ConversationPanel({
         ) : null}
 
         {renderGenerativeUI({
-          disabled: state.isLoading,
+          disabled: isBusy,
           selector,
           requirements: state.requirements,
           onSubmitSource,
@@ -93,13 +102,17 @@ function ConversationPanel({
           onSelectBudget,
           onSubmitGroup,
           onConfirm,
+          onGenerateFinal,
           onReset,
+          finalError: state.finalError,
+          finalItinerary: state.finalItinerary,
+          isGeneratingFinal: state.isGeneratingFinal,
         })}
       </CardContent>
       <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-between">
         <Button
           className="w-full sm:w-auto"
-          disabled={state.isLoading}
+          disabled={isBusy}
           type="button"
           variant="outline"
           onClick={onReset}

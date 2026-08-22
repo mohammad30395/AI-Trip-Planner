@@ -5,10 +5,12 @@ import type {
 import type {
   BudgetTier,
   ConversationalStepResponse,
+  FinalItineraryResponse,
   GenerativeUISelector,
   GroupType,
   NormalizedRequirementUpdate,
 } from "@/lib/ai/contract"
+import type { FinalItineraryRequirements } from "@/lib/ai/itinerary"
 
 export type { BudgetTier, GroupType } from "@/lib/ai/contract"
 
@@ -50,7 +52,10 @@ export type CreateTripState = {
   messages: ConversationMessage[]
   currentStep: TripRequirementStep
   isLoading: boolean
+  isGeneratingFinal: boolean
   error: string | null
+  finalError: string | null
+  finalItinerary: FinalItineraryResponse | null
 }
 
 export type CreateTripAction =
@@ -67,6 +72,9 @@ export type CreateTripAction =
   | { type: "aiRequestSucceeded"; response: ConversationalStepResponse }
   | { type: "aiRequestFailed"; error: string }
   | { type: "markReadyForFinal" }
+  | { type: "finalGenerationStarted" }
+  | { type: "finalGenerationSucceeded"; itinerary: FinalItineraryResponse }
+  | { type: "finalGenerationFailed"; error: string }
   | { type: "reset" }
 
 export const budgetOptions: Array<{
@@ -115,7 +123,10 @@ export const initialCreateTripState: CreateTripState = {
   requirements: initialRequirements,
   currentStep: "source",
   isLoading: false,
+  isGeneratingFinal: false,
   error: null,
+  finalError: null,
+  finalItinerary: null,
   messages: [
     {
       id: "assistant-source",
@@ -208,9 +219,28 @@ export function createTripReducer(
             id: `assistant-ready-${state.messages.length}`,
             role: "assistant",
             content:
-              "READY_FOR_FINAL: your trip brief is complete. The next milestone will generate the itinerary.",
+              "READY_FOR_FINAL: your trip brief is complete. Generate the final itinerary when you are ready.",
           },
         ],
+      }
+    case "finalGenerationStarted":
+      return {
+        ...state,
+        isGeneratingFinal: true,
+        finalError: null,
+      }
+    case "finalGenerationSucceeded":
+      return {
+        ...state,
+        isGeneratingFinal: false,
+        finalError: null,
+        finalItinerary: action.itinerary,
+      }
+    case "finalGenerationFailed":
+      return {
+        ...state,
+        isGeneratingFinal: false,
+        finalError: action.error,
       }
     case "reset":
       return initialCreateTripState
@@ -269,6 +299,23 @@ export function getCompactRequirements(
   }
 }
 
+export function getFinalItineraryRequirements(
+  requirements: TripRequirements
+): FinalItineraryRequirements | null {
+  if (!areRequirementsComplete(requirements)) {
+    return null
+  }
+
+  return {
+    source: requirements.source.trim(),
+    destination: requirements.destination.trim(),
+    durationDays: requirements.durationDays,
+    budgetTier: requirements.budgetTier,
+    groupSize: requirements.groupSize,
+    groupType: requirements.groupType,
+  }
+}
+
 export function getRecentConversationContext(
   messages: ConversationMessage[],
   nextUserMessage: string
@@ -296,7 +343,16 @@ export function getStepFromSelector(
   return selector
 }
 
-export function areRequirementsComplete(requirements: TripRequirements) {
+type CompleteTripRequirements = TripRequirements & {
+  durationDays: number
+  budgetTier: BudgetTier
+  groupSize: number
+  groupType: GroupType
+}
+
+export function areRequirementsComplete(
+  requirements: TripRequirements
+): requirements is CompleteTripRequirements {
   return (
     requirements.source.trim().length > 0 &&
     requirements.destination.trim().length > 0 &&

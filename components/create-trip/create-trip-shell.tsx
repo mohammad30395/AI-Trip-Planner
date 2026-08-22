@@ -4,6 +4,7 @@ import { useReducer, useRef } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { parseTripConversationResponseEnvelope } from "@/lib/ai/conversation"
+import { parseFinalItineraryResponseEnvelope } from "@/lib/ai/itinerary"
 
 import { ConversationPanel } from "./conversation-panel"
 import {
@@ -11,6 +12,7 @@ import {
   createTripReducer,
   getCurrentSelector,
   getCompactRequirements,
+  getFinalItineraryRequirements,
   getRecentConversationContext,
   initialCreateTripState,
   validateCurrentStep,
@@ -26,7 +28,9 @@ function CreateTripShell() {
     initialCreateTripState
   )
   const requestSequence = useRef(0)
+  const finalRequestSequence = useRef(0)
   const pendingController = useRef<AbortController | null>(null)
+  const pendingFinalController = useRef<AbortController | null>(null)
   const selector = getCurrentSelector(state.currentStep)
 
   async function submitRequirements(requirements: TripRequirements) {
@@ -119,10 +123,94 @@ function CreateTripShell() {
     }
   }
 
+  async function generateFinalItinerary() {
+    if (
+      state.isLoading ||
+      state.isGeneratingFinal ||
+      state.currentStep !== "readyForFinal"
+    ) {
+      return
+    }
+
+    const requirements = getFinalItineraryRequirements(state.requirements)
+
+    if (requirements === null) {
+      dispatch({
+        type: "finalGenerationFailed",
+        error: "Complete all trip requirements before generating an itinerary.",
+      })
+      return
+    }
+
+    const requestId = finalRequestSequence.current + 1
+    const controller = new AbortController()
+
+    finalRequestSequence.current = requestId
+    pendingFinalController.current?.abort()
+    pendingFinalController.current = controller
+
+    dispatch({ type: "finalGenerationStarted" })
+
+    try {
+      const response = await fetch("/api/ai-itinerary", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requirements,
+        }),
+        signal: controller.signal,
+      })
+
+      const responseBody: unknown = await response.json()
+      const parsedResponse = parseFinalItineraryResponseEnvelope(responseBody)
+
+      if (!response.ok || !parsedResponse.ok) {
+        throw new Error("Final itinerary response could not be used safely.")
+      }
+
+      if (finalRequestSequence.current !== requestId) {
+        return
+      }
+
+      dispatch({
+        type: "finalGenerationSucceeded",
+        itinerary: parsedResponse.data,
+      })
+    } catch (error) {
+      if (
+        controller.signal.aborted ||
+        finalRequestSequence.current !== requestId
+      ) {
+        return
+      }
+
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Final itinerary request diagnostic", {
+          name: error instanceof Error ? error.name : "UnknownError",
+        })
+      }
+
+      dispatch({
+        type: "finalGenerationFailed",
+        error:
+          "The final itinerary could not be generated safely. Your trip brief is preserved; try again.",
+      })
+    } finally {
+      if (finalRequestSequence.current === requestId) {
+        pendingFinalController.current = null
+      }
+    }
+  }
+
   function resetFlow() {
     requestSequence.current += 1
+    finalRequestSequence.current += 1
     pendingController.current?.abort()
+    pendingFinalController.current?.abort()
     pendingController.current = null
+    pendingFinalController.current = null
     dispatch({ type: "reset" })
   }
 
@@ -134,15 +222,17 @@ function CreateTripShell() {
           Create Trip
         </h1>
         <p className="app-muted mt-3 max-w-2xl leading-7">
-          Collect trip requirements with a server-side AI interviewer. Final
-          itinerary generation, saved trips, quota checks, billing, maps, and
-          place enrichment are intentionally not connected yet.
+          Collect trip requirements with a server-side AI interviewer, then
+          generate a typed itinerary after review. Saved trips, quota checks,
+          billing, maps, and place enrichment are intentionally not connected
+          yet.
         </p>
       </div>
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)] lg:items-start">
         <ConversationPanel
           onConfirm={() => submitRequirements(state.requirements)}
+          onGenerateFinal={generateFinalItinerary}
           onReset={resetFlow}
           onSelectBudget={(value: BudgetTier) =>
             submitRequirements({

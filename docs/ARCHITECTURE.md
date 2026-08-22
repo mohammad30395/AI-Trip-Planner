@@ -51,6 +51,12 @@ strict conversational schema. The client validates the response envelope again
 before choosing a pre-built UI component. Final itinerary generation remains
 disconnected; a complete brief transitions only to `READY_FOR_FINAL`.
 
+The `/api/ai-itinerary` route is the authenticated server boundary for final
+itinerary generation. It accepts complete normalized requirements only, requests
+the strict final itinerary schema, validates the model response server-side, and
+rejects mismatched itinerary day counts. Generated prices and place details are
+not verified facts until later Google Places enrichment.
+
 ## AI Contract Boundary
 
 Model responses must pass through the shared contract in `lib/ai/contract.ts`
@@ -61,7 +67,7 @@ The contract has two response classes:
   and optional normalized requirement updates for source, destination, duration,
   budget tier, group size, and group type.
 - Final itinerary response: `travelPlan`, summary, hotel recommendations, and
-  day-by-day itinerary activities.
+  day-by-day itinerary activities with generated estimate text.
 
 The JSON Schemas are strict and use `additionalProperties: false` for object
 shapes. Runtime parsers accept `unknown` data and return typed data or a clear

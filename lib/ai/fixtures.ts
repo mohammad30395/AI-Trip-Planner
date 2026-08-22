@@ -48,6 +48,7 @@ export const validFinalItineraryFixture: FinalItineraryResponse = {
         "Convenient base for rail access, restaurants, and evening walks.",
       area: "Shinjuku",
       priceTier: "mid-range",
+      estimatedPriceText: "Generated estimate: mid-range nightly pricing.",
     },
   ],
   itinerary: [
@@ -60,7 +61,9 @@ export const validFinalItineraryFixture: FinalItineraryResponse = {
           description:
             "Arrive, check in, and keep the first afternoon light after travel.",
           timeOfDay: "afternoon",
+          timeWindow: "Afternoon",
           duration: "2 hours",
+          estimatedPriceText: "Generated estimate: transit and snacks only.",
           place: {
             placeName: "Shinjuku Station area",
             approximateArea: "Shinjuku",

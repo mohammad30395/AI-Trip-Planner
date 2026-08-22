@@ -98,8 +98,8 @@ function TripPreviewPanel({ requirements, step }: TripPreviewPanelProps) {
         </CardHeader>
         <CardContent>
           <ul className="grid gap-2 text-sm text-muted-foreground">
-            <li>Final itinerary generation starts from READY_FOR_FINAL later.</li>
-            <li>Convex persistence saves confirmed trip drafts in a later milestone.</li>
+            <li>Final itinerary generation starts from READY_FOR_FINAL.</li>
+            <li>Convex persistence saves generated trips in a later milestone.</li>
             <li>Quota, billing, maps, and place enrichment stay disconnected.</li>
           </ul>
         </CardContent>

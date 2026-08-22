@@ -4,13 +4,16 @@ import OpenAI from "openai"
 
 import {
   conversationalStepResponseSchema,
+  finalItineraryResponseSchema,
   parseConversationalStepResponse,
+  parseFinalItineraryResponse,
   type ConversationalStepResponse,
+  type FinalItineraryResponse,
   type ValidationResult,
 } from "./contract"
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-const OPENROUTER_TIMEOUT_MS = 20_000
+const OPENROUTER_TIMEOUT_MS = 30_000
 const APP_TITLE = "AI Trip Planner"
 
 type OpenRouterConfig = {
@@ -23,12 +26,22 @@ type OpenRouterSmokeResult = {
   model: string
 }
 
+type OpenRouterFinalItineraryResult = {
+  response: FinalItineraryResponse
+  model: string
+}
+
 type OpenRouterConversationMessage = {
   role: "system" | "assistant" | "user"
   content: string
 }
 
 type OpenRouterConversationRequest = {
+  messages: OpenRouterConversationMessage[]
+  maxTokens?: number
+}
+
+type OpenRouterFinalItineraryRequest = {
   messages: OpenRouterConversationMessage[]
   maxTokens?: number
 }
@@ -206,6 +219,92 @@ async function runOpenRouterConversationStep(
   }
 }
 
+async function runOpenRouterFinalItinerary(
+  request: OpenRouterFinalItineraryRequest,
+  signal?: AbortSignal
+): Promise<ValidationResult<OpenRouterFinalItineraryResult>> {
+  const config = getOpenRouterConfig()
+  const client = createOpenRouterClient(config)
+
+  try {
+    const completion = await client.post<OpenRouterChatCompletionResponse>(
+      "/chat/completions",
+      {
+        body: {
+          model: config.model,
+          messages: request.messages,
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "final_itinerary_response",
+              strict: true,
+              schema: finalItineraryResponseSchema,
+            },
+          },
+          temperature: 0.4,
+          max_tokens: request.maxTokens ?? 8_000,
+          reasoning: {
+            effort: "minimal",
+            exclude: true,
+          },
+          provider: {
+            require_parameters: true,
+          },
+        },
+        signal,
+        timeout: OPENROUTER_TIMEOUT_MS,
+      }
+    )
+
+    const content = completion.choices?.[0]?.message?.content
+
+    if (!content) {
+      throw new OpenRouterProviderError("empty_response")
+    }
+
+    const parsedJson = parseJson(content)
+
+    if (!parsedJson.ok) {
+      return parsedJson
+    }
+
+    const parsedResponse = parseFinalItineraryResponse(parsedJson.data)
+
+    if (!parsedResponse.ok) {
+      return parsedResponse
+    }
+
+    return {
+      ok: true,
+      data: {
+        response: parsedResponse.data,
+        model: completion.model ?? "",
+      },
+    }
+  } catch (error) {
+    if (error instanceof OpenRouterProviderError) {
+      return {
+        ok: false,
+        error: error.message,
+      }
+    }
+
+    if (isAbortError(error)) {
+      return {
+        ok: false,
+        error: "OpenRouter final itinerary call timed out",
+      }
+    }
+
+    logSafeOpenRouterError(error)
+
+    return {
+      ok: false,
+      error: "OpenRouter provider call failed",
+    }
+  }
+}
+
 function parseJson(value: string): ValidationResult<unknown> {
   try {
     return {
@@ -249,6 +348,7 @@ function logSafeOpenRouterError(error: unknown) {
 export {
   OpenRouterConfigurationError,
   runOpenRouterConversationStep,
+  runOpenRouterFinalItinerary,
   runOpenRouterSmokeCall,
   OPENROUTER_TIMEOUT_MS,
   type OpenRouterConversationMessage,
