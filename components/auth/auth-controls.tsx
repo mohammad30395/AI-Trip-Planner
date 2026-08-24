@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 
 function AuthControls() {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex shrink-0 items-center gap-2">
       <Show when="signed-out">
         <Link
           href="/sign-in"

@@ -281,6 +281,7 @@ function LeafletTripMap({
         places.map((place) => [place.location.lat, place.location.lng])
       )
       map.fitBounds(bounds, {
+        animate: !prefersReducedMotion(),
         maxZoom: CANONICAL_PLACE_ZOOM,
         padding: [28, 28],
       })
@@ -317,9 +318,13 @@ function LeafletTripMap({
     }
 
     const location = marker.getLatLng()
-    map.flyTo(location, CANONICAL_PLACE_ZOOM, {
-      duration: 0.65,
-    })
+    if (prefersReducedMotion()) {
+      map.setView(location, CANONICAL_PLACE_ZOOM)
+    } else {
+      map.flyTo(location, CANONICAL_PLACE_ZOOM, {
+        duration: 0.65,
+      })
+    }
     marker.openPopup()
   }, [focusedProviderPlaceId])
 
@@ -328,7 +333,7 @@ function LeafletTripMap({
       <div
         ref={containerRef}
         aria-label={label}
-        className="h-72 w-full overflow-hidden rounded-lg border bg-muted/30 sm:h-96 lg:h-[28rem]"
+        className="h-64 w-full overflow-hidden rounded-lg border bg-muted/30 sm:h-80 lg:h-[28rem]"
         role="img"
       />
       <p className="app-muted text-xs">
@@ -376,12 +381,16 @@ function scrollPlaceCardIntoView(providerPlaceId: string) {
     if (placeCard.dataset.providerPlaceId === providerPlaceId) {
       placeCard.focus({ preventScroll: true })
       placeCard.scrollIntoView({
-        behavior: "smooth",
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
         block: "center",
       })
       return
     }
   }
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
 function getMapStatusText(lookupCount: number, placeCount: number) {

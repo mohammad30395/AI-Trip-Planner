@@ -1404,3 +1404,42 @@ Open issues:
 
 Next milestone:
 - Milestone 30
+
+## Milestone 30 - Responsive + Accessibility + Performance
+
+Changed:
+- Added explicit labels, helper descriptions, and error associations for the generated source, destination, duration, and group-size form controls.
+- Added accessible group labeling for budget and group-type selector button groups.
+- Tightened the public header for narrow screens with wrapping, truncation, and non-shrinking auth controls.
+- Reduced the default mobile/tablet Leaflet map height while preserving a larger desktop map.
+- Made map focus transitions respect `prefers-reduced-motion`: map focus uses `setView` instead of `flyTo`, card scrolling uses automatic scrolling, and CSS transitions/animations are minimized for reduced-motion users.
+- Confirmed existing protections for optional Geoapify images, OpenStreetMap attribution, Leaflet cleanup, popup text construction, and deduplicated place-enrichment requests remained intact.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/PROJECT_SPEC.md docs/ARCHITECTURE.md docs/DECISIONS.md docs/ENVIRONMENT.md docs/PROGRESS.md package.json`
+- `npm ls @playwright/test playwright lighthouse --depth=0 || true`
+- `which chromium; which chromium-browser; which google-chrome; which lighthouse; test -x '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' ...`
+- `sed -n ... components/create-trip/generative-ui.tsx components/trips/trip-map.tsx components/trips/place-enrichment.tsx components/trips/trip-presentation.tsx components/trips/my-trips-dashboard.tsx components/trips/saved-trip-detail.tsx components/landing/site-header.tsx components/auth/auth-controls.tsx app/globals.css`
+- `npm test`
+- `npm run lint`
+- `npm run build`
+- `npm run dev`
+- Headless Chrome responsive route/viewport check for `/`, `/pricing`, `/create-trip`, `/my-trips`, and `/view-trip/m30-smoke` at 360px, 768px, 1366px, and 1920px widths.
+
+Results:
+- `npm test` passed: 4 test files, 24 tests.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Headless Chrome found no horizontal overflow on `/` or `/pricing` at phone, tablet, laptop, or wide desktop widths.
+- Protected pages redirected to Clerk sign-in at all tested widths when no browser session was present, as expected.
+- Lighthouse was not run because no local `lighthouse` package or command is installed, and this milestone does not allow adding dependencies.
+- Playwright was not run because no local Playwright dependency is installed, and this milestone does not allow adding dependencies.
+
+Open issues:
+- Authenticated responsive browser testing still needs a signed-in Clerk session and saved trips: complete `/create-trip`, `/my-trips`, and `/view-trip/[tripId]` visual checks with real Convex data, including Leaflet map rendering, marker/card focus, and attribution readability.
+- Lighthouse diagnostics can be added later if a performance audit dependency/tooling is approved.
+- Public OpenStreetMap standard tiles remain for development/modest use; production traffic should re-evaluate tile-provider capacity before launch.
+
+Next milestone:
+- Milestone 31

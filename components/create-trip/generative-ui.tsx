@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useId, useState } from "react"
 import Link from "next/link"
 
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -167,6 +167,9 @@ function SourceDestinationInputUI({
   disabled,
   onSubmit,
 }: SourceDestinationInputUIProps) {
+  const inputId = useId()
+  const helperId = `${inputId}-helper`
+  const errorId = `${inputId}-error`
   const [draft, setDraft] = useState(value)
   const [error, setError] = useState<string | null>(null)
 
@@ -187,10 +190,16 @@ function SourceDestinationInputUI({
         onSubmit(normalizedDraft)
       }}
     >
-      <FieldText label={label} helper={helper} />
+      <FieldText
+        htmlFor={inputId}
+        helper={helper}
+        helperId={helperId}
+        label={label}
+      />
       <Input
+        id={inputId}
+        aria-describedby={error === null ? helperId : `${helperId} ${errorId}`}
         aria-invalid={error !== null}
-        aria-label={label}
         autoComplete="off"
         disabled={disabled}
         placeholder={placeholder}
@@ -200,7 +209,7 @@ function SourceDestinationInputUI({
           setError(null)
         }}
       />
-      {error !== null ? <InlineError message={error} /> : null}
+      {error !== null ? <InlineError id={errorId} message={error} /> : null}
       <Button className="w-full sm:w-fit" disabled={disabled} type="submit">
         Use {label}
       </Button>
@@ -219,6 +228,9 @@ function DurationSelectionUI({
   value,
   onSubmit,
 }: DurationSelectionUIProps) {
+  const inputId = useId()
+  const helperId = `${inputId}-helper`
+  const errorId = `${inputId}-error`
   const [draft, setDraft] = useState(value?.toString() ?? "")
   const [error, setError] = useState<string | null>(null)
 
@@ -244,10 +256,16 @@ function DurationSelectionUI({
         onSubmit(parsedDuration)
       }}
     >
-      <FieldText label="Duration" helper="Enter 1 to 30 days." />
+      <FieldText
+        htmlFor={inputId}
+        helper="Enter 1 to 30 days."
+        helperId={helperId}
+        label="Duration"
+      />
       <Input
+        id={inputId}
+        aria-describedby={error === null ? helperId : `${helperId} ${errorId}`}
         aria-invalid={error !== null}
-        aria-label="Duration in days"
         disabled={disabled}
         inputMode="numeric"
         min={1}
@@ -260,7 +278,7 @@ function DurationSelectionUI({
           setError(null)
         }}
       />
-      {error !== null ? <InlineError message={error} /> : null}
+      {error !== null ? <InlineError id={errorId} message={error} /> : null}
       <Button className="w-full sm:w-fit" disabled={disabled} type="submit">
         Use Duration
       </Button>
@@ -275,10 +293,20 @@ type BudgetUIProps = {
 }
 
 function BudgetUI({ disabled, value, onSelect }: BudgetUIProps) {
+  const labelId = useId()
+
   return (
     <div className="grid gap-3">
-      <FieldText label="Budget tier" helper="Choose the planning style." />
-      <div className="grid gap-2 sm:grid-cols-3" role="group" aria-label="Budget tier">
+      <FieldText
+        helper="Choose the planning style."
+        label="Budget tier"
+        labelId={labelId}
+      />
+      <div
+        className="grid gap-2 sm:grid-cols-3"
+        role="group"
+        aria-labelledby={labelId}
+      >
         {budgetOptions.map((option) => {
           const isSelected = value === option.value
 
@@ -325,6 +353,10 @@ function GroupSizeUI({
   groupType,
   onSubmit,
 }: GroupSizeUIProps) {
+  const groupTypeLabelId = useId()
+  const inputId = useId()
+  const helperId = `${inputId}-helper`
+  const errorId = `${inputId}-error`
   const [selectedType, setSelectedType] = useState<GroupType | null>(groupType)
   const [draftSize, setDraftSize] = useState(groupSize?.toString() ?? "")
   const [error, setError] = useState<string | null>(null)
@@ -360,8 +392,16 @@ function GroupSizeUI({
       }}
     >
       <div className="grid gap-2">
-        <FieldText label="Group type" helper="Pick the closest match." />
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Group type">
+        <FieldText
+          helper="Pick the closest match."
+          label="Group type"
+          labelId={groupTypeLabelId}
+        />
+        <div
+          className="flex flex-wrap gap-2"
+          role="group"
+          aria-labelledby={groupTypeLabelId}
+        >
           {groupTypeOptions.map((option) => (
             <Button
               key={option.value}
@@ -380,10 +420,16 @@ function GroupSizeUI({
         </div>
       </div>
       <div className="grid gap-2">
-        <FieldText label="Group size" helper="Enter 1 to 20 travelers." />
+        <FieldText
+          htmlFor={inputId}
+          helper="Enter 1 to 20 travelers."
+          helperId={helperId}
+          label="Group size"
+        />
         <Input
+          id={inputId}
+          aria-describedby={error === null ? helperId : `${helperId} ${errorId}`}
           aria-invalid={error !== null}
-          aria-label="Group size"
           disabled={disabled}
           inputMode="numeric"
           min={1}
@@ -397,7 +443,7 @@ function GroupSizeUI({
           }}
         />
       </div>
-      {error !== null ? <InlineError message={error} /> : null}
+      {error !== null ? <InlineError id={errorId} message={error} /> : null}
       <Button className="w-full sm:w-fit" disabled={disabled} type="submit">
         Use Travelers
       </Button>
@@ -748,18 +794,45 @@ function UnknownSelectorFallback({ selector }: { selector: string }) {
   )
 }
 
-function FieldText({ helper, label }: { helper: string; label: string }) {
+function FieldText({
+  helper,
+  helperId,
+  htmlFor,
+  label,
+  labelId,
+}: {
+  helper: string
+  helperId?: string
+  htmlFor?: string
+  label: string
+  labelId?: string
+}) {
+  const labelClassName = "text-sm font-medium"
+
   return (
     <div>
-      <p className="text-sm font-medium">{label}</p>
-      <p className="app-muted mt-1 text-xs">{helper}</p>
+      {htmlFor === undefined ? (
+        <p className={labelClassName} id={labelId}>
+          {label}
+        </p>
+      ) : (
+        <label className={labelClassName} htmlFor={htmlFor} id={labelId}>
+          {label}
+        </label>
+      )}
+      <p className="app-muted mt-1 text-xs" id={helperId}>
+        {helper}
+      </p>
     </div>
   )
 }
 
-function InlineError({ message }: { message: string }) {
+function InlineError({ id, message }: { id?: string; message: string }) {
   return (
-    <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+    <p
+      className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+      id={id}
+    >
       {message}
     </p>
   )

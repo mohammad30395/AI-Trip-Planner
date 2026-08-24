@@ -11,16 +11,16 @@ const navItems = [
 function SiteHeader() {
   return (
     <header className="sticky top-0 z-20 border-b bg-background/90 backdrop-blur">
-      <AppContainer className="flex min-h-16 items-center justify-between gap-4 py-3">
+      <AppContainer className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-3">
         <Link
           href="/"
-          className="app-focus-ring inline-flex items-center gap-3 rounded-md"
+          className="app-focus-ring inline-flex min-w-0 items-center gap-3 rounded-md"
           aria-label="AI Trip Planner home"
         >
           <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground">
             AI
           </span>
-          <span className="font-heading text-base font-semibold tracking-tight">
+          <span className="max-w-[9rem] truncate font-heading text-base font-semibold tracking-tight sm:max-w-none">
             AI Trip Planner
           </span>
         </Link>
