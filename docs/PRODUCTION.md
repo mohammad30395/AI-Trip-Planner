@@ -24,13 +24,21 @@ It also sets the Vercel Install Command to:
 npm ci
 ```
 
-The script runs:
+The script runs this when `CONVEX_DEPLOY_KEY` is configured:
 
 ```bash
 convex deploy --cmd "npm run build" --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL
 ```
 
 This follows the current Convex Vercel deployment pattern while explicitly matching the public Convex URL variable used by the Next.js client.
+
+If `CONVEX_DEPLOY_KEY` is not configured but `NEXT_PUBLIC_CONVEX_URL` is
+configured, the script runs `npm run build` as a fallback. That fallback only
+builds the Next.js frontend; Convex functions must already be deployed
+separately.
+
+If neither `CONVEX_DEPLOY_KEY` nor `NEXT_PUBLIC_CONVEX_URL` is configured, the
+build fails early with a clear Convex configuration error.
 
 If the Vercel dashboard has a project-level Build Command override, make sure
 it also uses `npm run build:vercel`. A plain `npm run build` deployment will
@@ -48,7 +56,7 @@ Client-safe:
 - `NEXT_PUBLIC_CLERK_SIGN_UP_URL`
 - `NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL`
 - `NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL`
-- `NEXT_PUBLIC_CONVEX_URL` generated for the build by `convex deploy`
+- `NEXT_PUBLIC_CONVEX_URL` generated for the build by `convex deploy`, or manually configured only when Convex functions are deployed separately
 
 Server-only:
 
@@ -64,7 +72,9 @@ Build/CI-only:
 
 `CONVEX_DEPLOY_KEY` is required for Vercel builds that use
 `npm run build:vercel`. Without it, Convex cannot deploy functions or inject
-`NEXT_PUBLIC_CONVEX_URL` into the Next.js build.
+`NEXT_PUBLIC_CONVEX_URL` into the Next.js build. The only supported alternative
+is to deploy Convex separately and configure `NEXT_PUBLIC_CONVEX_URL` manually
+in Vercel.
 
 Not required and must not be added:
 

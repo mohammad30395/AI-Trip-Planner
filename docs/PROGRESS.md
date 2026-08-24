@@ -1510,6 +1510,11 @@ Next milestone:
 Changed:
 - Added `vercel.json` so Vercel uses `npm run build:vercel` instead of the default plain `npm run build`.
 - Added an explicit Vercel install command of `npm ci` so dependency installation follows the committed lockfile.
+- Replaced the direct Convex deploy package script with `scripts/vercel-build.mjs`.
+- The Vercel build script now supports two deployment paths:
+  - preferred: `CONVEX_DEPLOY_KEY` is set, so Convex deploys and injects `NEXT_PUBLIC_CONVEX_URL`;
+  - fallback: `NEXT_PUBLIC_CONVEX_URL` is set manually, so Next.js builds while Convex functions are assumed to be deployed separately.
+- If neither Convex variable is configured, the build fails early with a concise configuration message.
 - Clarified the Convex client missing-URL error so Vercel build failures point to `CONVEX_DEPLOY_KEY` and the Convex-aware build command.
 - Updated `docs/PRODUCTION.md` to explain that `NEXT_PUBLIC_CONVEX_URL` is injected by `convex deploy`, dashboard build-command overrides must also use `npm run build:vercel`, dashboard install-command overrides should use `npm ci`, and Vercel should redeploy without build cache after changing build settings.
 
@@ -1522,24 +1527,30 @@ Commands run:
 - Official Vercel `vercel.json` build command documentation lookup
 - Official Convex Vercel deployment documentation lookup
 - `npm ci`
+- `node --check scripts/vercel-build.mjs`
 - `npm test`
 - `npm run lint`
 - `npm run build`
+- `NEXT_PUBLIC_CONVEX_URL=http://127.0.0.1:3210 npm run build:vercel`
+- `env -u CONVEX_DEPLOY_KEY -u NEXT_PUBLIC_CONVEX_URL node scripts/vercel-build.mjs; exit_code=$?; printf 'expected_exit=%s\n' "$exit_code"; test "$exit_code" -eq 1`
 - `node -e "JSON.parse(require('node:fs').readFileSync('vercel.json','utf8')); console.log('vercel.json valid JSON')"`
 
 Results:
 - `npm ci` passed locally on Node.js 24/npm 11; the visible Vercel `eslint` line is a warning, not a fatal error.
+- `node --check scripts/vercel-build.mjs` passed.
 - `npm test` passed: 4 test files, 24 tests.
 - `npm run lint` passed.
 - `npm run build` passed with Next.js 16.3.2.
+- `npm run build:vercel` passed through the manual `NEXT_PUBLIC_CONVEX_URL` fallback path using a non-secret local placeholder URL.
+- The no-Convex-config path exits with code 1 and prints only variable names, not values.
 - `vercel.json` is valid JSON.
 - No deployment was run and no secret values were printed.
 
 Open issues:
-- Vercel must have `CONVEX_DEPLOY_KEY` configured. Without it, `npm run build:vercel` cannot deploy Convex or inject `NEXT_PUBLIC_CONVEX_URL`.
+- Preferred Vercel setup: configure `CONVEX_DEPLOY_KEY` so Convex deploys during `npm run build:vercel`.
+- Fallback Vercel setup: configure `NEXT_PUBLIC_CONVEX_URL` manually only if Convex functions are deployed separately.
 - If the Vercel dashboard has an explicit Build Command override, set it to `npm run build:vercel` or remove the override so `vercel.json` controls it.
 - If the Vercel dashboard has an explicit Install Command override, set it to `npm ci` or remove the override so `vercel.json` controls it.
-- If Vercel still fails during dependency installation, copy the full build log lines after the `eslint@9.39.5` warning; the screenshot does not show the actual fatal error.
 
 Next milestone:
 - Milestone 32

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:vercel": "convex deploy --cmd \"npm run build\" --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL",
+    "build:vercel": "node scripts/vercel-build.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
