@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 
+import { Button } from "@/components/ui/button"
 import {
   getGeoapifyAttribution,
   parsePlaceEnrichmentResponseEnvelope,
@@ -28,6 +29,21 @@ type PlaceEnrichmentStatus =
       status: "error"
       message: string
     }
+
+type PlaceEnrichmentLookupInput = {
+  id: string
+  request: PlaceEnrichmentRequest
+}
+
+type PlaceEnrichmentLookupStatus = {
+  id: string
+  status: PlaceEnrichmentStatus
+}
+
+type PlaceMapControls = {
+  focusedProviderPlaceId: string | null
+  onFocusPlace: (providerPlaceId: string) => void
+}
 
 const placeLookupCache = new Map<string, Promise<PlaceEnrichmentStatus>>()
 
@@ -63,13 +79,71 @@ function usePlaceEnrichment(
   return state
 }
 
+function usePlaceEnrichments(
+  lookups: readonly PlaceEnrichmentLookupInput[]
+): PlaceEnrichmentLookupStatus[] {
+  const lookupEntries = useMemo(
+    () =>
+      lookups.map((lookup) => ({
+        ...lookup,
+        cacheKey: buildPlaceEnrichmentCacheKey(lookup.request),
+      })),
+    [lookups]
+  )
+  const [resultsByCacheKey, setResultsByCacheKey] = useState<
+    Record<string, PlaceEnrichmentStatus>
+  >({})
+
+  useEffect(() => {
+    if (lookupEntries.length === 0) {
+      return
+    }
+
+    let isActive = true
+
+    Promise.all(
+      lookupEntries.map((entry) =>
+        getCachedPlaceEnrichment(entry.cacheKey, entry.request).then((result) => ({
+          cacheKey: entry.cacheKey,
+          result,
+        }))
+      )
+    ).then((results) => {
+      if (!isActive) {
+        return
+      }
+
+      setResultsByCacheKey((currentResults) => {
+        const nextResults = { ...currentResults }
+
+        for (const result of results) {
+          nextResults[result.cacheKey] = result.result
+        }
+
+        return nextResults
+      })
+    })
+
+    return () => {
+      isActive = false
+    }
+  }, [lookupEntries])
+
+  return lookupEntries.map((entry) => ({
+    id: entry.id,
+    status: resultsByCacheKey[entry.cacheKey] ?? { status: "loading" },
+  }))
+}
+
 function HotelPlaceEnrichment({
   address,
   destination,
+  mapControls,
   name,
 }: {
   address: string | null
   destination: string
+  mapControls?: PlaceMapControls
   name: string
 }) {
   const request = useMemo<PlaceEnrichmentRequest>(
@@ -81,18 +155,26 @@ function HotelPlaceEnrichment({
     [address, destination, name]
   )
 
-  return <PlaceEnrichmentPanel label="Hotel place enrichment" request={request} />
+  return (
+    <PlaceEnrichmentPanel
+      label="Hotel place enrichment"
+      mapControls={mapControls}
+      request={request}
+    />
+  )
 }
 
 function ActivityPlaceEnrichment({
   address,
   approximateArea,
   destination,
+  mapControls,
   placeName,
 }: {
   address: string | null
   approximateArea: string | null
   destination: string
+  mapControls?: PlaceMapControls
   placeName: string | null
 }) {
   const request = useMemo<PlaceEnrichmentRequest | null>(() => {
@@ -112,6 +194,7 @@ function ActivityPlaceEnrichment({
     <PlaceEnrichmentPanel
       emptyMessage="No canonical place lookup is available for this activity yet."
       label="Activity place enrichment"
+      mapControls={mapControls}
       request={request}
     />
   )
@@ -120,10 +203,12 @@ function ActivityPlaceEnrichment({
 function PlaceEnrichmentPanel({
   emptyMessage = "No matching canonical place was found.",
   label,
+  mapControls,
   request,
 }: {
   emptyMessage?: string
   label: string
+  mapControls?: PlaceMapControls
   request: PlaceEnrichmentRequest | null
 }) {
   const state = usePlaceEnrichment(request)
@@ -160,12 +245,27 @@ function PlaceEnrichmentPanel({
     )
   }
 
-  return <CanonicalPlaceDetails place={state.place} />
+  return <CanonicalPlaceDetails mapControls={mapControls} place={state.place} />
 }
 
-function CanonicalPlaceDetails({ place }: { place: PlaceEnrichment }) {
+function CanonicalPlaceDetails({
+  mapControls,
+  place,
+}: {
+  mapControls: PlaceMapControls | undefined
+  place: PlaceEnrichment
+}) {
+  const isFocused =
+    mapControls?.focusedProviderPlaceId === place.providerPlaceId
+
   return (
-    <div className="overflow-hidden rounded-lg border bg-muted/10">
+    <div
+      data-provider-place-id={place.providerPlaceId}
+      className={`overflow-hidden rounded-lg border bg-muted/10 transition-shadow ${
+        isFocused ? "ring-3 ring-ring/40" : ""
+      }`}
+      tabIndex={-1}
+    >
       <ProviderImage displayName={place.displayName} imageUrl={place.image?.url} />
       <div className="grid gap-3 p-3">
         <div>
@@ -185,6 +285,20 @@ function CanonicalPlaceDetails({ place }: { place: PlaceEnrichment }) {
             )}`}
           />
         </dl>
+        {mapControls !== undefined ? (
+          <div>
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => {
+                mapControls.onFocusPlace(place.providerPlaceId)
+              }}
+            >
+              Show on map
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -365,5 +479,9 @@ export {
   buildPlaceEnrichmentCacheKey,
   getSafeHttpsImageUrl,
   usePlaceEnrichment,
+  usePlaceEnrichments,
+  type PlaceEnrichmentLookupInput,
+  type PlaceEnrichmentLookupStatus,
   type PlaceEnrichmentStatus,
+  type PlaceMapControls,
 }

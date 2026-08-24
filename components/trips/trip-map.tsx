@@ -1,7 +1,12 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
-import type { Map as LeafletMap } from "leaflet"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type {
+  DivIcon,
+  LayerGroup,
+  Map as LeafletMap,
+  Marker,
+} from "leaflet"
 
 import {
   Card,
@@ -10,17 +15,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { usePlaceEnrichment } from "@/components/trips/place-enrichment"
-import type { PlaceEnrichmentRequest } from "@/lib/places/place-enrichment"
+import { usePlaceEnrichments } from "@/components/trips/place-enrichment"
+import {
+  buildMappablePlaces,
+  type TripMapLookup,
+  type TripMappablePlace,
+} from "@/lib/trips/map"
 
 type MapLocation = {
   lat: number
   lng: number
-}
-
-type TripMapLookup = {
-  label: string
-  request: PlaceEnrichmentRequest
 }
 
 const OSM_STANDARD_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -33,16 +37,45 @@ const GLOBAL_FALLBACK_CENTER = {
 const CANONICAL_PLACE_ZOOM = 13
 const GLOBAL_FALLBACK_ZOOM = 2
 
-function TripMapSection({ lookup }: { lookup: TripMapLookup | null }) {
-  const request = useMemo(() => lookup?.request ?? null, [lookup])
-  const enrichment = usePlaceEnrichment(request)
-  const center =
-    enrichment.status === "success"
-      ? enrichment.place.location
-      : GLOBAL_FALLBACK_CENTER
-  const zoom =
-    enrichment.status === "success" ? CANONICAL_PLACE_ZOOM : GLOBAL_FALLBACK_ZOOM
-  const statusText = getMapStatusText(lookup, enrichment.status)
+function TripMapSection({
+  focusedProviderPlaceId,
+  lookups,
+  onMarkerFocus,
+}: {
+  focusedProviderPlaceId: string | null
+  lookups: TripMapLookup[]
+  onMarkerFocus: (providerPlaceId: string) => void
+}) {
+  const lookupStatuses = usePlaceEnrichments(
+    useMemo(
+      () =>
+        lookups.map((lookup) => ({
+          id: lookup.id,
+          request: lookup.request,
+        })),
+      [lookups]
+    )
+  )
+  const places = useMemo(() => {
+    const lookupsById = new Map(
+      lookups.map((lookup) => [lookup.id, lookup] as const)
+    )
+    const enrichedLookups = lookupStatuses.flatMap((result) => {
+      const lookup = lookupsById.get(result.id)
+
+      if (lookup === undefined || result.status.status !== "success") {
+        return []
+      }
+
+      return {
+        lookup,
+        place: result.status.place,
+      }
+    })
+
+    return buildMappablePlaces(enrichedLookups)
+  }, [lookupStatuses, lookups])
+  const statusText = getMapStatusText(lookups.length, places.length)
 
   return (
     <section aria-labelledby="trip-map" className="grid gap-4">
@@ -62,13 +95,14 @@ function TripMapSection({ lookup }: { lookup: TripMapLookup | null }) {
         </CardHeader>
         <CardContent>
           <LeafletTripMap
-            center={center}
+            focusedProviderPlaceId={focusedProviderPlaceId}
             label={
-              enrichment.status === "success"
-                ? `Leaflet trip map centered on ${enrichment.place.displayName}`
+              places.length > 0
+                ? "Leaflet trip map with canonical Geoapify itinerary markers"
                 : "Leaflet trip map using global fallback center"
             }
-            zoom={zoom}
+            onMarkerFocus={onMarkerFocus}
+            places={places}
           />
         </CardContent>
       </Card>
@@ -77,21 +111,29 @@ function TripMapSection({ lookup }: { lookup: TripMapLookup | null }) {
 }
 
 function LeafletTripMap({
-  center,
+  focusedProviderPlaceId,
   label,
-  zoom,
+  onMarkerFocus,
+  places,
 }: {
-  center: MapLocation
+  focusedProviderPlaceId: string | null
   label: string
-  zoom: number
+  onMarkerFocus: (providerPlaceId: string) => void
+  places: TripMappablePlace[]
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<LeafletMap | null>(null)
-  const latestViewRef = useRef({ center, zoom })
+  const markerLayerRef = useRef<LayerGroup | null>(null)
+  const markersByProviderIdRef = useRef<Map<string, Marker>>(new Map())
+  const markerIconRef = useRef<DivIcon | null>(null)
+  const [leafletModule, setLeafletModule] = useState<
+    typeof import("leaflet") | null
+  >(null)
 
   useEffect(() => {
     let disposed = false
     let animationFrame: number | null = null
+    const markersByProviderId = markersByProviderIdRef.current
 
     async function initializeMap() {
       if (containerRef.current === null || mapRef.current !== null) {
@@ -104,13 +146,15 @@ function LeafletTripMap({
         return
       }
 
-      const initialView = latestViewRef.current
       const map = leaflet
         .map(containerRef.current, {
           attributionControl: true,
           zoomControl: true,
         })
-        .setView([initialView.center.lat, initialView.center.lng], initialView.zoom)
+        .setView(
+          [GLOBAL_FALLBACK_CENTER.lat, GLOBAL_FALLBACK_CENTER.lng],
+          GLOBAL_FALLBACK_ZOOM
+        )
 
       leaflet
         .tileLayer(OSM_STANDARD_TILE_URL, {
@@ -120,6 +164,13 @@ function LeafletTripMap({
         .addTo(map)
 
       mapRef.current = map
+      markerIconRef.current = leaflet.divIcon({
+        className: "trip-map-marker",
+        iconAnchor: [14, 28],
+        iconSize: [28, 28],
+        popupAnchor: [0, -28],
+      })
+      setLeafletModule(leaflet)
       animationFrame = window.requestAnimationFrame(() => {
         if (!disposed && mapRef.current === map) {
           map.invalidateSize()
@@ -134,27 +185,67 @@ function LeafletTripMap({
       if (animationFrame !== null) {
         window.cancelAnimationFrame(animationFrame)
       }
+      markerLayerRef.current?.remove()
+      markerLayerRef.current = null
+      markersByProviderId.clear()
       mapRef.current?.remove()
       mapRef.current = null
+      setLeafletModule(null)
     }
   }, [])
 
   useEffect(() => {
-    latestViewRef.current = {
-      center: {
-        lat: center.lat,
-        lng: center.lng,
-      },
-      zoom,
-    }
-
     const map = mapRef.current
 
-    if (map === null) {
+    if (map === null || leafletModule === null || markerIconRef.current === null) {
       return
     }
 
-    map.setView([center.lat, center.lng], zoom)
+    markerLayerRef.current?.remove()
+    markerLayerRef.current = null
+    markersByProviderIdRef.current.clear()
+
+    if (places.length === 0) {
+      map.setView(
+        [GLOBAL_FALLBACK_CENTER.lat, GLOBAL_FALLBACK_CENTER.lng],
+        GLOBAL_FALLBACK_ZOOM
+      )
+      return
+    }
+
+    const markerLayer = leafletModule.layerGroup().addTo(map)
+    markerLayerRef.current = markerLayer
+
+    for (const place of places) {
+      const marker = leafletModule
+        .marker([place.location.lat, place.location.lng], {
+          icon: markerIconRef.current,
+          title: place.displayName,
+        })
+        .bindPopup(buildSafePopupContent(place))
+
+      marker.on("click", () => {
+        onMarkerFocus(place.providerPlaceId)
+        scrollPlaceCardIntoView(place.providerPlaceId)
+      })
+
+      marker.addTo(markerLayer)
+      markersByProviderIdRef.current.set(place.providerPlaceId, marker)
+    }
+
+    if (places.length === 1) {
+      const place = places[0]
+      map.setView([place.location.lat, place.location.lng], CANONICAL_PLACE_ZOOM)
+    } else {
+      const bounds = leafletModule.latLngBounds(
+        places.map((place) => [place.location.lat, place.location.lng])
+      )
+      map.fitBounds(bounds, {
+        maxZoom: CANONICAL_PLACE_ZOOM,
+        padding: [28, 28],
+      })
+    }
+
     const animationFrame = window.requestAnimationFrame(() => {
       if (mapRef.current === map) {
         map.invalidateSize()
@@ -163,8 +254,34 @@ function LeafletTripMap({
 
     return () => {
       window.cancelAnimationFrame(animationFrame)
+      markerLayer.eachLayer((layer) => {
+        layer.off()
+      })
+      markerLayer.remove()
+      if (markerLayerRef.current === markerLayer) {
+        markerLayerRef.current = null
+      }
     }
-  }, [center.lat, center.lng, zoom])
+  }, [leafletModule, onMarkerFocus, places])
+
+  useEffect(() => {
+    if (focusedProviderPlaceId === null) {
+      return
+    }
+
+    const map = mapRef.current
+    const marker = markersByProviderIdRef.current.get(focusedProviderPlaceId)
+
+    if (map === null || marker === undefined) {
+      return
+    }
+
+    const location = marker.getLatLng()
+    map.flyTo(location, CANONICAL_PLACE_ZOOM, {
+      duration: 0.65,
+    })
+    marker.openPopup()
+  }, [focusedProviderPlaceId])
 
   return (
     <div className="grid gap-2">
@@ -182,23 +299,59 @@ function LeafletTripMap({
   )
 }
 
-function getMapStatusText(
-  lookup: TripMapLookup | null,
-  status: ReturnType<typeof usePlaceEnrichment>["status"]
-) {
-  if (lookup === null) {
+function buildSafePopupContent(place: TripMappablePlace) {
+  const container = document.createElement("div")
+  container.className = "grid gap-1 text-sm"
+
+  const title = document.createElement("p")
+  title.className = "font-medium"
+  title.textContent = place.displayName
+  container.append(title)
+
+  const day = document.createElement("p")
+  day.className = "text-xs text-muted-foreground"
+  day.textContent = place.dayLabel
+  container.append(day)
+
+  const address = document.createElement("p")
+  address.className = "text-xs text-muted-foreground"
+  address.textContent = place.formattedAddress
+  container.append(address)
+
+  return container
+}
+
+function scrollPlaceCardIntoView(providerPlaceId: string) {
+  const placeCards = document.querySelectorAll<HTMLElement>(
+    "[data-provider-place-id]"
+  )
+
+  for (const placeCard of placeCards) {
+    if (placeCard.dataset.providerPlaceId === providerPlaceId) {
+      placeCard.focus({ preventScroll: true })
+      placeCard.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      })
+      return
+    }
+  }
+}
+
+function getMapStatusText(lookupCount: number, placeCount: number) {
+  if (lookupCount === 0) {
     return "No saved place query is available yet, so the map uses a documented global fallback."
   }
 
-  if (status === "success") {
-    return `Centered on canonical coordinates for ${lookup.label}.`
+  if (placeCount === 0) {
+    return "Looking up canonical Geoapify coordinates. Places without verified coordinates are skipped."
   }
 
-  if (status === "loading") {
-    return `Looking up canonical Geoapify coordinates for ${lookup.label}.`
+  if (placeCount === 1) {
+    return "Showing 1 verified itinerary place. Select a trip card to focus it on the map."
   }
 
-  return "Canonical coordinates are unavailable, so the map uses a documented global fallback."
+  return `Showing ${placeCount} verified itinerary places. Select a trip card to focus it on the map.`
 }
 
-export { TripMapSection, type TripMapLookup }
+export { TripMapSection }

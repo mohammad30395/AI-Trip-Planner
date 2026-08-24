@@ -139,11 +139,14 @@ AI/model-generated coordinates remain non-authoritative hints only.
 
 Map code uses normalized Geoapify coordinates as its canonical input, then
 renders them through a Leaflet client component with an OpenStreetMap-compatible
-tile layer. The current map centers on one canonical enriched place when
-available and falls back to a documented global center when enrichment is
-unavailable. It does not render itinerary markers or popups yet. Downstream map
-code must consume provider-neutral place data and must never depend on raw
-Geoapify JSON.
+tile layer. The map builds a client-side list of enriched itinerary places,
+skips places without verified provider coordinates, deduplicates by
+`providerPlaceId`, and renders one project-owned `divIcon` marker per unique
+place. Popups are built with DOM text nodes rather than injected AI HTML.
+Trip cards can focus the map, and marker clicks can focus/scroll the matching
+card without using client-supplied authorization or raw provider payloads.
+Downstream map code must consume provider-neutral place data and must never
+depend on raw Geoapify JSON.
 
 The application owns the base-map tile URL configuration. User input must never
 be accepted as a tile URL or provider URL. Public OpenStreetMap standard tiles,

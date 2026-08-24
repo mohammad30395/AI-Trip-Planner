@@ -1,3 +1,7 @@
+"use client"
+
+import { useMemo, useState } from "react"
+
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -11,10 +15,8 @@ import {
   HotelPlaceEnrichment,
   PlaceAttributionNotice,
 } from "@/components/trips/place-enrichment"
-import {
-  TripMapSection,
-  type TripMapLookup,
-} from "@/components/trips/trip-map"
+import { TripMapSection } from "@/components/trips/trip-map"
+import { buildTripMapLookups } from "@/lib/trips/map"
 import type {
   PresentedActivity,
   PresentedHotel,
@@ -22,7 +24,14 @@ import type {
 } from "@/lib/trips/presentation"
 
 function TripPresentation({ trip }: { trip: TripPresentationData }) {
-  const mapLookup = getPrimaryTripMapLookup(trip)
+  const [focusedProviderPlaceId, setFocusedProviderPlaceId] = useState<
+    string | null
+  >(null)
+  const mapLookups = useMemo(() => buildTripMapLookups(trip), [trip])
+  const mapControls = {
+    focusedProviderPlaceId,
+    onFocusPlace: setFocusedProviderPlaceId,
+  }
 
   return (
     <article className="grid max-w-5xl gap-6">
@@ -31,9 +40,21 @@ function TripPresentation({ trip }: { trip: TripPresentationData }) {
         practicalNotes={trip.practicalNotes}
         summary={trip.summary}
       />
-      <TripMapSection lookup={mapLookup} />
-      <HotelList destination={trip.destination} hotels={trip.hotels} />
-      <DayByDayItinerary days={trip.days} destination={trip.destination} />
+      <TripMapSection
+        focusedProviderPlaceId={focusedProviderPlaceId}
+        lookups={mapLookups}
+        onMarkerFocus={setFocusedProviderPlaceId}
+      />
+      <HotelList
+        destination={trip.destination}
+        hotels={trip.hotels}
+        mapControls={mapControls}
+      />
+      <DayByDayItinerary
+        days={trip.days}
+        destination={trip.destination}
+        mapControls={mapControls}
+      />
       <PlaceAttributionNotice />
     </article>
   )
@@ -116,9 +137,11 @@ function TripSummarySection({
 function HotelList({
   destination,
   hotels,
+  mapControls,
 }: {
   destination: string
   hotels: PresentedHotel[]
+  mapControls: MapControls
 }) {
   return (
     <section aria-labelledby="hotel-options" className="grid gap-4">
@@ -136,7 +159,11 @@ function HotelList({
         <ul className="grid gap-4 md:grid-cols-2">
           {hotels.map((hotel) => (
             <li key={hotel.id}>
-              <HotelCard destination={destination} hotel={hotel} />
+              <HotelCard
+                destination={destination}
+                hotel={hotel}
+                mapControls={mapControls}
+              />
             </li>
           ))}
         </ul>
@@ -150,9 +177,11 @@ function HotelList({
 function HotelCard({
   destination,
   hotel,
+  mapControls,
 }: {
   destination: string
   hotel: PresentedHotel
+  mapControls: MapControls
 }) {
   return (
     <Card className="app-card h-full">
@@ -173,6 +202,7 @@ function HotelCard({
         <HotelPlaceEnrichment
           address={hotel.address}
           destination={destination}
+          mapControls={mapControls}
           name={hotel.name}
         />
       </CardContent>
@@ -183,9 +213,11 @@ function HotelCard({
 function DayByDayItinerary({
   days,
   destination,
+  mapControls,
 }: {
   days: TripPresentationData["days"]
   destination: string
+  mapControls: MapControls
 }) {
   return (
     <section aria-labelledby="day-by-day-itinerary" className="grid gap-4">
@@ -219,6 +251,7 @@ function DayByDayItinerary({
                     <ActivityPlaceCard
                       activity={activity}
                       destination={destination}
+                      mapControls={mapControls}
                     />
                   </li>
                 ))}
@@ -236,9 +269,11 @@ function DayByDayItinerary({
 function ActivityPlaceCard({
   activity,
   destination,
+  mapControls,
 }: {
   activity: PresentedActivity
   destination: string
+  mapControls: MapControls
 }) {
   const hasPlaceDetails =
     activity.placeName !== null ||
@@ -295,6 +330,7 @@ function ActivityPlaceCard({
               address={activity.address}
               approximateArea={activity.approximateArea}
               destination={destination}
+              mapControls={mapControls}
               placeName={activity.placeName}
             />
           </CardContent>
@@ -346,46 +382,9 @@ function EmptyContent({ message }: { message: string }) {
   )
 }
 
-function getPrimaryTripMapLookup(
-  trip: TripPresentationData
-): TripMapLookup | null {
-  const hotel = trip.hotels.find((candidate) => candidate.name.length > 0)
-
-  if (hotel !== undefined) {
-    return {
-      label: hotel.name,
-      request: {
-        query: hotel.name,
-        destination: trip.destination,
-        ...(hotel.address !== null ? { address: hotel.address } : {}),
-      },
-    }
-  }
-
-  for (const day of trip.days) {
-    const activity = day.activities.find(
-      (candidate) =>
-        candidate.placeName !== null ||
-        candidate.address !== null ||
-        candidate.approximateArea !== null
-    )
-
-    if (activity !== undefined) {
-      return {
-        label: activity.placeName ?? activity.address ?? activity.title,
-        request: {
-          query: activity.placeName ?? activity.address ?? activity.title,
-          destination: trip.destination,
-          ...(activity.address !== null ? { address: activity.address } : {}),
-          ...(activity.approximateArea !== null
-            ? { city: activity.approximateArea }
-            : {}),
-        },
-      }
-    }
-  }
-
-  return null
+type MapControls = {
+  focusedProviderPlaceId: string | null
+  onFocusPlace: (providerPlaceId: string) => void
 }
 
 export { TripPresentation }

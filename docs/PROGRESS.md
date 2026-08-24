@@ -30,7 +30,8 @@
 - [x] Milestone 24 - Clerk Billing paid access
 - [x] Milestone 24A - Map provider migration: Mapbox to Leaflet + OpenStreetMap
 - [x] Milestone 25 - Leaflet interactive map
-- [ ] Milestone 26 - Production readiness and Vercel deployment
+- [x] Milestone 26 - Leaflet markers and interaction
+- [ ] Milestone 27 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -1226,3 +1227,47 @@ Open issues:
 
 Next milestone:
 - Milestone 26
+
+## Milestone 26 - Leaflet Markers and Interaction
+
+Changed:
+- Added `lib/trips/map.ts` with pure helpers that build normalized map lookup requests from hotels and activities and deduplicate enriched places by `providerPlaceId`.
+- Extended the place-enrichment client module with a shared multi-lookup hook so the map and trip cards reuse the same normalized `/api/place-enrichment` cache.
+- Updated the Leaflet map to render one marker per unique canonical Geoapify-enriched place and skip places without verified provider coordinates.
+- Used a project-owned Leaflet `divIcon` marker style so the app does not depend on default Leaflet marker image asset paths in the Next.js bundle.
+- Built Leaflet popups with DOM text nodes for place name, day label, and formatted address. No AI or itinerary HTML is passed into `bindPopup` or `setContent`.
+- Added card-to-map focus through each canonical place panel's `Show on map` button.
+- Added marker-to-card focus and smooth scroll through `data-provider-place-id`, without making the card state drive another marker event loop.
+- Cleaned up marker layers, marker listeners, marker refs, and the Leaflet map on data changes and unmount.
+- Kept the OpenStreetMap attribution control visible and kept the app-controlled OSM tile URL.
+- Documented marker, popup, and interaction boundaries in architecture and decisions docs.
+- Did not add clustering, extra map plugins, arbitrary tile URLs, new secrets, or server-side map logic.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- Official Leaflet marker, popup, `divIcon`, layer group, `fitBounds`, and `flyTo` documentation lookup
+- `npm run lint`
+- `node <<'NODE' ... marker helper smoke for 0, 1, 21, duplicate providerPlaceId, and missing coordinates ... NODE`
+- `npm run build`
+- `npm run lint && npm run build`
+- `npm run start -- --port 3001`
+- `curl -sS ... http://localhost:3001/`
+- `curl -sS ... http://localhost:3001/view-trip/sample`
+- `rg -n "bindPopup|setContent|dangerouslySetInnerHTML|innerHTML|divIcon|marker\\(|layerGroup|flyTo|fitBounds|scrollIntoView|tile\\.openstreetmap|NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN|react-leaflet|mapbox-gl|GEOAPIFY_API_KEY|OPEN_ROUTER_API_KEY|CLERK_SECRET_KEY" app components lib docs package.json`
+
+Results:
+- `npm run lint` passed cleanly.
+- Marker helper smoke passed for 0 markers, 1 marker, 21 markers, repeated `providerPlaceId` deduplication, and malformed/missing coordinates being rejected before mapping.
+- `npm run build` passed with Next.js 16.3.2 and included `/view-trip/[tripId]`.
+- Production `/` returned HTTP 200.
+- Signed-out production `/view-trip/sample` returned HTTP 307 to Clerk sign-in.
+- Source scan found project-owned `divIcon`, marker/layer cleanup APIs, DOM-built popup binding, app-controlled OSM tile URL, and no `react-leaflet`, `mapbox-gl`, or public map-token requirement.
+- No Geoapify, OpenRouter, Clerk, Arcjet, or map secret values were printed or moved client-side.
+
+Open issues:
+- Authenticated browser verification still needs a Clerk session and saved trip with enriched places: confirm 0-marker fallback, 1 marker, many markers, duplicate places, card-to-map focus, marker-to-card scroll, resize behavior, and navigation away/back without duplicate marker layers.
+- Public OSM standard tiles remain suitable for development and modest use only. Production launch should re-evaluate traffic and switch to an appropriate OSM-derived tile provider or self-hosted tiles if needed.
+
+Next milestone:
+- Milestone 27

@@ -155,4 +155,22 @@
   .app-focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50;
   }
+
+  .trip-map-marker {
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 3px solid white;
+    border-radius: 9999px 9999px 9999px 0;
+    background: var(--primary);
+    box-shadow: 0 10px 24px oklch(0 0 0 / 20%);
+    transform: rotate(-45deg);
+  }
+
+  .trip-map-marker::after {
+    position: absolute;
+    inset: 0.38rem;
+    content: "";
+    border-radius: 9999px;
+    background: var(--primary-foreground);
+  }
 }
