@@ -1504,3 +1504,37 @@ Open issues:
 
 Next milestone:
 - Milestone 32
+
+## Post-Milestone 31 Vercel Build Fix
+
+Changed:
+- Added `vercel.json` so Vercel uses `npm run build:vercel` instead of the default plain `npm run build`.
+- Clarified the Convex client missing-URL error so Vercel build failures point to `CONVEX_DEPLOY_KEY` and the Convex-aware build command.
+- Updated `docs/PRODUCTION.md` to explain that `NEXT_PUBLIC_CONVEX_URL` is injected by `convex deploy` and that dashboard build-command overrides must also use `npm run build:vercel`.
+
+Reason:
+- Vercel deployment logs showed `npm run build` was being used directly, so `NEXT_PUBLIC_CONVEX_URL` was missing during prerendering of `/_not-found`.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/PROJECT_SPEC.md docs/ARCHITECTURE.md docs/DECISIONS.md docs/ENVIRONMENT.md docs/PROGRESS.md package.json`
+- Official Vercel `vercel.json` build command documentation lookup
+- Official Convex Vercel deployment documentation lookup
+- `npm test`
+- `npm run lint`
+- `npm run build`
+- `node -e "JSON.parse(require('node:fs').readFileSync('vercel.json','utf8')); console.log('vercel.json valid JSON')"`
+
+Results:
+- `npm test` passed: 4 test files, 24 tests.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `vercel.json` is valid JSON.
+- No deployment was run and no secret values were printed.
+
+Open issues:
+- Vercel must have `CONVEX_DEPLOY_KEY` configured. Without it, `npm run build:vercel` cannot deploy Convex or inject `NEXT_PUBLIC_CONVEX_URL`.
+- If the Vercel dashboard has an explicit Build Command override, set it to `npm run build:vercel` or remove the override so `vercel.json` controls it.
+
+Next milestone:
+- Milestone 32

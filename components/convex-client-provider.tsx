@@ -10,7 +10,9 @@ import { UserProfileSync } from "@/components/auth/user-profile-sync"
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
 
 if (!convexUrl) {
-  throw new Error("Missing NEXT_PUBLIC_CONVEX_URL")
+  throw new Error(
+    "Missing NEXT_PUBLIC_CONVEX_URL. For Vercel, use the repository build command `npm run build:vercel` and configure CONVEX_DEPLOY_KEY so Convex can inject the deployment URL."
+  )
 }
 
 const convex = new ConvexReactClient(convexUrl)
