@@ -10,7 +10,10 @@ import type {
   GroupType,
   NormalizedRequirementUpdate,
 } from "@/lib/ai/contract"
-import type { FinalItineraryRequirements } from "@/lib/ai/itinerary"
+import type {
+  FinalItineraryQuota,
+  FinalItineraryRequirements,
+} from "@/lib/ai/itinerary"
 
 export type { BudgetTier, GroupType } from "@/lib/ai/contract"
 
@@ -56,6 +59,7 @@ export type CreateTripState = {
   isSavingTrip: boolean
   error: string | null
   finalError: string | null
+  finalQuota: FinalItineraryQuota | null
   saveError: string | null
   finalItinerary: FinalItineraryResponse | null
   savedTripId: string | null
@@ -78,6 +82,11 @@ export type CreateTripAction =
   | { type: "finalGenerationStarted" }
   | { type: "finalGenerationSucceeded"; itinerary: FinalItineraryResponse }
   | { type: "finalGenerationFailed"; error: string }
+  | {
+      type: "finalGenerationQuotaExceeded"
+      error: string
+      quota: FinalItineraryQuota | null
+    }
   | { type: "saveTripStarted" }
   | { type: "saveTripSucceeded"; tripId: string }
   | { type: "saveTripFailed"; error: string }
@@ -133,6 +142,7 @@ export const initialCreateTripState: CreateTripState = {
   isSavingTrip: false,
   error: null,
   finalError: null,
+  finalQuota: null,
   saveError: null,
   finalItinerary: null,
   savedTripId: null,
@@ -237,6 +247,7 @@ export function createTripReducer(
         ...state,
         isGeneratingFinal: true,
         finalError: null,
+        finalQuota: null,
         saveError: null,
       }
     case "finalGenerationSucceeded":
@@ -244,6 +255,7 @@ export function createTripReducer(
         ...state,
         isGeneratingFinal: false,
         finalError: null,
+        finalQuota: null,
         finalItinerary: action.itinerary,
         isSavingTrip: false,
         saveError: null,
@@ -254,6 +266,14 @@ export function createTripReducer(
         ...state,
         isGeneratingFinal: false,
         finalError: action.error,
+        finalQuota: null,
+      }
+    case "finalGenerationQuotaExceeded":
+      return {
+        ...state,
+        isGeneratingFinal: false,
+        finalError: action.error,
+        finalQuota: action.quota,
       }
     case "saveTripStarted":
       return {

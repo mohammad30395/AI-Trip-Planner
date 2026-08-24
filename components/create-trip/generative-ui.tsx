@@ -1,8 +1,11 @@
 import { useState } from "react"
+import Link from "next/link"
 
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { FinalItineraryResponse } from "@/lib/ai/contract"
+import type { FinalItineraryQuota } from "@/lib/ai/itinerary"
+import { buildQuotaExceededMessage } from "@/lib/quota/free-generation-quota"
 import { cn } from "@/lib/utils"
 
 import {
@@ -31,6 +34,7 @@ type RenderGenerativeUIProps = {
   onSaveTrip: () => void
   onReset: () => void
   finalError: string | null
+  finalQuota: FinalItineraryQuota | null
   finalItinerary: FinalItineraryResponse | null
   isGeneratingFinal: boolean
   isSavingTrip: boolean
@@ -41,6 +45,7 @@ type RenderGenerativeUIProps = {
 function renderGenerativeUI({
   disabled,
   finalError,
+  finalQuota,
   finalItinerary,
   isGeneratingFinal,
   isSavingTrip,
@@ -123,6 +128,7 @@ function renderGenerativeUI({
         <FinalItineraryUI
           disabled={disabled}
           error={finalError}
+          quota={finalQuota}
           isGenerating={isGeneratingFinal}
           isSaving={isSavingTrip}
           itinerary={finalItinerary}
@@ -450,6 +456,7 @@ function ReviewConfirmUI({
 type FinalItineraryUIProps = {
   disabled: boolean
   error: string | null
+  quota: FinalItineraryQuota | null
   itinerary: FinalItineraryResponse | null
   isGenerating: boolean
   isSaving: boolean
@@ -463,6 +470,7 @@ type FinalItineraryUIProps = {
 function FinalItineraryUI({
   disabled,
   error,
+  quota,
   itinerary,
   isGenerating,
   isSaving,
@@ -484,7 +492,11 @@ function FinalItineraryUI({
         </p>
       </div>
 
-      {error !== null ? <InlineError message={error} /> : null}
+      {quota !== null ? (
+        <QuotaExceededNotice message={error} quota={quota} />
+      ) : error !== null ? (
+        <InlineError message={error} />
+      ) : null}
 
       {itinerary === null ? (
         <Button
@@ -538,6 +550,34 @@ function FinalItineraryUI({
           Start Another Brief
         </Button>
       </div>
+    </div>
+  )
+}
+
+function QuotaExceededNotice({
+  message,
+  quota,
+}: {
+  message: string | null
+  quota: FinalItineraryQuota
+}) {
+  return (
+    <div className="grid gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
+      <div>
+        <p className="font-medium text-destructive">Generation quota reached</p>
+        <p className="mt-1 leading-6 text-destructive">
+          {message ?? buildQuotaExceededMessage(quota)}
+        </p>
+      </div>
+      <Link
+        className={buttonVariants({
+          className: "w-full sm:w-fit",
+          variant: "outline",
+        })}
+        href="/pricing"
+      >
+        View Pricing
+      </Link>
     </div>
   )
 }

@@ -27,12 +27,46 @@ type FinalItineraryResponseEnvelope =
   | {
       ok: false
       error: string
+      code?: FinalItineraryErrorCode
+      quota?: FinalItineraryQuota
+      missingVariables?: string[]
+    }
+
+type FinalItineraryErrorCode =
+  | "configuration_error"
+  | "provider_error"
+  | "quota_exceeded"
+  | "validation_error"
+
+type FinalItineraryQuota = {
+  limit: number
+  remaining: number
+  resetSeconds: number
+  resetAt?: string
+}
+
+type FinalItineraryEnvelopeParseResult =
+  | {
+      ok: true
+      data: FinalItineraryResponse
+    }
+  | {
+      ok: false
+      error: string
+      code?: FinalItineraryErrorCode
+      quota?: FinalItineraryQuota
     }
 
 type JsonObject = Record<string, unknown>
 
 const budgetTiers = ["budget", "mid-range", "premium"] as const
 const groupTypes = ["solo", "couple", "family", "friends", "business"] as const
+const finalItineraryErrorCodes = [
+  "configuration_error",
+  "provider_error",
+  "quota_exceeded",
+  "validation_error",
+] as const
 
 function parseFinalItineraryRequest(
   value: unknown
@@ -65,7 +99,7 @@ function parseFinalItineraryRequest(
 
 function parseFinalItineraryResponseEnvelope(
   value: unknown
-): ValidationResult<FinalItineraryResponse> {
+): FinalItineraryEnvelopeParseResult {
   const object = asObject(value, "response")
 
   if (!object.ok) {
@@ -76,6 +110,9 @@ function parseFinalItineraryResponseEnvelope(
     "ok",
     "itinerary",
     "error",
+    "code",
+    "quota",
+    "missingVariables",
   ])
 
   if (unknownKeysError !== null) {
@@ -83,10 +120,50 @@ function parseFinalItineraryResponseEnvelope(
   }
 
   if (object.data.ok !== true) {
-    return validationError("Final itinerary response was not successful")
+    const error = readStringInRange(object.data, "error", 1, 240, "response")
+
+    if (!error.ok) {
+      return error
+    }
+
+    const code =
+      object.data.code === undefined
+        ? undefined
+        : readEnum(
+            object.data,
+            "code",
+            finalItineraryErrorCodes,
+            "response"
+          )
+
+    if (code !== undefined && !code.ok) {
+      return code
+    }
+
+    const quota =
+      object.data.quota === undefined
+        ? undefined
+        : parseFinalItineraryQuota(object.data.quota)
+
+    if (quota !== undefined && !quota.ok) {
+      return quota
+    }
+
+    return {
+      ok: false,
+      error: error.data,
+      ...(code !== undefined ? { code: code.data } : {}),
+      ...(quota !== undefined ? { quota: quota.data } : {}),
+    }
   }
 
-  return parseFinalItineraryResponse(object.data.itinerary)
+  const itinerary = parseFinalItineraryResponse(object.data.itinerary)
+
+  if (!itinerary.ok) {
+    return itinerary
+  }
+
+  return { ok: true, data: itinerary.data }
 }
 
 function validateItineraryDuration(
@@ -207,6 +284,70 @@ function parseFinalItineraryRequirements(
   }
 }
 
+function parseFinalItineraryQuota(
+  value: unknown
+): ValidationResult<FinalItineraryQuota> {
+  const object = asObject(value, "response.quota")
+
+  if (!object.ok) {
+    return object
+  }
+
+  const unknownKeysError = rejectUnknownKeys(object.data, [
+    "limit",
+    "remaining",
+    "resetSeconds",
+    "resetAt",
+  ])
+
+  if (unknownKeysError !== null) {
+    return validationError(`response.quota.${unknownKeysError}`)
+  }
+
+  const limit = readIntegerInRange(object.data, "limit", 0, 10_000, "response.quota")
+  const remaining = readIntegerInRange(
+    object.data,
+    "remaining",
+    0,
+    10_000,
+    "response.quota"
+  )
+  const resetSeconds = readIntegerInRange(
+    object.data,
+    "resetSeconds",
+    0,
+    31_536_000,
+    "response.quota"
+  )
+  const resetAt =
+    object.data.resetAt === undefined
+      ? undefined
+      : readStringInRange(object.data, "resetAt", 1, 80, "response.quota")
+
+  if (!limit.ok) {
+    return limit
+  }
+  if (!remaining.ok) {
+    return remaining
+  }
+  if (!resetSeconds.ok) {
+    return resetSeconds
+  }
+  if (resetAt !== undefined && !resetAt.ok) {
+    return resetAt
+  }
+
+  return {
+    ok: true,
+    data: {
+      limit: limit.data,
+      remaining: remaining.data,
+      resetSeconds: resetSeconds.data,
+      ...(resetAt !== undefined ? { resetAt: resetAt.data } : {}),
+    },
+  }
+}
+
 function asObject(value: unknown, path: string): ValidationResult<JsonObject> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return validationError(`${path} must be an object`)
@@ -295,5 +436,6 @@ export {
   validateItineraryDuration,
   type FinalItineraryRequest,
   type FinalItineraryRequirements,
+  type FinalItineraryQuota,
   type FinalItineraryResponseEnvelope,
 }

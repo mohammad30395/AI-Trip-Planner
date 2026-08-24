@@ -63,6 +63,28 @@ the strict final itinerary schema, validates the model response server-side, and
 rejects mismatched itinerary day counts. Generated prices and place details are
 not verified facts until later Geoapify enrichment.
 
+## Quota Boundary
+
+Free final itinerary generation is enforced in `/api/ai-itinerary` before the
+OpenRouter call. Ordinary page loads, saved-trip reads, place enrichment, and
+Convex trip fetches are not rate limited by this rule.
+
+The shared non-secret quota policy lives in
+`lib/quota/free-generation-quota.ts`. The server-only Arcjet adapter lives in
+`lib/quota/trip-generation.ts`, reads `ARCJET_KEY` only on the server, and
+identifies the requester with Clerk's server-verified stable `userId`.
+
+The route validates the final-generation request first, then asks Arcjet to
+consume one token for the intended final-generation attempt. If Arcjet denies
+the request, the route returns a typed 429 response and no expensive AI call is
+made. The browser disables duplicate final-generation submissions while one is
+pending and shows a quota message plus a Pricing CTA when blocked.
+
+Until paid entitlement bypass is added, every authenticated user is subject to
+the free quota. Provider or validation failures after the Arcjet decision may
+consume the attempt; this retry behavior is documented here so future billing
+work can adjust it deliberately.
+
 ## Place Enrichment Boundary
 
 Place enrichment uses the internal server route

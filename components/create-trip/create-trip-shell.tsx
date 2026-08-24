@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { api } from "@/convex/_generated/api"
 import { parseTripConversationResponseEnvelope } from "@/lib/ai/conversation"
 import { parseFinalItineraryResponseEnvelope } from "@/lib/ai/itinerary"
+import { buildQuotaExceededMessage } from "@/lib/quota/free-generation-quota"
 
 import { ConversationPanel } from "./conversation-panel"
 import {
@@ -172,7 +173,23 @@ function CreateTripShell() {
       const responseBody: unknown = await response.json()
       const parsedResponse = parseFinalItineraryResponseEnvelope(responseBody)
 
-      if (!response.ok || !parsedResponse.ok) {
+      if (!parsedResponse.ok) {
+        if (
+          parsedResponse.code === "quota_exceeded" &&
+          parsedResponse.quota !== undefined
+        ) {
+          dispatch({
+            type: "finalGenerationQuotaExceeded",
+            error: buildQuotaExceededMessage(parsedResponse.quota),
+            quota: parsedResponse.quota,
+          })
+          return
+        }
+
+        throw new Error("Final itinerary response could not be used safely.")
+      }
+
+      if (!response.ok) {
         throw new Error("Final itinerary response could not be used safely.")
       }
 

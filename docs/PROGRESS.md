@@ -25,8 +25,8 @@
 - [x] Milestone 19A - Place provider migration: Google Places to Geoapify
 - [x] Revised Prompt 20 - Geoapify server place adapter
 - [x] Milestone 21 - Place enrichment in the UI
-- [ ] Milestone 22 - Mapbox trip map
-- [ ] Milestone 23 - Arcjet free quota
+- [x] Milestone 22 - Arcjet rate limiting
+- [ ] Milestone 23 - Mapbox trip map
 - [ ] Milestone 24 - Clerk Billing paid access
 - [ ] Milestone 25 - Production readiness and Vercel deployment
 
@@ -998,3 +998,46 @@ Open issues:
 
 Next milestone:
 - Milestone 22
+
+## Milestone 22 - Arcjet Rate Limiting
+
+Changed:
+- Installed the allowed `@arcjet/next` dependency.
+- Added the shared non-secret free generation policy in `lib/quota/free-generation-quota.ts`.
+- Added the server-only Arcjet token-bucket adapter in `lib/quota/trip-generation.ts`.
+- Protected only `/api/ai-itinerary` with Arcjet after request validation and before OpenRouter inference.
+- Identified quota subjects with Clerk's server-verified stable `userId`.
+- Added typed final-generation error envelopes for quota and configuration errors.
+- Updated the create-trip UI to preserve the trip brief and show a quota message with a Pricing CTA when blocked.
+- Documented quota boundaries, retry behavior, and the future paid bypass boundary.
+- Did not rate-limit page loads, saved-trip reads, place enrichment, Convex queries, or ordinary route visits.
+
+Commands run:
+- `git status --short --branch && git branch --show-current`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `find app components lib convex docs -maxdepth 5 -type f | sort`
+- Official Arcjet documentation lookup for Next.js, rate limiting, token bucket rules, and Clerk identity characteristics
+- `npm install @arcjet/next`
+- `rg -n "tokenBucket|rateLimit|ArcjetRateLimitReason|requested" node_modules/@arcjet node_modules/arcjet -g '*.d.ts'`
+- `node --env-file=.env.local -e "... checked variable-name presence without printing values ..."`
+- `npm run lint`
+- `npm run build`
+- `npm run start -- --port 3001`
+- `curl -sS ... -X POST http://localhost:3001/api/ai-itinerary ...`
+- `awk 'BEGIN{IGNORECASE=1} /^location:/{print}' /tmp/m22-ai-itinerary-unauth.headers`
+
+Results:
+- `npm install @arcjet/next` completed, audited 635 packages, and reported 0 vulnerabilities.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2 and included `/api/ai-itinerary`.
+- Signed-out POST to `/api/ai-itinerary` returned HTTP 307 to `/sign-in`, verifying unauthenticated calls are rejected before quota or AI work.
+- `ARCJET_KEY` is missing by environment variable name-presence check, so live Arcjet allowed, rapid duplicate, and exhausted-quota tests were not run.
+- No Arcjet key, OpenRouter key, Clerk secret, or other secret value was printed.
+
+Open issues:
+- Add `ARCJET_KEY` to `.env.local` and deployment environments before live final-generation quota enforcement can work.
+- After `ARCJET_KEY` is configured, run one authenticated allowed generation, a rapid duplicate-click check, and an exhausted-quota check.
+- Premium quota bypass remains deferred to the Clerk Billing milestone.
+
+Next milestone:
+- Milestone 23

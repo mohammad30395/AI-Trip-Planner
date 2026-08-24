@@ -13,11 +13,15 @@ import {
   runOpenRouterFinalItinerary,
   type OpenRouterConversationMessage,
 } from "@/lib/ai/openrouter"
+import {
+  ArcjetConfigurationError,
+  enforceTripGenerationQuota,
+} from "@/lib/quota/trip-generation"
 
 export const runtime = "nodejs"
 
 export async function POST(request: Request) {
-  await auth.protect()
+  const authObject = await auth.protect()
 
   let body: unknown
 
@@ -34,6 +38,24 @@ export async function POST(request: Request) {
   }
 
   try {
+    const quotaResult = await enforceTripGenerationQuota(
+      request,
+      authObject.userId
+    )
+
+    if (!quotaResult.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "quota_exceeded",
+          error:
+            "Free trip generation quota has been reached for this account.",
+          quota: quotaResult.quota,
+        } satisfies FinalItineraryResponseEnvelope,
+        { status: 429 }
+      )
+    }
+
     const { requirements } = parsedRequest.data
     const result = await runOpenRouterFinalItinerary(
       {
@@ -61,13 +83,26 @@ export async function POST(request: Request) {
       itinerary: validatedItinerary.data,
     } satisfies FinalItineraryResponseEnvelope)
   } catch (error) {
+    if (error instanceof ArcjetConfigurationError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "configuration_error",
+          error: "Server Arcjet configuration is incomplete.",
+          missingVariables: error.missingVariables,
+        } satisfies FinalItineraryResponseEnvelope,
+        { status: 500 }
+      )
+    }
+
     if (error instanceof OpenRouterConfigurationError) {
       return NextResponse.json(
         {
           ok: false,
+          code: "configuration_error",
           error: "Server OpenRouter configuration is incomplete.",
           missingVariables: error.missingVariables,
-        },
+        } satisfies FinalItineraryResponseEnvelope,
         { status: 500 }
       )
     }
