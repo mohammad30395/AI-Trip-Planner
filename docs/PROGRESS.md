@@ -1505,6 +1505,37 @@ Open issues:
 Next milestone:
 - Milestone 32
 
+## Post-Milestone 31 Create-Trip AI Conversation Fix
+
+Changed:
+- Added `lib/ai/conversation-fallback.ts` with a deterministic server-side interviewer fallback for requirement collection.
+- Updated `/api/ai-model` to return the fallback response when OpenRouter conversation calls fail, time out, return invalid output, or are missing configuration.
+- Added test coverage for fallback selector progression.
+
+Reason:
+- The create-trip page could become stuck with "Assistant response unavailable" during requirement collection if the AI conversation provider rejected the request or returned unsupported structured output.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... app/api/ai-model/route.ts components/create-trip/create-trip-shell.tsx components/create-trip/create-trip-flow.ts lib/ai/openrouter.ts lib/ai/conversation.ts lib/ai/contract.ts`
+- Name-only `.env.local` presence check for AI, Clerk, Convex, and Arcjet variables
+- `npm test`
+- `npm run lint`
+- `npm run build`
+
+Results:
+- `npm test` passed: 4 test files, 25 tests.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- No secret values were printed.
+
+Open issues:
+- Final itinerary generation still requires a working `OPEN_ROUTER_API_KEY` and `OPEN_ROUTER_MODEL`.
+- The visible Arcjet key from the IDE should be rotated in Arcjet and updated in local/Vercel environments.
+
+Next milestone:
+- Milestone 32
+
 ## Post-Milestone 31 Vercel Build Fix
 
 Changed:

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest"
 
 import type { ConversationalStepResponse } from "@/lib/ai/contract"
+import { buildFallbackConversationResponse } from "@/lib/ai/conversation-fallback"
 import {
   applyRequirementUpdate,
   areRequirementsComplete,
@@ -100,5 +101,23 @@ describe("create-trip pure state helpers", () => {
     expect(getStepFromSelector("final", completeRequirements)).toBe(
       "readyForFinal"
     )
+  })
+
+  test("builds deterministic conversation fallback selectors", () => {
+    expect(buildFallbackConversationResponse({ source: "Dhaka" })).toMatchObject({
+      nextUISelector: "destination",
+    })
+    expect(
+      buildFallbackConversationResponse({
+        source: "Dhaka",
+        destination: "Tokyo",
+        durationDays: 4,
+        budgetTier: "mid-range",
+        groupSize: 2,
+        groupType: "couple",
+      })
+    ).toMatchObject({
+      nextUISelector: "review",
+    })
   })
 })

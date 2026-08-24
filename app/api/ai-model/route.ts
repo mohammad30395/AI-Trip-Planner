@@ -13,6 +13,7 @@ import {
   runOpenRouterConversationStep,
   type OpenRouterConversationMessage,
 } from "@/lib/ai/openrouter"
+import { buildFallbackConversationResponse } from "@/lib/ai/conversation-fallback"
 import type {
   ConversationalStepResponse,
   GenerativeUISelector,
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
     )
 
     if (!result.ok) {
-      return conversationError("AI conversation failed.", 502)
+      return conversationFallback(parsedRequest.data.requirements)
     }
 
     const response = normalizeConversationResponse(
@@ -62,14 +63,7 @@ export async function POST(request: Request) {
     } satisfies TripConversationResponseEnvelope)
   } catch (error) {
     if (error instanceof OpenRouterConfigurationError) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Server OpenRouter configuration is incomplete.",
-          missingVariables: error.missingVariables,
-        },
-        { status: 500 }
-      )
+      return conversationFallback(parsedRequest.data.requirements)
     }
 
     if (process.env.NODE_ENV === "development") {
@@ -78,7 +72,7 @@ export async function POST(request: Request) {
       })
     }
 
-    return conversationError("AI conversation route failed.", 500)
+    return conversationFallback(parsedRequest.data.requirements)
   }
 }
 
@@ -187,4 +181,11 @@ function conversationError(error: string, status: number) {
     } satisfies TripConversationResponseEnvelope,
     { status }
   )
+}
+
+function conversationFallback(requirements: ConversationRequirements) {
+  return NextResponse.json({
+    ok: true,
+    response: buildFallbackConversationResponse(requirements),
+  } satisfies TripConversationResponseEnvelope)
 }
