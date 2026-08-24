@@ -4,6 +4,7 @@ import type { ConversationalStepResponse } from "@/lib/ai/contract"
 import { buildFallbackConversationResponse } from "@/lib/ai/conversation-fallback"
 import {
   formatSaveTripMutationError,
+  getConvexTokenReadinessError,
   getSaveTripReadinessError,
 } from "@/lib/convex/save-trip-errors"
 import {
@@ -164,5 +165,15 @@ describe("create-trip save error handling", () => {
     expect(
       formatSaveTripMutationError(new Error("ArgumentValidationError"))
     ).toContain("database save contract")
+  })
+
+  test("classifies missing Clerk Convex token separately from Convex rejection", () => {
+    expect(getConvexTokenReadinessError("available")).toBeNull()
+    expect(getConvexTokenReadinessError("missing")).toContain(
+      "could not issue the `convex` token"
+    )
+    expect(getConvexTokenReadinessError("unknown")).toContain(
+      "Convex could not verify"
+    )
   })
 })

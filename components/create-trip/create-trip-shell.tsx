@@ -2,6 +2,7 @@
 
 import { useEffect, useReducer, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@clerk/nextjs"
 import { useConvexAuth, useMutation } from "convex/react"
 
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +11,7 @@ import { parseTripConversationResponseEnvelope } from "@/lib/ai/conversation"
 import { parseFinalItineraryResponseEnvelope } from "@/lib/ai/itinerary"
 import {
   formatSaveTripMutationError,
+  getConvexTokenReadinessError,
   getSaveTripReadinessError,
 } from "@/lib/convex/save-trip-errors"
 import {
@@ -40,6 +42,7 @@ function CreateTripShell() {
     createTripReducer,
     initialCreateTripState
   )
+  const clerkAuth = useAuth()
   const convexAuth = useConvexAuth()
   const saveGeneratedTrip = useMutation(api.trips.saveGeneratedTrip)
   const requestSequence = useRef(0)
@@ -277,11 +280,28 @@ function CreateTripShell() {
     const readinessError = getSaveTripReadinessError(convexAuth)
 
     if (readinessError !== null) {
-      dispatch({
-        type: "saveTripFailed",
-        error: readinessError,
+      if (convexAuth.isLoading) {
+        dispatch({
+          type: "saveTripFailed",
+          error: readinessError,
+        })
+        return
+      }
+
+      const tokenStatus = await getClerkConvexTokenStatus({
+        getToken: clerkAuth.getToken,
+        isLoaded: clerkAuth.isLoaded,
+        isSignedIn: clerkAuth.isSignedIn,
       })
-      return
+      const tokenError = getConvexTokenReadinessError(tokenStatus)
+
+      if (tokenError !== null) {
+        dispatch({
+          type: "saveTripFailed",
+          error: tokenError,
+        })
+        return
+      }
     }
 
     if (saveRequestKey.current === null) {
@@ -384,6 +404,36 @@ function CreateTripShell() {
       </div>
     </section>
   )
+}
+
+type ClerkTokenProbe = {
+  isLoaded: boolean
+  isSignedIn: boolean | undefined
+  getToken: (options: {
+    template?: "convex"
+    skipCache?: boolean
+  }) => Promise<string | null>
+}
+
+async function getClerkConvexTokenStatus({
+  getToken,
+  isLoaded,
+  isSignedIn,
+}: ClerkTokenProbe) {
+  if (!isLoaded || !isSignedIn) {
+    return "missing" as const
+  }
+
+  try {
+    const token = await getToken({
+      template: "convex",
+      skipCache: true,
+    })
+
+    return token === null ? ("missing" as const) : ("available" as const)
+  } catch {
+    return "unknown" as const
+  }
 }
 
 export { CreateTripShell }

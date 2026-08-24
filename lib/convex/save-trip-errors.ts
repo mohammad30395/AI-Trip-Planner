@@ -8,6 +8,8 @@ type ConvexAuthReadiness = {
   isAuthenticated: boolean
 }
 
+type ClerkConvexTokenStatus = "available" | "missing" | "unknown"
+
 function getSaveTripReadinessError(auth: ConvexAuthReadiness) {
   if (auth.isLoading) {
     return formatUserSafeErrorMessage(
@@ -26,6 +28,26 @@ function getSaveTripReadinessError(auth: ConvexAuthReadiness) {
   }
 
   return null
+}
+
+function getConvexTokenReadinessError(status: ClerkConvexTokenStatus) {
+  if (status === "available") {
+    return null
+  }
+
+  if (status === "missing") {
+    return formatUserSafeErrorMessage(
+      createUserSafeError({
+        code: "auth_required",
+        title: "Save needs Clerk Convex token",
+        message:
+          "Clerk is signed in, but it could not issue the `convex` token. Enable Clerk's Convex integration or JWT template named `convex`, then sign out and sign in again.",
+        retry: "sign_in",
+      })
+    )
+  }
+
+  return formatConvexAuthFailureMessage()
 }
 
 function formatSaveTripMutationError(error: unknown) {
@@ -125,4 +147,8 @@ function getSafeErrorText(error: unknown) {
   return "UnknownError"
 }
 
-export { formatSaveTripMutationError, getSaveTripReadinessError }
+export {
+  formatSaveTripMutationError,
+  getConvexTokenReadinessError,
+  getSaveTripReadinessError,
+}

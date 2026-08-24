@@ -1505,6 +1505,44 @@ Open issues:
 Next milestone:
 - Milestone 32
 
+## Post-Milestone 31 Convex Save Auth Fix
+
+Changed:
+- Synced Convex development deployment with `npx convex dev --once`.
+- Confirmed the active development deployment exposes `trips:saveGeneratedTrip`.
+- Updated the create-trip save flow so a stale `useConvexAuth()` false state no longer blocks saving when Clerk can issue the `convex` token.
+- Added a separate user-safe message for the case where Clerk cannot issue the `convex` token at all.
+- Added test coverage for the Clerk Convex token readiness branch.
+
+Reason:
+- The save flow was stopping before the mutation with "Convex could not verify the Clerk token." After syncing Convex, the client should allow a fresh Clerk `convex` token to proceed to the mutation instead of blocking on stale auth state.
+
+Commands run:
+- `npx convex dev --once`
+- Name-only `.env.local` variable presence check
+- `npx convex function-spec`
+- `npm test`
+- `npm run lint`
+- `npm run build`
+- `git diff --check`
+
+Results:
+- `npx convex dev --once` completed and reported Convex functions ready for the development deployment.
+- `npx convex function-spec` confirmed `trips:saveGeneratedTrip` exists on the active development deployment.
+- `npm test` passed: 4 test files, 28 tests.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `git diff --check` passed.
+- No secret values were printed.
+
+Open issues:
+- Browser sessions that were signed in before the Convex sync may need a refresh, or sign out/sign in, so Clerk issues a fresh `convex` token.
+- If the UI says Clerk cannot issue the `convex` token, enable Clerk's Convex integration or JWT template named `convex` in the Clerk Dashboard.
+- The visible Arcjet key from the IDE should be rotated in Arcjet and updated in local/Vercel environments.
+
+Next milestone:
+- Milestone 32
+
 ## Post-Milestone 31 Save Trip Reliability Fix
 
 Changed:
