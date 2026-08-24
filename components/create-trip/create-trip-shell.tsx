@@ -2,12 +2,16 @@
 
 import { useEffect, useReducer, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { useMutation } from "convex/react"
+import { useConvexAuth, useMutation } from "convex/react"
 
 import { Badge } from "@/components/ui/badge"
 import { api } from "@/convex/_generated/api"
 import { parseTripConversationResponseEnvelope } from "@/lib/ai/conversation"
 import { parseFinalItineraryResponseEnvelope } from "@/lib/ai/itinerary"
+import {
+  formatSaveTripMutationError,
+  getSaveTripReadinessError,
+} from "@/lib/convex/save-trip-errors"
 import {
   createUserSafeError,
   formatUserSafeErrorMessage,
@@ -36,6 +40,7 @@ function CreateTripShell() {
     createTripReducer,
     initialCreateTripState
   )
+  const convexAuth = useConvexAuth()
   const saveGeneratedTrip = useMutation(api.trips.saveGeneratedTrip)
   const requestSequence = useRef(0)
   const finalRequestSequence = useRef(0)
@@ -269,6 +274,16 @@ function CreateTripShell() {
       return
     }
 
+    const readinessError = getSaveTripReadinessError(convexAuth)
+
+    if (readinessError !== null) {
+      dispatch({
+        type: "saveTripFailed",
+        error: readinessError,
+      })
+      return
+    }
+
     if (saveRequestKey.current === null) {
       saveRequestKey.current = crypto.randomUUID()
     }
@@ -292,19 +307,7 @@ function CreateTripShell() {
     } catch (error) {
       dispatch({
         type: "saveTripFailed",
-        error: formatUserSafeErrorMessage(
-          createUserSafeError({
-            code: "save_failed",
-            title: "Save failed",
-            message:
-              "Your generated itinerary is still on this page. Retry saving without regenerating it.",
-            retry: "same_stage",
-            diagnostic: {
-              source: "convex-save-trip",
-              reason: error instanceof Error ? error.name : "UnknownError",
-            },
-          })
-        ),
+        error: formatSaveTripMutationError(error),
       })
     }
   }

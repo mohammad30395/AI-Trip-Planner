@@ -3,6 +3,10 @@ import { describe, expect, test } from "vitest"
 import type { ConversationalStepResponse } from "@/lib/ai/contract"
 import { buildFallbackConversationResponse } from "@/lib/ai/conversation-fallback"
 import {
+  formatSaveTripMutationError,
+  getSaveTripReadinessError,
+} from "@/lib/convex/save-trip-errors"
+import {
   applyRequirementUpdate,
   areRequirementsComplete,
   createTripReducer,
@@ -119,5 +123,46 @@ describe("create-trip pure state helpers", () => {
     ).toMatchObject({
       nextUISelector: "review",
     })
+  })
+})
+
+describe("create-trip save error handling", () => {
+  test("blocks save attempts until Convex auth is verified", () => {
+    expect(
+      getSaveTripReadinessError({
+        isLoading: true,
+        isAuthenticated: false,
+      })
+    ).toContain("Convex authentication is still loading")
+
+    expect(
+      getSaveTripReadinessError({
+        isLoading: false,
+        isAuthenticated: false,
+      })
+    ).toContain("Clerk sign-in succeeded, but Convex could not verify")
+
+    expect(
+      getSaveTripReadinessError({
+        isLoading: false,
+        isAuthenticated: true,
+      })
+    ).toBeNull()
+  })
+
+  test("classifies common Convex save failures into user-safe messages", () => {
+    expect(
+      formatSaveTripMutationError(new Error("ConvexError: UNAUTHENTICATED"))
+    ).toContain("Convex could not verify")
+
+    expect(
+      formatSaveTripMutationError(
+        new Error("Could not find public function trips:saveGeneratedTrip")
+      )
+    ).toContain("latest trip save function")
+
+    expect(
+      formatSaveTripMutationError(new Error("ArgumentValidationError"))
+    ).toContain("database save contract")
   })
 })

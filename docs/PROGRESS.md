@@ -1505,6 +1505,42 @@ Open issues:
 Next milestone:
 - Milestone 32
 
+## Post-Milestone 31 Save Trip Reliability Fix
+
+Changed:
+- Added a small user-safe Convex trip-save error classifier.
+- Updated `/create-trip` to wait for Convex-authenticated Clerk identity before calling the save mutation.
+- Kept generated itineraries in client state on save failure and surfaced actionable messages for Convex auth, deployment/function sync, validation, and network failures.
+- Added unit coverage for save readiness and common Convex save failure classification.
+
+Reason:
+- The create-trip page could show a generic save failure after successful itinerary generation when Convex could not verify Clerk auth or when the configured Convex deployment was out of sync.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... components/create-trip/create-trip-shell.tsx convex/trips.ts convex/schema.ts components/convex-client-provider.tsx convex/auth.config.ts`
+- Official Convex Clerk auth documentation lookup
+- `npm test`
+- `npm run lint`
+- `npm run build`
+- `git diff --check`
+- `NEXT_PUBLIC_CONVEX_URL=https://placeholder.convex.cloud npm run build:vercel`
+
+Results:
+- `npm test` passed: 4 test files, 27 tests.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `git diff --check` passed.
+- `npm run build:vercel` passed through the manual `NEXT_PUBLIC_CONVEX_URL` fallback path using a non-secret placeholder URL.
+- No secret values were printed.
+
+Open issues:
+- If the save message says Convex auth cannot verify Clerk, confirm Clerk's Convex integration/JWT template named `convex`, set `CLERK_JWT_ISSUER_DOMAIN` on the active Convex deployment, then run `npx convex dev` locally or `npx convex deploy` for production.
+- The visible Arcjet key from the IDE should be rotated in Arcjet and updated in local/Vercel environments.
+
+Next milestone:
+- Milestone 32
+
 ## Post-Milestone 31 Create-Trip AI Conversation Fix
 
 Changed:
