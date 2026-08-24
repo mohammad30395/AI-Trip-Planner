@@ -27,8 +27,12 @@ export const runtime = "nodejs"
 
 export async function POST(request: Request) {
   const authObject = await auth.protect()
-  const access = getTripGenerationAccessStatus(
+  const premiumEntitlement = safelyCheckPremiumEntitlement(() =>
     authObject.has({ feature: PREMIUM_TRIP_GENERATION_FEATURE })
+  )
+  const access = getTripGenerationAccessStatus(
+    premiumEntitlement.hasPremiumEntitlement,
+    premiumEntitlement.notice
   )
 
   let body: unknown
@@ -184,4 +188,24 @@ function itineraryError(
     } satisfies FinalItineraryResponseEnvelope,
     { status }
   )
+}
+
+function safelyCheckPremiumEntitlement(checkEntitlement: () => boolean) {
+  try {
+    return {
+      hasPremiumEntitlement: checkEntitlement(),
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn("Clerk billing entitlement diagnostic", {
+        name: error instanceof Error ? error.name : "UnknownError",
+      })
+    }
+
+    return {
+      hasPremiumEntitlement: false,
+      notice:
+        "Premium access could not be verified, so the free quota was applied.",
+    }
+  }
 }

@@ -573,10 +573,17 @@ function AccessStatusBadge({
   const isPremium = access.tier === "premium"
 
   return (
-    <span className="w-fit rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
-      {isPremium ? "Premium access" : "Free access"}
-      {isPremium && !access.quotaEnforced ? ": quota bypassed" : ": daily quota"}
-    </span>
+    <div className="grid justify-items-start gap-2">
+      <span className="w-fit rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+        {isPremium ? "Premium access" : "Free access"}
+        {isPremium && !access.quotaEnforced ? ": quota bypassed" : ": daily quota"}
+      </span>
+      {access.notice !== undefined ? (
+        <p className="max-w-sm rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          {access.notice}
+        </p>
+      ) : null}
+    </div>
   )
 }
 

@@ -31,7 +31,8 @@
 - [x] Milestone 24A - Map provider migration: Mapbox to Leaflet + OpenStreetMap
 - [x] Milestone 25 - Leaflet interactive map
 - [x] Milestone 26 - Leaflet markers and interaction
-- [ ] Milestone 27 - Production readiness and Vercel deployment
+- [x] Milestone 27 - UX resilience
+- [ ] Milestone 28 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -1271,3 +1272,43 @@ Open issues:
 
 Next milestone:
 - Milestone 27
+
+## Milestone 27 - UX Resilience
+
+Changed:
+- Added `lib/errors/user-safe-error.ts` as a small typed error model that separates user-safe messages from minimal internal diagnostic tags.
+- Added unmount cancellation cleanup for create-trip conversational and final itinerary requests so stale responses do not update the UI after navigation/reset.
+- Replaced client-side AI/save diagnostic console noise with user-safe retry messages that preserve collected requirements, generated itineraries, and failed-save state.
+- Made Clerk Billing entitlement verification recoverable at the final itinerary server boundary. If premium entitlement cannot be checked, the route applies the free quota and returns a safe access notice instead of crashing.
+- Extended final itinerary access parsing and UI display to support that safe billing notice.
+- Added per-card Geoapify enrichment retry controls that retry only the failed place lookup and do not regenerate the AI itinerary.
+- Added AbortController support for direct place-enrichment card lookups and guarded aborted lookups from becoming sticky cache entries.
+- Added Leaflet initialization and OpenStreetMap tile-load failure messages that keep itinerary text and canonical coordinates visible.
+- Added a route-level error boundary for `/view-trip/[tripId]` so unexpected saved-trip render/load failures can be retried or navigated away from safely.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg -n "console\\.|throw new Error|fetch\\(|has\\(|quota|error" components app lib`
+- `npm run lint`
+- `npm run build`
+- `npm run dev`
+- `curl -s -o /tmp/place-enrichment.out -w "%{http_code} %{content_type}\\n" -X POST http://localhost:3000/api/place-enrichment ...`
+- `curl -s -o /tmp/ai-itinerary.out -w "%{http_code} %{content_type}\\n" -X POST http://localhost:3000/api/ai-itinerary ...`
+- `curl -s -o /tmp/view-trip.out -w "%{http_code} %{content_type}\\n" http://localhost:3000/view-trip/not-a-trip`
+
+Results:
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Signed-out `/api/place-enrichment` returned HTTP 307 before any Geoapify lookup.
+- Signed-out `/api/ai-itinerary` returned HTTP 307 before any Arcjet/OpenRouter work.
+- Signed-out `/view-trip/not-a-trip` returned HTTP 307 to Clerk protection.
+- No secret values, full auth tokens, full prompts, or Geoapify provider URLs were printed.
+- No dependencies were added.
+
+Open issues:
+- Authenticated browser failure-path verification still needs a signed-in Clerk session and saved trips: test AI malformed/provider failures, Arcjet 429 quota UI, Convex save retry, Geoapify no-result/rate/auth failures, Leaflet tile failure, and billing entitlement unavailable behavior in the browser.
+- Place-enrichment map/list bulk lookups still use shared promise deduplication and active-state cleanup. Direct card lookups have abort support; a future persistent enrichment cache can make bulk cancellation more granular if needed.
+
+Next milestone:
+- Milestone 28

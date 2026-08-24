@@ -1,6 +1,6 @@
 "use client"
 
-import { useReducer, useRef } from "react"
+import { useEffect, useReducer, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useMutation } from "convex/react"
 
@@ -8,6 +8,10 @@ import { Badge } from "@/components/ui/badge"
 import { api } from "@/convex/_generated/api"
 import { parseTripConversationResponseEnvelope } from "@/lib/ai/conversation"
 import { parseFinalItineraryResponseEnvelope } from "@/lib/ai/itinerary"
+import {
+  createUserSafeError,
+  formatUserSafeErrorMessage,
+} from "@/lib/errors/user-safe-error"
 import { buildQuotaExceededMessage } from "@/lib/quota/free-generation-quota"
 
 import { ConversationPanel } from "./conversation-panel"
@@ -39,6 +43,15 @@ function CreateTripShell() {
   const pendingController = useRef<AbortController | null>(null)
   const pendingFinalController = useRef<AbortController | null>(null)
   const selector = getCurrentSelector(state.currentStep)
+
+  useEffect(() => {
+    return () => {
+      requestSequence.current += 1
+      finalRequestSequence.current += 1
+      pendingController.current?.abort()
+      pendingFinalController.current?.abort()
+    }
+  }, [])
 
   async function submitRequirements(requirements: TripRequirements) {
     if (state.isLoading) {
@@ -96,7 +109,7 @@ function CreateTripShell() {
       const parsedResponse = parseTripConversationResponseEnvelope(responseBody)
 
       if (!response.ok || !parsedResponse.ok) {
-        throw new Error("AI response could not be used safely.")
+        throw new Error("Conversation response validation failed.")
       }
 
       if (requestSequence.current !== requestId) {
@@ -112,16 +125,21 @@ function CreateTripShell() {
         return
       }
 
-      if (process.env.NODE_ENV === "development") {
-        console.warn("Create trip AI request diagnostic", {
-          name: error instanceof Error ? error.name : "UnknownError",
-        })
-      }
-
       dispatch({
         type: "aiRequestFailed",
-        error:
-          "The assistant response could not be used. Your trip fields are preserved; try again.",
+        error: formatUserSafeErrorMessage(
+          createUserSafeError({
+            code: "model_output_invalid",
+            title: "Assistant response unavailable",
+            message:
+              "Your trip fields are preserved. Retry this step when you are ready.",
+            retry: "same_stage",
+            diagnostic: {
+              source: "ai-model",
+              reason: error instanceof Error ? error.name : "UnknownError",
+            },
+          })
+        ),
       })
     } finally {
       if (requestSequence.current === requestId) {
@@ -187,11 +205,11 @@ function CreateTripShell() {
           return
         }
 
-        throw new Error("Final itinerary response could not be used safely.")
+        throw new Error("Final itinerary response validation failed.")
       }
 
       if (!response.ok) {
-        throw new Error("Final itinerary response could not be used safely.")
+        throw new Error("Final itinerary request failed.")
       }
 
       if (finalRequestSequence.current !== requestId) {
@@ -213,16 +231,21 @@ function CreateTripShell() {
         return
       }
 
-      if (process.env.NODE_ENV === "development") {
-        console.warn("Final itinerary request diagnostic", {
-          name: error instanceof Error ? error.name : "UnknownError",
-        })
-      }
-
       dispatch({
         type: "finalGenerationFailed",
-        error:
-          "The final itinerary could not be generated safely. Your trip brief is preserved; try again.",
+        error: formatUserSafeErrorMessage(
+          createUserSafeError({
+            code: "model_output_invalid",
+            title: "Itinerary generation unavailable",
+            message:
+              "Your confirmed brief is preserved. Retry generation without re-entering the trip details.",
+            retry: "same_stage",
+            diagnostic: {
+              source: "ai-itinerary",
+              reason: error instanceof Error ? error.name : "UnknownError",
+            },
+          })
+        ),
       })
     } finally {
       if (finalRequestSequence.current === requestId) {
@@ -267,16 +290,21 @@ function CreateTripShell() {
       dispatch({ type: "saveTripSucceeded", tripId })
       router.push(`/view-trip/${tripId}`)
     } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("Save generated trip diagnostic", {
-          name: error instanceof Error ? error.name : "UnknownError",
-        })
-      }
-
       dispatch({
         type: "saveTripFailed",
-        error:
-          "The itinerary could not be saved. Your generated trip is preserved; retry saving.",
+        error: formatUserSafeErrorMessage(
+          createUserSafeError({
+            code: "save_failed",
+            title: "Save failed",
+            message:
+              "Your generated itinerary is still on this page. Retry saving without regenerating it.",
+            retry: "same_stage",
+            diagnostic: {
+              source: "convex-save-trip",
+              reason: error instanceof Error ? error.name : "UnknownError",
+            },
+          })
+        ),
       })
     }
   }

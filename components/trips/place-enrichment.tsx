@@ -4,6 +4,11 @@ import { useEffect, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import {
+  createUserSafeError,
+  formatUserSafeErrorMessage,
+  isAbortError,
+} from "@/lib/errors/user-safe-error"
+import {
   getGeoapifyAttribution,
   parsePlaceEnrichmentResponseEnvelope,
   type PlaceEnrichment,
@@ -48,7 +53,8 @@ type PlaceMapControls = {
 const placeLookupCache = new Map<string, Promise<PlaceEnrichmentStatus>>()
 
 function usePlaceEnrichment(
-  request: PlaceEnrichmentRequest | null
+  request: PlaceEnrichmentRequest | null,
+  retryToken = 0
 ): PlaceEnrichmentStatus {
   const cacheKey = useMemo(
     () => (request === null ? null : buildPlaceEnrichmentCacheKey(request)),
@@ -64,8 +70,13 @@ function usePlaceEnrichment(
     }
 
     let isActive = true
+    const controller = new AbortController()
 
-    getCachedPlaceEnrichment(cacheKey, request).then((result) => {
+    if (retryToken > 0) {
+      placeLookupCache.delete(cacheKey)
+    }
+
+    getCachedPlaceEnrichment(cacheKey, request, controller.signal).then((result) => {
       if (isActive) {
         setState(result)
       }
@@ -73,10 +84,11 @@ function usePlaceEnrichment(
 
     return () => {
       isActive = false
+      controller.abort()
     }
-  }, [cacheKey, request])
+  }, [cacheKey, request, retryToken])
 
-  return state
+  return request === null ? { status: "idle" } : state
 }
 
 function usePlaceEnrichments(
@@ -211,7 +223,8 @@ function PlaceEnrichmentPanel({
   mapControls?: PlaceMapControls
   request: PlaceEnrichmentRequest | null
 }) {
-  const state = usePlaceEnrichment(request)
+  const [retryToken, setRetryToken] = useState(0)
+  const state = usePlaceEnrichment(request, retryToken)
 
   if (state.status === "idle") {
     return (
@@ -237,10 +250,24 @@ function PlaceEnrichmentPanel({
 
   if (state.status === "empty" || state.status === "error") {
     return (
-      <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="grid gap-3 rounded-lg border bg-muted/20 p-3">
         <p className="app-muted text-sm">
           {state.status === "empty" ? emptyMessage : state.message}
         </p>
+        {request !== null ? (
+          <div>
+            <Button
+              size="sm"
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setRetryToken((current) => current + 1)
+              }}
+            >
+              Retry Place Lookup
+            </Button>
+          </div>
+        ) : null}
       </div>
     )
   }
@@ -384,7 +411,8 @@ function buildPlaceEnrichmentCacheKey(request: PlaceEnrichmentRequest) {
 
 async function getCachedPlaceEnrichment(
   cacheKey: string,
-  request: PlaceEnrichmentRequest
+  request: PlaceEnrichmentRequest,
+  signal?: AbortSignal
 ) {
   const cached = placeLookupCache.get(cacheKey)
 
@@ -392,13 +420,23 @@ async function getCachedPlaceEnrichment(
     return cached
   }
 
-  const pending = fetchPlaceEnrichment(request)
+  const pending = fetchPlaceEnrichment(request, signal).then((result) => {
+    if (
+      result.status === "error" &&
+      result.message === "Place enrichment request was cancelled."
+    ) {
+      placeLookupCache.delete(cacheKey)
+    }
+
+    return result
+  })
   placeLookupCache.set(cacheKey, pending)
   return pending
 }
 
 async function fetchPlaceEnrichment(
-  request: PlaceEnrichmentRequest
+  request: PlaceEnrichmentRequest,
+  signal?: AbortSignal
 ): Promise<PlaceEnrichmentStatus> {
   try {
     const response = await fetch("/api/place-enrichment", {
@@ -407,6 +445,7 @@ async function fetchPlaceEnrichment(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(request),
+      signal,
     })
 
     let body: unknown
@@ -433,13 +472,36 @@ async function fetchPlaceEnrichment(
       if (response.status === 404) {
         return {
           status: "empty",
-          message: parsed.data.error,
+          message: formatUserSafeErrorMessage(
+            createUserSafeError({
+              code: "place_lookup_empty",
+              title: "Place not found",
+              message:
+                "The itinerary text is still available. Retry this lookup or continue without verified coordinates.",
+              retry: "same_stage",
+            })
+          ),
         }
       }
 
       return {
         status: "error",
-        message: parsed.data.error,
+        message: formatUserSafeErrorMessage(
+          createUserSafeError({
+            code:
+              response.status === 429
+                ? "quota_exceeded"
+                : "place_lookup_failed",
+            title: "Place lookup failed",
+            message:
+              "This place card could not be enriched right now. Retry only this lookup when the provider is available.",
+            retry: "same_stage",
+            diagnostic: {
+              source: "place-enrichment",
+              reason: `status-${response.status}`,
+            },
+          })
+        ),
       }
     }
 
@@ -447,10 +509,29 @@ async function fetchPlaceEnrichment(
       status: "success",
       place: parsed.data.place,
     }
-  } catch {
+  } catch (error) {
+    if (isAbortError(error)) {
+      return {
+        status: "error",
+        message: "Place enrichment request was cancelled.",
+      }
+    }
+
     return {
       status: "error",
-      message: "Place enrichment is unavailable right now.",
+      message: formatUserSafeErrorMessage(
+        createUserSafeError({
+          code: "network_unavailable",
+          title: "Place lookup unavailable",
+          message:
+            "The itinerary text is still available. Retry this place lookup without regenerating the trip.",
+          retry: "same_stage",
+          diagnostic: {
+            source: "place-enrichment",
+            reason: error instanceof Error ? error.name : "UnknownError",
+          },
+        })
+      ),
     }
   }
 }

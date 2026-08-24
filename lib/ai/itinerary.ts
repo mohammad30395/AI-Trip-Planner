@@ -382,6 +382,7 @@ function parseTripGenerationAccessStatus(
   const unknownKeysError = rejectUnknownKeys(object.data, [
     "tier",
     "quotaEnforced",
+    "notice",
   ])
 
   if (unknownKeysError !== null) {
@@ -394,6 +395,10 @@ function parseTripGenerationAccessStatus(
     "quotaEnforced",
     "response.access"
   )
+  const notice =
+    object.data.notice === undefined
+      ? undefined
+      : readStringInRange(object.data, "notice", 1, 180, "response.access")
 
   if (!tier.ok) {
     return tier
@@ -401,12 +406,16 @@ function parseTripGenerationAccessStatus(
   if (!quotaEnforced.ok) {
     return quotaEnforced
   }
+  if (notice !== undefined && !notice.ok) {
+    return notice
+  }
 
   return {
     ok: true,
     data: {
       tier: tier.data,
       quotaEnforced: quotaEnforced.data,
+      ...(notice !== undefined ? { notice: notice.data } : {}),
     },
   }
 }
