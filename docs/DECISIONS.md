@@ -63,8 +63,10 @@
   the billing authority.
 - Do not expose Clerk billing internals to the browser. The final-generation
   route returns only a small Free/Premium access status for UI display.
-- Run Mapbox client-side and clean up map instances on unmount.
-- Feed Mapbox provider-neutral normalized place data, not raw Geoapify JSON.
+- Run Leaflet client-side and clean up map instances on unmount.
+- Feed Leaflet provider-neutral normalized place data, not raw Geoapify JSON.
+- Configure base-map tile URLs in application code/configuration; never accept a
+  tile URL from user input.
 - Keep `/pricing` public so unauthenticated visitors can review access options before signing in. Enforce paid entitlement checks later at billing-protected server/data boundaries, not by hiding the pricing page.
 
 ## 2026 Place Provider Deviation
@@ -75,3 +77,15 @@
 - The current architecture must not pretend Geoapify is Google Places.
 - `GEOAPIFY_API_KEY` is server-only. Do not create or use `NEXT_PUBLIC_GEOAPIFY_API_KEY`.
 - AI coordinates remain hints only; provider-enriched coordinates are canonical for map rendering.
+
+## 2026 Map Provider Deviation
+
+- Original map provider in the prompt pack: Mapbox GL JS with a public Mapbox token and future 3D/globe-style map assumptions.
+- Replacement map approach for this build: Leaflet client components with an OpenStreetMap-compatible tile layer.
+- Reason: the Mapbox payment-method onboarding prerequisite is unavailable for this project.
+- The product changes from a planned 3D globe/map experience to a stable 2D interactive map unless a later approved provider is added.
+- No `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, Leaflet secret, or OpenStreetMap secret is required for the selected setup.
+- Geoapify remains the server-side source for canonical `providerPlaceId`, formatted address, and coordinates used by maps.
+- AI coordinates remain hints only and must not be displayed as verified map coordinates.
+- Leaflet map code must consume normalized provider-neutral place data, then render markers and popups; it must not depend on raw Geoapify JSON.
+- Public `tile.openstreetmap.org` standard tiles are not an unlimited production CDN or SLA-backed service. Any use must follow the current OSM tile usage policy, including visible OpenStreetMap attribution, valid web Referer behavior, caching, and no bulk download, preload, or offline tile scraping.

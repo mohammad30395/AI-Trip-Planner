@@ -6,14 +6,15 @@ The web app uses the current stable Next.js App Router with TypeScript and Tailw
 
 ## Client Boundary
 
-Client components may render forms, conversational UI, saved-trip views, and Mapbox GL JS maps.
+Client components may render forms, conversational UI, saved-trip views, and Leaflet maps.
 
 Client-safe values:
 - Clerk publishable key
 - Convex public URL
-- Mapbox public access token
 
-Mapbox runs client-side and must clean up map instances on unmount.
+Leaflet runs only inside client components and must clean up map instances on
+unmount. No map API key is required for the selected Leaflet plus
+OpenStreetMap-compatible tile setup.
 The browser must call an internal place-enrichment route for place data. It must
 never call Geoapify directly or receive the Geoapify API key.
 Saved-trip presentation enriches hotel and activity cards through a client
@@ -132,8 +133,22 @@ Place Details is optional after lookup and is used only as fallback-tolerant
 enrichment, currently for `wiki_and_media.image` when available. Place Details
 failure must not invalidate an otherwise valid geocoding result.
 Provider-enriched place IDs, addresses, and coordinates are canonical for maps.
-AI/model-generated coordinates remain non-authoritative hints only. Mapbox stays
-client-side and consumes normalized place data instead of raw provider payloads.
+AI/model-generated coordinates remain non-authoritative hints only.
+
+## Map Boundary
+
+Future map code uses normalized Geoapify coordinates as its canonical input,
+then renders them through a Leaflet client component with an
+OpenStreetMap-compatible tile layer, markers, and popups. Downstream map code
+must consume provider-neutral place data and must never depend on raw Geoapify
+JSON.
+
+The application owns the base-map tile URL configuration. User input must never
+be accepted as a tile URL or provider URL. Public OpenStreetMap standard tiles,
+if selected, must follow the current OSM tile usage policy: visible attribution,
+normal browser Referer behavior, caching according to response headers, no
+bulk/preload/offline tile scraping, and no assumption that public OSM tiles are
+an unlimited production CDN or SLA-backed service.
 
 Provider URLs include the Geoapify key as a query parameter, so code must never
 log complete Geoapify request URLs.

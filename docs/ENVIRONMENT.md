@@ -18,7 +18,9 @@ Variable names only. Never commit or print values.
 | `OPEN_ROUTER_API_KEY` | Server-only | OpenRouter server calls |
 | `OPEN_ROUTER_MODEL` | Server-only | Server-selected OpenRouter model |
 | `GEOAPIFY_API_KEY` | Server-only | Geoapify place-enrichment server calls |
-| `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` | Client-safe | Mapbox GL JS browser maps |
 
 Do not create or use `NEXT_PUBLIC_GEOAPIFY_API_KEY`. Geoapify calls must go
 through a server route so the provider key is never exposed to the browser.
+
+No Leaflet or OpenStreetMap secret is required for the selected map setup.
+Do not create `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` as a current requirement.

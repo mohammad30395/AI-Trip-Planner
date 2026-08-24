@@ -28,6 +28,7 @@
 - [x] Milestone 22 - Arcjet rate limiting
 - [x] Milestone 23 - Clerk Billing UI
 - [x] Milestone 24 - Clerk Billing paid access
+- [x] Milestone 24A - Map provider migration: Mapbox to Leaflet + OpenStreetMap
 - [ ] Milestone 25 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
@@ -946,7 +947,8 @@ Results:
 Open issues:
 - Full authenticated browser/API smoke through Clerk still requires signing in locally with a Clerk test user.
 - Place enrichment is not persisted to Convex yet and stored trip data remains unchanged.
-- Mapbox rendering of enriched coordinates belongs to Milestone 22.
+- Superseded by Milestone 24A: future map rendering uses Leaflet with
+  OpenStreetMap-compatible tiles instead of Mapbox.
 
 Next milestone:
 - Milestone 21
@@ -1130,6 +1132,46 @@ Open issues:
 - Full premium-user verification requires signing in with a Clerk test user that has the `unlimited_trip_generation` feature through Clerk Billing, then generating an itinerary and confirming the Premium badge plus quota bypass.
 - Full free exhausted verification should be done in the browser with a signed-in free Clerk user because the standalone Arcjet script does not reliably simulate the full Next.js request context.
 - No separate Arcjet bot/security rules are configured yet; if added later, they should run for both free and premium users.
+
+Next milestone:
+- Milestone 24A
+
+## Milestone 24A - Map Provider Migration: Mapbox to Leaflet + OpenStreetMap
+
+Changed:
+- Updated current source-of-truth docs so future map work uses Leaflet with an OpenStreetMap-compatible tile layer instead of Mapbox GL JS.
+- Recorded the architecture deviation explicitly: original provider was Mapbox, replacement approach is Leaflet plus OpenStreetMap-compatible tiles, and the reason is unavailable Mapbox payment-method onboarding.
+- Removed `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` as a current environment requirement.
+- Documented that no Leaflet or OpenStreetMap secret is required for the selected setup.
+- Documented the provider-neutral future map contract: normalized Geoapify coordinates feed a Leaflet client map with OSM-compatible tiles, markers, and popups.
+- Documented that Geoapify remains server-side and authoritative for canonical map coordinates and provider place IDs.
+- Documented that OpenStreetMap attribution and tile usage obligations must be respected, and that public OSM tiles are not an unlimited production CDN or SLA-backed service.
+- Updated active create-trip preview copy to refer to the future Leaflet map milestone.
+- Marked the older Mapbox future-work note as superseded by this migration.
+- Preserved working behavior through Milestone 24. No map dependency, map component, runtime refactor, or Prompt 25 work was added.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg -n -i "mapbox|mapbox-gl|NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN|Mapbox token|Mapbox globe|WebGL|3D route|3D map|public Mapbox|canonical Mapbox|globe" . -g '!node_modules' -g '!.next' -g '!.git'`
+- `rg -n -i "map|coordinates|providerPlaceId|location|Geoapify|OpenStreetMap|tile|attribution" app components lib convex docs -g '!node_modules' -g '!.next'`
+- `rg -n -i "leaflet|OpenStreetMap|OSM|tile|NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN|Mapbox" docs/PROJECT_SPEC.md docs/ARCHITECTURE.md docs/DECISIONS.md docs/ENVIRONMENT.md components/create-trip/trip-preview-panel.tsx`
+- `node -e "... checked leaflet/react-leaflet/mapbox-gl dependency absence ..."`
+- Official OpenStreetMap tile usage policy lookup
+- `npm run lint`
+- `npm run build`
+
+Results:
+- Current product, architecture, decision, and environment docs identify Leaflet plus OpenStreetMap-compatible tiles as the future map approach.
+- `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` is no longer documented as a required current environment variable.
+- No `leaflet`, `react-leaflet`, `mapbox-gl`, or map implementation dependency was installed.
+- Active code has no Mapbox integration; only historical progress notes mention Mapbox as earlier non-implementation history or as superseded by this migration.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+
+Open issues:
+- Future map implementation must choose a tile URL in application code/configuration, include visible attribution, and respect the selected tile provider policy.
+- If production traffic exceeds appropriate use of public OSM standard tiles, switch to a suitable OSM-derived tile provider or self-hosted tiles before launch.
 
 Next milestone:
 - Milestone 25
