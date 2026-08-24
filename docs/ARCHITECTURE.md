@@ -137,11 +137,13 @@ AI/model-generated coordinates remain non-authoritative hints only.
 
 ## Map Boundary
 
-Future map code uses normalized Geoapify coordinates as its canonical input,
-then renders them through a Leaflet client component with an
-OpenStreetMap-compatible tile layer, markers, and popups. Downstream map code
-must consume provider-neutral place data and must never depend on raw Geoapify
-JSON.
+Map code uses normalized Geoapify coordinates as its canonical input, then
+renders them through a Leaflet client component with an OpenStreetMap-compatible
+tile layer. The current map centers on one canonical enriched place when
+available and falls back to a documented global center when enrichment is
+unavailable. It does not render itinerary markers or popups yet. Downstream map
+code must consume provider-neutral place data and must never depend on raw
+Geoapify JSON.
 
 The application owns the base-map tile URL configuration. User input must never
 be accepted as a tile URL or provider URL. Public OpenStreetMap standard tiles,

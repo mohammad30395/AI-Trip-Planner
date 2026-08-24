@@ -364,4 +364,6 @@ export {
   PlaceAttributionNotice,
   buildPlaceEnrichmentCacheKey,
   getSafeHttpsImageUrl,
+  usePlaceEnrichment,
+  type PlaceEnrichmentStatus,
 }

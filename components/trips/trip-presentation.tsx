@@ -11,6 +11,10 @@ import {
   HotelPlaceEnrichment,
   PlaceAttributionNotice,
 } from "@/components/trips/place-enrichment"
+import {
+  TripMapSection,
+  type TripMapLookup,
+} from "@/components/trips/trip-map"
 import type {
   PresentedActivity,
   PresentedHotel,
@@ -18,6 +22,8 @@ import type {
 } from "@/lib/trips/presentation"
 
 function TripPresentation({ trip }: { trip: TripPresentationData }) {
+  const mapLookup = getPrimaryTripMapLookup(trip)
+
   return (
     <article className="grid max-w-5xl gap-6">
       <TripSummaryHeader trip={trip} />
@@ -25,6 +31,7 @@ function TripPresentation({ trip }: { trip: TripPresentationData }) {
         practicalNotes={trip.practicalNotes}
         summary={trip.summary}
       />
+      <TripMapSection lookup={mapLookup} />
       <HotelList destination={trip.destination} hotels={trip.hotels} />
       <DayByDayItinerary days={trip.days} destination={trip.destination} />
       <PlaceAttributionNotice />
@@ -337,6 +344,48 @@ function EmptyContent({ message }: { message: string }) {
       <p className="app-muted text-sm">{message}</p>
     </div>
   )
+}
+
+function getPrimaryTripMapLookup(
+  trip: TripPresentationData
+): TripMapLookup | null {
+  const hotel = trip.hotels.find((candidate) => candidate.name.length > 0)
+
+  if (hotel !== undefined) {
+    return {
+      label: hotel.name,
+      request: {
+        query: hotel.name,
+        destination: trip.destination,
+        ...(hotel.address !== null ? { address: hotel.address } : {}),
+      },
+    }
+  }
+
+  for (const day of trip.days) {
+    const activity = day.activities.find(
+      (candidate) =>
+        candidate.placeName !== null ||
+        candidate.address !== null ||
+        candidate.approximateArea !== null
+    )
+
+    if (activity !== undefined) {
+      return {
+        label: activity.placeName ?? activity.address ?? activity.title,
+        request: {
+          query: activity.placeName ?? activity.address ?? activity.title,
+          destination: trip.destination,
+          ...(activity.address !== null ? { address: activity.address } : {}),
+          ...(activity.approximateArea !== null
+            ? { city: activity.approximateArea }
+            : {}),
+        },
+      }
+    }
+  }
+
+  return null
 }
 
 export { TripPresentation }

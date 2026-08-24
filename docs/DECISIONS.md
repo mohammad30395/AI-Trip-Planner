@@ -89,3 +89,5 @@
 - AI coordinates remain hints only and must not be displayed as verified map coordinates.
 - Leaflet map code must consume normalized provider-neutral place data, then render markers and popups; it must not depend on raw Geoapify JSON.
 - Public `tile.openstreetmap.org` standard tiles are not an unlimited production CDN or SLA-backed service. Any use must follow the current OSM tile usage policy, including visible OpenStreetMap attribution, valid web Referer behavior, caching, and no bulk download, preload, or offline tile scraping.
+- Use Leaflet 1.9.x stable for the initial map. Do not opt into Leaflet 2.0 alpha without a later explicit migration decision.
+- The initial Leaflet map uses the standard HTTPS OpenStreetMap tile URL controlled by application code, no map token, no arbitrary tile URL input, and no itinerary markers or popups yet.

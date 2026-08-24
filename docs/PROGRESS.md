@@ -29,7 +29,8 @@
 - [x] Milestone 23 - Clerk Billing UI
 - [x] Milestone 24 - Clerk Billing paid access
 - [x] Milestone 24A - Map provider migration: Mapbox to Leaflet + OpenStreetMap
-- [ ] Milestone 25 - Production readiness and Vercel deployment
+- [x] Milestone 25 - Leaflet interactive map
+- [ ] Milestone 26 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -1175,3 +1176,53 @@ Open issues:
 
 Next milestone:
 - Milestone 25
+
+## Milestone 25 - Leaflet Interactive Map
+
+Changed:
+- Verified Leaflet's current stable package before installation. Leaflet 1.9.4 is the stable/latest release; Leaflet 2.0.0-alpha.1 remains alpha and was not used.
+- Installed `leaflet@1.9.4`.
+- Added `@types/leaflet` only after confirming the installed Leaflet package does not ship TypeScript declaration files.
+- Imported Leaflet CSS from `app/layout.tsx`, which is the existing Next.js global CSS boundary.
+- Added `components/trips/trip-map.tsx` as a dedicated client component that dynamically imports Leaflet inside `useEffect`.
+- Initialized `L.map` with a ref container, guarded against double initialization, invalidated size after render, and called `map.remove()` on cleanup.
+- Added the application-controlled standard HTTPS OpenStreetMap tile URL with visible OpenStreetMap attribution.
+- Centered the map on one canonical Geoapify-enriched place when available. If enrichment is unavailable, the map uses a documented global fallback center.
+- Added the map to saved-trip presentation without itinerary markers, popups, clustering, extra plugins, map tokens, or map environment variables.
+- Reused the existing normalized place-enrichment contract and did not depend on raw Geoapify JSON or AI coordinates.
+- Documented the implemented Leaflet boundary and OSM tile policy constraints.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- Official Leaflet documentation/package lookup
+- Official OpenStreetMap tile usage policy lookup
+- `npm view leaflet version types typings dist-tags --json`
+- `npm install leaflet@1.9.4`
+- `find node_modules/leaflet -maxdepth 3 \( -name '*.d.ts' -o -name 'leaflet.css' \) -print`
+- `npm install -D @types/leaflet`
+- `npm run lint`
+- `npm run build`
+- `npm run start -- --port 3001`
+- `curl -sS ... http://localhost:3001/`
+- `curl -sS ... http://localhost:3001/view-trip/sample`
+- `npm ls leaflet @types/leaflet --depth=0`
+- `rg -n "leaflet|tile\\.openstreetmap|NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN|mapbox-gl|react-leaflet|GEOAPIFY_API_KEY|OPEN_ROUTER_API_KEY|CLERK_SECRET_KEY" app components lib docs package.json next.config.ts`
+
+Results:
+- `npm install leaflet@1.9.4` completed and reported 0 vulnerabilities.
+- `npm install -D @types/leaflet` completed and reported 0 vulnerabilities.
+- `npm run lint` passed after fixing a React refs rule in the Leaflet lifecycle code.
+- `npm run build` passed with Next.js 16.3.2 and included `/view-trip/[tripId]`.
+- Production `/` returned HTTP 200.
+- Signed-out production `/view-trip/sample` returned HTTP 307 to Clerk sign-in, so protected trip-map rendering remains behind authentication.
+- `npm ls` shows `leaflet@1.9.4` and `@types/leaflet@1.9.22`.
+- Source scan found the tile URL only as an application-controlled constant and found no `mapbox-gl` or `react-leaflet` dependency/use.
+- No Geoapify, OpenRouter, Clerk, Arcjet, or map secret values were printed or moved client-side.
+
+Open issues:
+- Authenticated browser verification still needs to be completed with a Clerk session and a saved trip: open a saved trip, confirm the Leaflet map renders, navigate away/back, resize the viewport, and confirm no duplicate-map or hydration errors appear under React Strict Mode.
+- Public OSM standard tiles remain suitable for development and modest use only. Production launch should re-evaluate traffic and switch to an appropriate OSM-derived tile provider or self-hosted tiles if needed.
+
+Next milestone:
+- Milestone 26
