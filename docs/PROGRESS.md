@@ -26,7 +26,7 @@
 - [x] Revised Prompt 20 - Geoapify server place adapter
 - [x] Milestone 21 - Place enrichment in the UI
 - [x] Milestone 22 - Arcjet rate limiting
-- [ ] Milestone 23 - Mapbox trip map
+- [x] Milestone 23 - Clerk Billing UI
 - [ ] Milestone 24 - Clerk Billing paid access
 - [ ] Milestone 25 - Production readiness and Vercel deployment
 
@@ -1041,3 +1041,48 @@ Open issues:
 
 Next milestone:
 - Milestone 23
+
+## Milestone 23 - Clerk Billing UI
+
+Changed:
+- Replaced the `/pricing` placeholder with Clerk's current `PricingTable` component from `@clerk/nextjs`.
+- Configured the pricing table for user/B2C plans and set successful checkout continuation to `/create-trip`.
+- Kept `/pricing` public so signed-out users can review plans before signing in.
+- Kept the existing free-quota CTA path from create-trip quota errors to `/pricing`.
+- Left `UserButton` as the account-management entry point; Clerk-managed billing management appears there when user billing plans are enabled and public in Clerk.
+- Documented that Clerk Billing owns checkout/subscription state and that Convex must not duplicate subscription status as security truth.
+- Did not hardcode a paid plan, feature, or entitlement slug.
+- Did not implement paid Arcjet bypass or AI authorization changes.
+- Did not add dependencies or integrate Stripe directly.
+
+Commands run:
+- `git status --short --branch && git branch --show-current`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg -n "PricingTable|UserButton|billing|Billing|plan|subscription|commerce|organizationProfile|userProfile" node_modules/@clerk/nextjs ...`
+- Official Clerk Billing documentation lookup for B2C plans, `PricingTable`, `UserButton`, and subscription management
+- `npm run lint`
+- `npm run build`
+- `npm run start -- --port 3001`
+- `curl -sS -o /tmp/m23-pricing.html -D /tmp/m23-pricing.headers -w '%{http_code}\\n' http://localhost:3001/pricing`
+- `node --env-file=.env.local -e "... checked Clerk variable-name presence without printing secret values ..."`
+
+Results:
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2 and included `/pricing`.
+- Production `/pricing` returned HTTP 200 and rendered the page shell with Clerk Billing copy and the Clerk `PricingTable` client component boundary.
+- Required Clerk variable names are present by name-presence check.
+- No plan, feature, entitlement slug, checkout status, or subscription state was duplicated into Convex.
+
+Open issues:
+- Clerk Dashboard setup still needs to be completed or confirmed:
+  1. Enable Billing in the Clerk Dashboard for this development instance.
+  2. Use Clerk's development payment gateway for local/test checkout.
+  3. Create a user/B2C paid subscription plan.
+  4. Mark the plan publicly available so it appears in `PricingTable`.
+  5. Add a feature/entitlement for unlimited trip generation and record the exact slug before Milestone 24.
+  6. Verify `/pricing` visually while signed out and signed in.
+  7. Complete a test checkout and confirm Clerk account management exposes subscription management.
+- Paid users still do not bypass Arcjet. That belongs to Milestone 24 after the exact entitlement slug is confirmed.
+
+Next milestone:
+- Milestone 24 after Clerk Dashboard setup and checkout verification

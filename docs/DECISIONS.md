@@ -49,6 +49,14 @@
 - Premium bypass is deferred to the Clerk Billing milestone; for now all
   authenticated users use the free quota.
 - Paid Clerk Billing entitlement bypasses the free quota.
+- Render `/pricing` with Clerk's current `PricingTable` for user plans because
+  this product bills individual trip-planning users rather than organizations.
+- Clerk Billing owns checkout and subscription management; do not integrate
+  Stripe directly for this project.
+- Do not store subscription status in Convex as security truth. Clerk remains
+  the billing authority.
+- Do not hardcode the paid entitlement or feature slug until the exact Clerk
+  Dashboard configuration is confirmed.
 - Run Mapbox client-side and clean up map instances on unmount.
 - Feed Mapbox provider-neutral normalized place data, not raw Geoapify JSON.
 - Keep `/pricing` public so unauthenticated visitors can review access options before signing in. Enforce paid entitlement checks later at billing-protected server/data boundaries, not by hiding the pricing page.

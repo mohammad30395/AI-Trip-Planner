@@ -85,6 +85,21 @@ the free quota. Provider or validation failures after the Arcjet decision may
 consume the attempt; this retry behavior is documented here so future billing
 work can adjust it deliberately.
 
+## Billing Boundary
+
+`/pricing` renders Clerk's user `PricingTable` component for Clerk-managed B2C
+plans. Clerk owns checkout, subscription state, and account billing management.
+This project does not integrate Stripe directly and does not duplicate
+subscription truth into Convex.
+
+The signed-in account menu uses Clerk's `UserButton`, whose Manage account
+surface exposes Clerk-managed account features, including billing management
+when Billing is enabled and the relevant user plans are public in Clerk.
+
+Paid entitlement checks are not enforced in AI authorization yet. The exact
+feature or entitlement slug must be confirmed from the Clerk Dashboard before
+the next milestone wires paid users around the Arcjet free quota.
+
 ## Place Enrichment Boundary
 
 Place enrichment uses the internal server route
