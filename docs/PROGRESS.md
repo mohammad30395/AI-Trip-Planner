@@ -24,10 +24,11 @@
 - [x] Milestone 19 - My trips
 - [x] Milestone 19A - Place provider migration: Google Places to Geoapify
 - [x] Revised Prompt 20 - Geoapify server place adapter
-- [ ] Milestone 21 - Mapbox trip map
-- [ ] Milestone 22 - Arcjet free quota
-- [ ] Milestone 23 - Clerk Billing paid access
-- [ ] Milestone 24 - Production readiness and Vercel deployment
+- [x] Milestone 21 - Place enrichment in the UI
+- [ ] Milestone 22 - Mapbox trip map
+- [ ] Milestone 23 - Arcjet free quota
+- [ ] Milestone 24 - Clerk Billing paid access
+- [ ] Milestone 25 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -945,7 +946,55 @@ Results:
 Open issues:
 - Full authenticated browser/API smoke through Clerk still requires signing in locally with a Clerk test user.
 - Place enrichment is not persisted to Convex yet and stored trip data remains unchanged.
-- Mapbox rendering of enriched coordinates belongs to Milestone 21.
+- Mapbox rendering of enriched coordinates belongs to Milestone 22.
 
 Next milestone:
 - Milestone 21
+
+## Milestone 21 - Place Enrichment in the UI
+
+Changed:
+- Added a client-side place enrichment layer in `components/trips/place-enrichment.tsx`.
+- Hotel and activity cards now call only the internal `/api/place-enrichment` route and consume only the normalized `PlaceEnrichment` contract.
+- Added a modest module-level in-memory lookup cache keyed by normalized semantic query, destination, city, and address context.
+- Rendered canonical formatted address, providerPlaceId, and Geoapify coordinates for enriched hotels and activities.
+- Added optional provider image rendering with HTTPS-only URL validation and stable image placeholders.
+- Added stable loading, empty, and error states so one failed lookup does not break the itinerary.
+- Added reusable Geoapify and OpenStreetMap attribution to the trip presentation.
+- Extended shared response validation in `lib/places/place-enrichment.ts` so the client validates route responses before rendering.
+- Documented that enrichment remains UI/in-memory only for now; no Convex schema or stored trip data was changed.
+- Did not add Mapbox, dependencies, billing, Arcjet, or persistent caching.
+
+Commands run:
+- `git status --short --branch && git branch --show-current`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `sed -n ... components/trips/trip-presentation.tsx components/trips/saved-trip-detail.tsx lib/trips/presentation.ts app/api/place-enrichment/route.ts lib/places/place-enrichment.ts`
+- `npm run lint`
+- `node --experimental-strip-types --input-type=module -e "... normalized response/request parser smoke check ..."`
+- `node --env-file=.env.local -e "... live Geoapify exact, ambiguous-with-context, and no-result lookups with sanitized output ..."`
+- `node -e "... provider auth/error smoke with deliberately fake key ..."`
+- `node --env-file=.env.local -e "... missing-image and Place Details failure smoke checks ..."`
+- `npm run build`
+- `rg -n "NEXT_PUBLIC_GEOAPIFY_API_KEY|GEOAPIFY_API_KEY|geoapify\\.com/v|apiKey|axios|mapbox|Mapbox|raw Geoapify|fetch\\(" app components lib docs package.json`
+- `rg -n "providerPlaceId|formattedAddress|Canonical coordinates|PlaceAttributionNotice|usePlaceEnrichment|placeLookupCache|https:" components/trips lib/places app/api/place-enrichment docs/ARCHITECTURE.md docs/DECISIONS.md`
+- `git diff --stat`
+
+Results:
+- `npm run lint` passed after adjusting the enrichment hook to avoid synchronous state writes inside effects.
+- `npm run build` passed with Next.js 16.3.2.
+- Shared parser smoke accepted a valid normalized place response, accepted a no-result error envelope, rejected malformed coordinates, and confirmed repeated semantic context normalizes consistently.
+- Live exact lookup returned a provider place ID, formatted address, and finite coordinates.
+- Live ambiguous lookup with destination context returned a provider place ID, formatted address, and finite coordinates.
+- Live gibberish lookup returned zero results for the provider no-result case.
+- Provider auth/error smoke returned a non-success provider status with a deliberately fake key value; no real key or URL was printed.
+- Missing-image smoke found a geocoded place with no details image and verified the fallback condition.
+- Place Details failure smoke returned a non-success details status, matching the adapter's non-fatal fallback path.
+- Source scans found no public Geoapify key, no Axios, no Mapbox implementation, and UI fetches only to internal app routes.
+
+Open issues:
+- Full authenticated browser verification still requires signing in with a Clerk test user and opening a saved trip containing hotels and activities.
+- Enriched canonical place data remains in-memory UI state only; persist it later only if map behavior requires it.
+- The rate-limit UI path uses the same normalized error rendering as other provider errors; a live 429 was not intentionally triggered.
+
+Next milestone:
+- Milestone 22

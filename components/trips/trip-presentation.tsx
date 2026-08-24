@@ -6,6 +6,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  ActivityPlaceEnrichment,
+  HotelPlaceEnrichment,
+  PlaceAttributionNotice,
+} from "@/components/trips/place-enrichment"
 import type {
   PresentedActivity,
   PresentedHotel,
@@ -20,8 +25,9 @@ function TripPresentation({ trip }: { trip: TripPresentationData }) {
         practicalNotes={trip.practicalNotes}
         summary={trip.summary}
       />
-      <HotelList hotels={trip.hotels} />
-      <DayByDayItinerary days={trip.days} />
+      <HotelList destination={trip.destination} hotels={trip.hotels} />
+      <DayByDayItinerary days={trip.days} destination={trip.destination} />
+      <PlaceAttributionNotice />
     </article>
   )
 }
@@ -100,7 +106,13 @@ function TripSummarySection({
   )
 }
 
-function HotelList({ hotels }: { hotels: PresentedHotel[] }) {
+function HotelList({
+  destination,
+  hotels,
+}: {
+  destination: string
+  hotels: PresentedHotel[]
+}) {
   return (
     <section aria-labelledby="hotel-options" className="grid gap-4">
       <div>
@@ -117,7 +129,7 @@ function HotelList({ hotels }: { hotels: PresentedHotel[] }) {
         <ul className="grid gap-4 md:grid-cols-2">
           {hotels.map((hotel) => (
             <li key={hotel.id}>
-              <HotelCard hotel={hotel} />
+              <HotelCard destination={destination} hotel={hotel} />
             </li>
           ))}
         </ul>
@@ -128,15 +140,15 @@ function HotelList({ hotels }: { hotels: PresentedHotel[] }) {
   )
 }
 
-function HotelCard({ hotel }: { hotel: PresentedHotel }) {
+function HotelCard({
+  destination,
+  hotel,
+}: {
+  destination: string
+  hotel: PresentedHotel
+}) {
   return (
     <Card className="app-card h-full">
-      <div
-        aria-hidden="true"
-        className="flex aspect-[16/9] items-center justify-center border-b bg-muted/40 text-xs font-medium uppercase text-muted-foreground"
-      >
-        Photo pending
-      </div>
       <CardHeader>
         <CardTitle>{hotel.name}</CardTitle>
         <CardDescription>{hotel.description}</CardDescription>
@@ -151,6 +163,11 @@ function HotelCard({ hotel }: { hotel: PresentedHotel }) {
             value={hotel.estimatedPriceText}
           />
         </dl>
+        <HotelPlaceEnrichment
+          address={hotel.address}
+          destination={destination}
+          name={hotel.name}
+        />
       </CardContent>
     </Card>
   )
@@ -158,8 +175,10 @@ function HotelCard({ hotel }: { hotel: PresentedHotel }) {
 
 function DayByDayItinerary({
   days,
+  destination,
 }: {
   days: TripPresentationData["days"]
+  destination: string
 }) {
   return (
     <section aria-labelledby="day-by-day-itinerary" className="grid gap-4">
@@ -190,7 +209,10 @@ function DayByDayItinerary({
               <ol className="grid gap-3">
                 {day.activities.map((activity) => (
                   <li key={activity.id}>
-                    <ActivityPlaceCard activity={activity} />
+                    <ActivityPlaceCard
+                      activity={activity}
+                      destination={destination}
+                    />
                   </li>
                 ))}
               </ol>
@@ -204,7 +226,13 @@ function DayByDayItinerary({
   )
 }
 
-function ActivityPlaceCard({ activity }: { activity: PresentedActivity }) {
+function ActivityPlaceCard({
+  activity,
+  destination,
+}: {
+  activity: PresentedActivity
+  destination: string
+}) {
   const hasPlaceDetails =
     activity.placeName !== null ||
     activity.address !== null ||
@@ -256,6 +284,12 @@ function ActivityPlaceCard({ activity }: { activity: PresentedActivity }) {
                 No place details were saved for this activity.
               </p>
             )}
+            <ActivityPlaceEnrichment
+              address={activity.address}
+              approximateArea={activity.approximateArea}
+              destination={destination}
+              placeName={activity.placeName}
+            />
           </CardContent>
         </div>
       </div>

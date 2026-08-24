@@ -16,6 +16,10 @@ Client-safe values:
 Mapbox runs client-side and must clean up map instances on unmount.
 The browser must call an internal place-enrichment route for place data. It must
 never call Geoapify directly or receive the Geoapify API key.
+Saved-trip presentation enriches hotel and activity cards through a client
+hook that consumes only the normalized internal `PlaceEnrichment` contract.
+The hook keeps a modest in-memory request cache keyed by normalized semantic
+query context so repeated cards do not trigger duplicate lookups.
 
 ## Server Boundary
 
@@ -87,6 +91,8 @@ client-side and consumes normalized place data instead of raw provider payloads.
 
 Provider URLs include the Geoapify key as a query parameter, so code must never
 log complete Geoapify request URLs.
+External provider images are optional UI enhancement only and must be validated
+as HTTPS before rendering. Missing images keep stable placeholders.
 
 ## AI Contract Boundary
 

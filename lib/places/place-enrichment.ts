@@ -42,6 +42,16 @@ export type PlaceEnrichmentResponseEnvelope =
       missingVariables?: string[]
     }
 
+export type PlaceEnrichmentResponseParseResult =
+  | {
+      ok: true
+      data: PlaceEnrichmentResponseEnvelope
+    }
+  | {
+      ok: false
+      error: string
+    }
+
 type ValidationResult =
   | {
       ok: true
@@ -153,6 +163,65 @@ export function getGeoapifyAttribution(): PlaceEnrichmentAttribution {
   }
 }
 
+export function parsePlaceEnrichmentResponseEnvelope(
+  value: unknown
+): PlaceEnrichmentResponseParseResult {
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      error: "Place enrichment response must be an object.",
+    }
+  }
+
+  if (value.ok === false) {
+    const error = readResponseString(value.error)
+
+    if (error === null) {
+      return {
+        ok: false,
+        error: "Place enrichment error response is invalid.",
+      }
+    }
+
+    const missingVariables = Array.isArray(value.missingVariables)
+      ? value.missingVariables.filter(
+          (variable): variable is string =>
+            typeof variable === "string" && variable.trim().length > 0
+        )
+      : undefined
+
+    return {
+      ok: true,
+      data: {
+        ok: false,
+        error,
+        ...(missingVariables !== undefined ? { missingVariables } : {}),
+      },
+    }
+  }
+
+  if (value.ok !== true) {
+    return {
+      ok: false,
+      error: "Place enrichment response status is invalid.",
+    }
+  }
+
+  const place = parsePlaceEnrichment(value.place)
+
+  if (!place.ok) {
+    return place
+  }
+
+  return {
+    ok: true,
+    data: {
+      ok: true,
+      place: place.data,
+    },
+  }
+}
+
 function readTrimmedString(
   value: unknown,
   fieldName: string,
@@ -217,4 +286,217 @@ function readTrimmedString(
     ok: true,
     data: trimmed,
   }
+}
+
+function parsePlaceEnrichment(
+  value: unknown
+):
+  | {
+      ok: true
+      data: PlaceEnrichment
+    }
+  | {
+      ok: false
+      error: string
+    } {
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      error: "Place enrichment place must be an object.",
+    }
+  }
+
+  const providerPlaceId = readResponseString(value.providerPlaceId)
+  const displayName = readResponseString(value.displayName)
+  const formattedAddress = readResponseString(value.formattedAddress)
+
+  if (value.provider !== "geoapify") {
+    return {
+      ok: false,
+      error: "Place enrichment provider is invalid.",
+    }
+  }
+
+  if (
+    providerPlaceId === null ||
+    displayName === null ||
+    formattedAddress === null
+  ) {
+    return {
+      ok: false,
+      error: "Place enrichment text fields are invalid.",
+    }
+  }
+
+  const location = parseLocation(value.location)
+
+  if (!location.ok) {
+    return location
+  }
+
+  const attribution = parseAttribution(value.attribution)
+
+  if (!attribution.ok) {
+    return attribution
+  }
+
+  const image = parseOptionalImage(value.image)
+
+  if (!image.ok) {
+    return image
+  }
+
+  return {
+    ok: true,
+    data: {
+      provider: "geoapify",
+      providerPlaceId,
+      displayName,
+      formattedAddress,
+      location: location.data,
+      ...(image.data !== undefined ? { image: image.data } : {}),
+      attribution: attribution.data,
+    },
+  }
+}
+
+function parseLocation(
+  value: unknown
+):
+  | {
+      ok: true
+      data: PlaceEnrichment["location"]
+    }
+  | {
+      ok: false
+      error: string
+    } {
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      error: "Place enrichment location is invalid.",
+    }
+  }
+
+  if (!isValidCoordinate(value.lat, -90, 90)) {
+    return {
+      ok: false,
+      error: "Place enrichment latitude is invalid.",
+    }
+  }
+
+  if (!isValidCoordinate(value.lng, -180, 180)) {
+    return {
+      ok: false,
+      error: "Place enrichment longitude is invalid.",
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      lat: value.lat,
+      lng: value.lng,
+    },
+  }
+}
+
+function parseAttribution(
+  value: unknown
+):
+  | {
+      ok: true
+      data: PlaceEnrichmentAttribution
+    }
+  | {
+      ok: false
+      error: string
+    } {
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      error: "Place enrichment attribution is invalid.",
+    }
+  }
+
+  if (
+    value.provider !== "Geoapify" ||
+    value.providerLabel !== "Powered by Geoapify" ||
+    value.providerUrl !== "https://www.geoapify.com/" ||
+    value.osmLabel !== "OpenStreetMap contributors" ||
+    value.osmUrl !== "https://www.openstreetmap.org/copyright"
+  ) {
+    return {
+      ok: false,
+      error: "Place enrichment attribution values are invalid.",
+    }
+  }
+
+  return {
+    ok: true,
+    data: getGeoapifyAttribution(),
+  }
+}
+
+function parseOptionalImage(
+  value: unknown
+):
+  | {
+      ok: true
+      data?: PlaceEnrichmentImage
+    }
+  | {
+      ok: false
+      error: string
+    } {
+  if (value === undefined) {
+    return {
+      ok: true,
+    }
+  }
+
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      error: "Place enrichment image is invalid.",
+    }
+  }
+
+  const url = readResponseString(value.url)
+
+  if (url === null || value.source !== "geoapify") {
+    return {
+      ok: false,
+      error: "Place enrichment image values are invalid.",
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      url,
+      source: "geoapify",
+    },
+  }
+}
+
+function readResponseString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function isValidCoordinate(
+  value: unknown,
+  min: number,
+  max: number
+): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= min && value <= max
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }

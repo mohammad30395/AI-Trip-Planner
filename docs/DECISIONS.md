@@ -29,8 +29,10 @@
 - Treat provider-enriched `providerPlaceId`, formatted address, and coordinates as canonical for maps.
 - Do not trust model-generated coordinates as canonical.
 - Keep place images optional and provide placeholder fallbacks when provider images are absent.
+- Render provider images only after HTTPS URL validation.
 - Respect Geoapify free-plan limits and OpenStreetMap attribution requirements.
 - Never log full Geoapify request URLs because the API key is a provider query parameter.
+- Keep place enrichment in memory/UI-only for now. Do not change Convex schema until map or persistence requirements make persisted canonical place data necessary.
 - Run Arcjet before expensive AI work to enforce free quota and abuse controls.
 - The free tier default is one successful trip generation per rolling/day policy documented in one config.
 - Paid Clerk Billing entitlement bypasses the free quota.
