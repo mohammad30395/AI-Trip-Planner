@@ -1443,3 +1443,64 @@ Open issues:
 
 Next milestone:
 - Milestone 31
+
+## Milestone 31 - Production Build + Vercel Prep
+
+Changed:
+- Added Node.js `24.x` and npm `11.x` engine assumptions to `package.json` and lockfile metadata.
+- Added `build:vercel` so Vercel can run Convex deploy before the Next.js production build while explicitly setting `NEXT_PUBLIC_CONVEX_URL` for the client bundle.
+- Added `docs/PRODUCTION.md` with Vercel, Convex, Clerk, OpenRouter, Arcjet, Geoapify, Leaflet, OpenStreetMap, and post-deploy smoke checklists.
+- Updated `docs/ENVIRONMENT.md` with `CONVEX_DEPLOY_KEY` as build/CI-only and reiterated that `.env.local` must not be copied to production.
+- Updated `docs/DECISIONS.md` with production deployment decisions.
+- Replaced the default Next.js README deployment text with a pointer to the project production checklist.
+- Confirmed no Mapbox account/token production prerequisite remains.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/PROJECT_SPEC.md docs/ARCHITECTURE.md docs/DECISIONS.md docs/ENVIRONMENT.md docs/PROGRESS.md package.json`
+- Official Convex Vercel deployment documentation lookup
+- Official Convex `npx convex deploy` CLI documentation lookup
+- Official Vercel Node.js runtime/version documentation lookup
+- Official Next.js Node.js minimum documentation lookup
+- Official Geoapify API key/security documentation lookup
+- Official OpenStreetMap tile usage policy lookup
+- `node --version && npm --version`
+- `which vercel`
+- `vercel --version`
+- `rg --files -g 'vercel.json' -g '.vercel/**' -g 'next.config.*' -g '.gitignore' -g 'convex.json' -g 'README.md' -g 'tsconfig.json'`
+- `rg -n "process\\.env\\.|NEXT_PUBLIC_|CLERK_|ARCJET_|OPEN_ROUTER_|GEOAPIFY_|CONVEX_" app components convex lib next.config.ts -g '!convex/_generated/**'`
+- `git check-ignore -v .env.local .env .env.production .env.development`
+- `git ls-files '.env*'`
+- `rg -n "localhost|127\\.0\\.0\\.1|NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN|NEXT_PUBLIC_GEOAPIFY_API_KEY|GOOGLE_PLACE_API_KEY|NEXT_PUBLIC_GOOGLE_PLACE_API_KEY" ...`
+- `npm install --package-lock-only`
+- `npm test`
+- `npm run lint`
+- `npm run build`
+- `npm audit --audit-level=moderate`
+- `git diff --check`
+
+Results:
+- Local runtime checked: Node.js `v24.19.0`, npm `11.17.0`.
+- Vercel CLI is installed: `58.0.0`. Authentication was not checked and no deploy was attempted.
+- `npm install --package-lock-only` added no packages and reported 0 vulnerabilities; npm repeated existing allow-scripts review warnings for install-script packages.
+- `.env.local`, `.env`, `.env.production`, and `.env.development` are ignored by `.gitignore`.
+- No `.env*` files are tracked by Git.
+- Active code does not contain localhost production dependencies.
+- Active code does not require `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, `NEXT_PUBLIC_GEOAPIFY_API_KEY`, `GOOGLE_PLACE_API_KEY`, or `NEXT_PUBLIC_GOOGLE_PLACE_API_KEY`.
+- `npm test` passed: 4 test files, 24 tests.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `npm audit --audit-level=moderate` reported 0 vulnerabilities.
+- `git diff --check` passed.
+
+Open issues:
+- Vercel project is not deployed yet. Milestone 32 must perform the deploy only after dashboard variables are configured.
+- `CONVEX_DEPLOY_KEY` must be generated in Convex and set in Vercel before `npm run build:vercel` can work in production.
+- `CLERK_JWT_ISSUER_DOMAIN` must be set in the Convex production deployment environment.
+- Clerk production origins, redirect URLs, and billing plan visibility must be verified against the final production domain.
+- Geoapify production key restrictions depend on the account and hosting setup; configure the strongest available restrictions in Geoapify MyProjects without exposing the key.
+- Public OpenStreetMap standard tiles are best-effort and suitable only for modest interactive traffic; production launch must choose a compliant tile alternative if expected traffic is higher.
+- A clean `.next` deletion attempt was blocked by shell safety rules, so the successful local build used the normal `next build` output behavior.
+
+Next milestone:
+- Milestone 32

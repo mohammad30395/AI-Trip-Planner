@@ -93,3 +93,18 @@
 - The Leaflet map uses the standard HTTPS OpenStreetMap tile URL controlled by application code, no map token, and no arbitrary tile URL input.
 - Use project-owned Leaflet `divIcon` markers instead of relying on default marker image asset paths in the Next.js bundle.
 - Build Leaflet popups with DOM text nodes. Never pass model or itinerary HTML directly to `bindPopup` or `setContent`.
+
+## 2026 Production Deployment Decisions
+
+- Target Node.js `24.x` and npm `11.x` for Vercel builds/functions.
+- Use `npm run build:vercel` as the Vercel Build Command so Convex deploys
+  functions and supplies `NEXT_PUBLIC_CONVEX_URL` to the Next.js production
+  build through `convex deploy --cmd`.
+- Store production variables in Vercel and Convex dashboards, not by copying
+  `.env.local`.
+- Keep `GEOAPIFY_API_KEY` server-only in Vercel and keep
+  `CLERK_JWT_ISSUER_DOMAIN` in the Convex deployment environment.
+- Production launch does not require Mapbox setup or a public map token.
+- Public OpenStreetMap standard tiles remain a modest-use, best-effort option
+  only; production traffic beyond that requires a compliant OSM-derived tile
+  provider or self-hosted tiles.

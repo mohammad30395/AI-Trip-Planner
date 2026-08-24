@@ -38,10 +38,15 @@ Create a production build:
 npm run build
 ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Run the Vercel/Convex build command locally only when production deploy
+variables are configured:
 
-## Deploy on Vercel
+```bash
+npm run build:vercel
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Production Prep
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deployment is prepared but not automatic from this README. Use
+`docs/PRODUCTION.md` for the Vercel, Convex, Clerk, Geoapify, OpenRouter,
+Arcjet, Leaflet, and OpenStreetMap production checklist.
