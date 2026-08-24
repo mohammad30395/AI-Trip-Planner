@@ -99,8 +99,9 @@ function TripPreviewPanel({ requirements, step }: TripPreviewPanelProps) {
         <CardContent>
           <ul className="grid gap-2 text-sm text-muted-foreground">
             <li>Final itinerary generation starts from READY_FOR_FINAL.</li>
-            <li>Convex persistence saves generated trips in a later milestone.</li>
-            <li>Quota, billing, maps, and place enrichment stay disconnected.</li>
+            <li>Convex persistence saves generated trips after generation.</li>
+            <li>Free quota and premium access are checked server-side.</li>
+            <li>Maps remain disconnected until the Mapbox milestone.</li>
           </ul>
         </CardContent>
       </Card>

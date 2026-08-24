@@ -182,6 +182,7 @@ function CreateTripShell() {
             type: "finalGenerationQuotaExceeded",
             error: buildQuotaExceededMessage(parsedResponse.quota),
             quota: parsedResponse.quota,
+            access: parsedResponse.access ?? null,
           })
           return
         }
@@ -202,6 +203,7 @@ function CreateTripShell() {
       dispatch({
         type: "finalGenerationSucceeded",
         itinerary: parsedResponse.data,
+        access: parsedResponse.access,
       })
     } catch (error) {
       if (

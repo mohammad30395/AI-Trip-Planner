@@ -13,6 +13,7 @@ import type {
 import type {
   FinalItineraryQuota,
   FinalItineraryRequirements,
+  TripGenerationAccessStatus,
 } from "@/lib/ai/itinerary"
 
 export type { BudgetTier, GroupType } from "@/lib/ai/contract"
@@ -60,6 +61,7 @@ export type CreateTripState = {
   error: string | null
   finalError: string | null
   finalQuota: FinalItineraryQuota | null
+  generationAccess: TripGenerationAccessStatus | null
   saveError: string | null
   finalItinerary: FinalItineraryResponse | null
   savedTripId: string | null
@@ -80,12 +82,17 @@ export type CreateTripAction =
   | { type: "aiRequestFailed"; error: string }
   | { type: "markReadyForFinal" }
   | { type: "finalGenerationStarted" }
-  | { type: "finalGenerationSucceeded"; itinerary: FinalItineraryResponse }
+  | {
+      type: "finalGenerationSucceeded"
+      itinerary: FinalItineraryResponse
+      access: TripGenerationAccessStatus
+    }
   | { type: "finalGenerationFailed"; error: string }
   | {
       type: "finalGenerationQuotaExceeded"
       error: string
       quota: FinalItineraryQuota | null
+      access: TripGenerationAccessStatus | null
     }
   | { type: "saveTripStarted" }
   | { type: "saveTripSucceeded"; tripId: string }
@@ -143,6 +150,7 @@ export const initialCreateTripState: CreateTripState = {
   error: null,
   finalError: null,
   finalQuota: null,
+  generationAccess: null,
   saveError: null,
   finalItinerary: null,
   savedTripId: null,
@@ -248,6 +256,7 @@ export function createTripReducer(
         isGeneratingFinal: true,
         finalError: null,
         finalQuota: null,
+        generationAccess: null,
         saveError: null,
       }
     case "finalGenerationSucceeded":
@@ -256,6 +265,7 @@ export function createTripReducer(
         isGeneratingFinal: false,
         finalError: null,
         finalQuota: null,
+        generationAccess: action.access,
         finalItinerary: action.itinerary,
         isSavingTrip: false,
         saveError: null,
@@ -267,6 +277,7 @@ export function createTripReducer(
         isGeneratingFinal: false,
         finalError: action.error,
         finalQuota: null,
+        generationAccess: null,
       }
     case "finalGenerationQuotaExceeded":
       return {
@@ -274,6 +285,7 @@ export function createTripReducer(
         isGeneratingFinal: false,
         finalError: action.error,
         finalQuota: action.quota,
+        generationAccess: action.access,
       }
     case "saveTripStarted":
       return {

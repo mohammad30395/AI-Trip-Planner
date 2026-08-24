@@ -46,17 +46,23 @@
   submissions are disabled, but provider failures after the Arcjet decision may
   still consume the attempt until a future billing/idempotency policy changes
   that explicitly.
-- Premium bypass is deferred to the Clerk Billing milestone; for now all
-  authenticated users use the free quota.
-- Paid Clerk Billing entitlement bypasses the free quota.
+- Paid Clerk Billing entitlement bypasses the free generation quota at the
+  final-generation server boundary.
+- Use Clerk's server-side `has({ feature })` authorization check with the
+  confirmed dashboard feature key `unlimited_trip_generation`.
+- The installed Clerk SDK's type hints include scoped examples such as
+  `user:*`, but current Clerk B2C Billing documentation checks feature access
+  with the configured dashboard feature slug directly.
+- Never accept `isPremium`, plan names, subscription flags, or entitlement
+  claims from the client as authorization.
 - Render `/pricing` with Clerk's current `PricingTable` for user plans because
   this product bills individual trip-planning users rather than organizations.
 - Clerk Billing owns checkout and subscription management; do not integrate
   Stripe directly for this project.
 - Do not store subscription status in Convex as security truth. Clerk remains
   the billing authority.
-- Do not hardcode the paid entitlement or feature slug until the exact Clerk
-  Dashboard configuration is confirmed.
+- Do not expose Clerk billing internals to the browser. The final-generation
+  route returns only a small Free/Premium access status for UI display.
 - Run Mapbox client-side and clean up map instances on unmount.
 - Feed Mapbox provider-neutral normalized place data, not raw Geoapify JSON.
 - Keep `/pricing` public so unauthenticated visitors can review access options before signing in. Enforce paid entitlement checks later at billing-protected server/data boundaries, not by hiding the pricing page.

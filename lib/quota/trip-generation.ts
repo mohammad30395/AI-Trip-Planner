@@ -28,10 +28,10 @@ type TripGenerationQuotaResult =
 function createTripGenerationArcjet(key: string) {
   return arcjet({
     key,
+    characteristics: ["userId"],
     rules: [
       tokenBucket({
         mode: "LIVE",
-        characteristics: ["userId"],
         refillRate: FREE_GENERATION_QUOTA.successfulGenerationsPerDay,
         interval: FREE_GENERATION_QUOTA.interval,
         capacity: FREE_GENERATION_QUOTA.successfulGenerationsPerDay,

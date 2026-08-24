@@ -27,7 +27,7 @@
 - [x] Milestone 21 - Place enrichment in the UI
 - [x] Milestone 22 - Arcjet rate limiting
 - [x] Milestone 23 - Clerk Billing UI
-- [ ] Milestone 24 - Clerk Billing paid access
+- [x] Milestone 24 - Clerk Billing paid access
 - [ ] Milestone 25 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
@@ -1086,3 +1086,50 @@ Open issues:
 
 Next milestone:
 - Milestone 24 after Clerk Dashboard setup and checkout verification
+
+## Milestone 24 - Clerk Billing Paid Access
+
+Changed:
+- Added `lib/billing/trip-generation-access.ts` with the confirmed Clerk Billing feature key `unlimited_trip_generation`.
+- Updated `/api/ai-itinerary` to authenticate with Clerk, check `authObject.has({ feature })` server-side, and bypass the free Arcjet token-bucket quota only for premium users.
+- Kept final-generation request validation and OpenRouter response validation for both free and premium users.
+- Returned a small typed access status (`free` or `premium`, plus whether quota was enforced) in final-generation responses.
+- Updated the create-trip reducer and final-generation UI to show a Free/Premium status badge from the server response.
+- Preserved the quota-block Pricing CTA for free users.
+- Corrected create-trip preview copy so it no longer says quota and billing are disconnected.
+- Documented that Clerk remains the billing authority and Convex does not store premium status as security truth.
+- Did not accept client-supplied `isPremium`, plan names, subscription flags, or entitlement claims.
+- Did not add dependencies, Stripe integration, Mapbox, or new persistence.
+- Corrected the entitlement value after Clerk dashboard setup confirmation: current Clerk B2C Billing docs check features with the configured dashboard slug directly, and the installed SDK type accepts the exact slug even though autocomplete suggests scoped examples.
+
+Commands run:
+- `git status --short --branch && git branch --show-current`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `node --env-file=.env.local -e "... checked required variable-name presence without printing values ..."`
+- `node -e "... listed matching .env.local variable names only ..."`
+- `rg -n "unlimited_trip_generation|ENTITLE|FEATURE|PLAN|PREMIUM|Billing|billing|has\\(" app components lib docs convex package.json -g '!*.js'`
+- Official Clerk authorization and B2C Billing documentation lookup
+- Inspected installed `@clerk/shared` types for `CheckAuthorizationParams`, `FeatureProtectParams`, and `Autocomplete`
+- `rg -n "user:unlimited_trip_generation|unlimited_trip_generation" app components lib docs package.json`
+- `npm run lint`
+- `npm run build`
+- Direct Arcjet token-bucket smoke with a synthetic user ID
+- `npm run start -- --port 3001`
+- `curl -sS ... -X POST http://localhost:3001/api/ai-itinerary ...`
+
+Results:
+- `ARCJET_KEY`, Clerk keys, and OpenRouter variable names are present by name-presence check. Values were not printed.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2 and included `/api/ai-itinerary`.
+- Signed-out POST to `/api/ai-itinerary` returned HTTP 307 to the sign-in flow, verifying unauthenticated calls are still rejected before quota or AI work.
+- Direct Arcjet smoke used a synthetic user ID and returned safe decision metadata only. It verified Arcjet key connectivity and rate-limit decisions, but local direct calls returned `ALLOW` twice, so browser-authenticated quota exhaustion should still be verified in-app.
+- The premium bypass path is implemented through Clerk's server-verified `has({ feature: "unlimited_trip_generation" })` check. No client flag can authorize premium access.
+- After the dashboard confirmation correction, no active `user:unlimited_trip_generation` references remain. The production build passed, which verifies the installed Clerk type surface accepts the exact dashboard slug.
+
+Open issues:
+- Full premium-user verification requires signing in with a Clerk test user that has the `unlimited_trip_generation` feature through Clerk Billing, then generating an itinerary and confirming the Premium badge plus quota bypass.
+- Full free exhausted verification should be done in the browser with a signed-in free Clerk user because the standalone Arcjet script does not reliably simulate the full Next.js request context.
+- No separate Arcjet bot/security rules are configured yet; if added later, they should run for both free and premium users.
+
+Next milestone:
+- Milestone 25

@@ -3,10 +3,15 @@ import { NextResponse } from "next/server"
 
 import {
   parseFinalItineraryRequest,
+  type TripGenerationAccessStatus,
   validateItineraryDuration,
   type FinalItineraryRequirements,
   type FinalItineraryResponseEnvelope,
 } from "@/lib/ai/itinerary"
+import {
+  PREMIUM_TRIP_GENERATION_FEATURE,
+  getTripGenerationAccessStatus,
+} from "@/lib/billing/trip-generation-access"
 import {
   OpenRouterConfigurationError,
   OPENROUTER_TIMEOUT_MS,
@@ -22,38 +27,44 @@ export const runtime = "nodejs"
 
 export async function POST(request: Request) {
   const authObject = await auth.protect()
+  const access = getTripGenerationAccessStatus(
+    authObject.has({ feature: PREMIUM_TRIP_GENERATION_FEATURE })
+  )
 
   let body: unknown
 
   try {
     body = await request.json()
   } catch {
-    return itineraryError("Request body must be valid JSON.", 400)
+    return itineraryError("Request body must be valid JSON.", 400, access)
   }
 
   const parsedRequest = parseFinalItineraryRequest(body)
 
   if (!parsedRequest.ok) {
-    return itineraryError("Final itinerary request is invalid.", 400)
+    return itineraryError("Final itinerary request is invalid.", 400, access)
   }
 
   try {
-    const quotaResult = await enforceTripGenerationQuota(
-      request,
-      authObject.userId
-    )
-
-    if (!quotaResult.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          code: "quota_exceeded",
-          error:
-            "Free trip generation quota has been reached for this account.",
-          quota: quotaResult.quota,
-        } satisfies FinalItineraryResponseEnvelope,
-        { status: 429 }
+    if (access.quotaEnforced) {
+      const quotaResult = await enforceTripGenerationQuota(
+        request,
+        authObject.userId
       )
+
+      if (!quotaResult.ok) {
+        return NextResponse.json(
+          {
+            ok: false,
+            code: "quota_exceeded",
+            error:
+              "Free trip generation quota has been reached for this account.",
+            quota: quotaResult.quota,
+            access,
+          } satisfies FinalItineraryResponseEnvelope,
+          { status: 429 }
+        )
+      }
     }
 
     const { requirements } = parsedRequest.data
@@ -66,7 +77,7 @@ export async function POST(request: Request) {
     )
 
     if (!result.ok) {
-      return itineraryError("Final itinerary generation failed.", 502)
+      return itineraryError("Final itinerary generation failed.", 502, access)
     }
 
     const validatedItinerary = validateItineraryDuration(
@@ -75,12 +86,13 @@ export async function POST(request: Request) {
     )
 
     if (!validatedItinerary.ok) {
-      return itineraryError(validatedItinerary.error, 502)
+      return itineraryError(validatedItinerary.error, 502, access)
     }
 
     return NextResponse.json({
       ok: true,
       itinerary: validatedItinerary.data,
+      access,
     } satisfies FinalItineraryResponseEnvelope)
   } catch (error) {
     if (error instanceof ArcjetConfigurationError) {
@@ -90,6 +102,7 @@ export async function POST(request: Request) {
           code: "configuration_error",
           error: "Server Arcjet configuration is incomplete.",
           missingVariables: error.missingVariables,
+          access,
         } satisfies FinalItineraryResponseEnvelope,
         { status: 500 }
       )
@@ -102,6 +115,7 @@ export async function POST(request: Request) {
           code: "configuration_error",
           error: "Server OpenRouter configuration is incomplete.",
           missingVariables: error.missingVariables,
+          access,
         } satisfies FinalItineraryResponseEnvelope,
         { status: 500 }
       )
@@ -113,7 +127,7 @@ export async function POST(request: Request) {
       })
     }
 
-    return itineraryError("Final itinerary route failed.", 500)
+    return itineraryError("Final itinerary route failed.", 500, access)
   }
 }
 
@@ -157,11 +171,16 @@ function getMaxTokensForDuration(durationDays: number) {
   return Math.min(8_000, 5_200 + durationDays * 900)
 }
 
-function itineraryError(error: string, status: number) {
+function itineraryError(
+  error: string,
+  status: number,
+  access: TripGenerationAccessStatus
+) {
   return NextResponse.json(
     {
       ok: false,
       error,
+      access,
     } satisfies FinalItineraryResponseEnvelope,
     { status }
   )

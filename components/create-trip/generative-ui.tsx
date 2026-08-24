@@ -4,7 +4,10 @@ import Link from "next/link"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { FinalItineraryResponse } from "@/lib/ai/contract"
-import type { FinalItineraryQuota } from "@/lib/ai/itinerary"
+import type {
+  FinalItineraryQuota,
+  TripGenerationAccessStatus,
+} from "@/lib/ai/itinerary"
 import { buildQuotaExceededMessage } from "@/lib/quota/free-generation-quota"
 import { cn } from "@/lib/utils"
 
@@ -36,6 +39,7 @@ type RenderGenerativeUIProps = {
   finalError: string | null
   finalQuota: FinalItineraryQuota | null
   finalItinerary: FinalItineraryResponse | null
+  generationAccess: TripGenerationAccessStatus | null
   isGeneratingFinal: boolean
   isSavingTrip: boolean
   saveError: string | null
@@ -47,6 +51,7 @@ function renderGenerativeUI({
   finalError,
   finalQuota,
   finalItinerary,
+  generationAccess,
   isGeneratingFinal,
   isSavingTrip,
   saveError,
@@ -129,6 +134,7 @@ function renderGenerativeUI({
           disabled={disabled}
           error={finalError}
           quota={finalQuota}
+          access={generationAccess}
           isGenerating={isGeneratingFinal}
           isSaving={isSavingTrip}
           itinerary={finalItinerary}
@@ -457,6 +463,7 @@ type FinalItineraryUIProps = {
   disabled: boolean
   error: string | null
   quota: FinalItineraryQuota | null
+  access: TripGenerationAccessStatus | null
   itinerary: FinalItineraryResponse | null
   isGenerating: boolean
   isSaving: boolean
@@ -471,6 +478,7 @@ function FinalItineraryUI({
   disabled,
   error,
   quota,
+  access,
   itinerary,
   isGenerating,
   isSaving,
@@ -485,7 +493,10 @@ function FinalItineraryUI({
   return (
     <div className="grid gap-4 rounded-lg border bg-muted/30 p-4">
       <div>
-        <p className="text-sm font-medium">READY_FOR_FINAL</p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-medium">READY_FOR_FINAL</p>
+          {access !== null ? <AccessStatusBadge access={access} /> : null}
+        </div>
         <p className="app-muted mt-1 text-sm leading-6">
           Generate a structured itinerary from the confirmed brief. Prices are
           generated estimates until later enrichment verifies real place data.
@@ -551,6 +562,21 @@ function FinalItineraryUI({
         </Button>
       </div>
     </div>
+  )
+}
+
+function AccessStatusBadge({
+  access,
+}: {
+  access: TripGenerationAccessStatus
+}) {
+  const isPremium = access.tier === "premium"
+
+  return (
+    <span className="w-fit rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
+      {isPremium ? "Premium access" : "Free access"}
+      {isPremium && !access.quotaEnforced ? ": quota bypassed" : ": daily quota"}
+    </span>
   )
 }
 

@@ -5,6 +5,7 @@ import {
   type GroupType,
   type ValidationResult,
 } from "./contract"
+import type { TripGenerationAccessStatus } from "@/lib/billing/trip-generation-access"
 
 type FinalItineraryRequirements = {
   source: string
@@ -23,12 +24,14 @@ type FinalItineraryResponseEnvelope =
   | {
       ok: true
       itinerary: FinalItineraryResponse
+      access: TripGenerationAccessStatus
     }
   | {
       ok: false
       error: string
       code?: FinalItineraryErrorCode
       quota?: FinalItineraryQuota
+      access?: TripGenerationAccessStatus
       missingVariables?: string[]
     }
 
@@ -49,12 +52,14 @@ type FinalItineraryEnvelopeParseResult =
   | {
       ok: true
       data: FinalItineraryResponse
+      access: TripGenerationAccessStatus
     }
   | {
       ok: false
       error: string
       code?: FinalItineraryErrorCode
       quota?: FinalItineraryQuota
+      access?: TripGenerationAccessStatus
     }
 
 type JsonObject = Record<string, unknown>
@@ -103,7 +108,7 @@ function parseFinalItineraryResponseEnvelope(
   const object = asObject(value, "response")
 
   if (!object.ok) {
-    return object
+    return envelopeValidationError(object.error)
   }
 
   const unknownKeysError = rejectUnknownKeys(object.data, [
@@ -112,18 +117,19 @@ function parseFinalItineraryResponseEnvelope(
     "error",
     "code",
     "quota",
+    "access",
     "missingVariables",
   ])
 
   if (unknownKeysError !== null) {
-    return validationError(unknownKeysError)
+    return envelopeValidationError(unknownKeysError)
   }
 
   if (object.data.ok !== true) {
     const error = readStringInRange(object.data, "error", 1, 240, "response")
 
     if (!error.ok) {
-      return error
+      return envelopeValidationError(error.error)
     }
 
     const code =
@@ -137,7 +143,7 @@ function parseFinalItineraryResponseEnvelope(
           )
 
     if (code !== undefined && !code.ok) {
-      return code
+      return envelopeValidationError(code.error)
     }
 
     const quota =
@@ -146,7 +152,16 @@ function parseFinalItineraryResponseEnvelope(
         : parseFinalItineraryQuota(object.data.quota)
 
     if (quota !== undefined && !quota.ok) {
-      return quota
+      return envelopeValidationError(quota.error)
+    }
+
+    const access =
+      object.data.access === undefined
+        ? undefined
+        : parseTripGenerationAccessStatus(object.data.access)
+
+    if (access !== undefined && !access.ok) {
+      return envelopeValidationError(access.error)
     }
 
     return {
@@ -154,16 +169,23 @@ function parseFinalItineraryResponseEnvelope(
       error: error.data,
       ...(code !== undefined ? { code: code.data } : {}),
       ...(quota !== undefined ? { quota: quota.data } : {}),
+      ...(access !== undefined ? { access: access.data } : {}),
     }
   }
 
   const itinerary = parseFinalItineraryResponse(object.data.itinerary)
 
   if (!itinerary.ok) {
-    return itinerary
+    return envelopeValidationError(itinerary.error)
   }
 
-  return { ok: true, data: itinerary.data }
+  const access = parseTripGenerationAccessStatus(object.data.access)
+
+  if (!access.ok) {
+    return envelopeValidationError(access.error)
+  }
+
+  return { ok: true, data: itinerary.data, access: access.data }
 }
 
 function validateItineraryDuration(
@@ -348,6 +370,47 @@ function parseFinalItineraryQuota(
   }
 }
 
+function parseTripGenerationAccessStatus(
+  value: unknown
+): ValidationResult<TripGenerationAccessStatus> {
+  const object = asObject(value, "response.access")
+
+  if (!object.ok) {
+    return object
+  }
+
+  const unknownKeysError = rejectUnknownKeys(object.data, [
+    "tier",
+    "quotaEnforced",
+  ])
+
+  if (unknownKeysError !== null) {
+    return validationError(`response.access.${unknownKeysError}`)
+  }
+
+  const tier = readEnum(object.data, "tier", ["free", "premium"], "response.access")
+  const quotaEnforced = readBoolean(
+    object.data,
+    "quotaEnforced",
+    "response.access"
+  )
+
+  if (!tier.ok) {
+    return tier
+  }
+  if (!quotaEnforced.ok) {
+    return quotaEnforced
+  }
+
+  return {
+    ok: true,
+    data: {
+      tier: tier.data,
+      quotaEnforced: quotaEnforced.data,
+    },
+  }
+}
+
 function asObject(value: unknown, path: string): ValidationResult<JsonObject> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return validationError(`${path} must be an object`)
@@ -426,7 +489,25 @@ function readEnum<T extends string>(
   return { ok: true, data: value as T }
 }
 
+function readBoolean(
+  object: JsonObject,
+  key: string,
+  path: string
+): ValidationResult<boolean> {
+  const value = object[key]
+
+  if (typeof value !== "boolean") {
+    return validationError(`${path}.${key} must be a boolean`)
+  }
+
+  return { ok: true, data: value }
+}
+
 function validationError(error: string): ValidationResult<never> {
+  return { ok: false, error }
+}
+
+function envelopeValidationError(error: string): FinalItineraryEnvelopeParseResult {
   return { ok: false, error }
 }
 
@@ -438,4 +519,5 @@ export {
   type FinalItineraryRequirements,
   type FinalItineraryQuota,
   type FinalItineraryResponseEnvelope,
+  type TripGenerationAccessStatus,
 }
