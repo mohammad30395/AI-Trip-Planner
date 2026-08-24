@@ -462,7 +462,7 @@ function parseOptionalImage(
     }
   }
 
-  const url = readResponseString(value.url)
+  const url = readHttpsResponseUrl(value.url)
 
   if (url === null || value.source !== "geoapify") {
     return {
@@ -477,6 +477,22 @@ function parseOptionalImage(
       url,
       source: "geoapify",
     },
+  }
+}
+
+function readHttpsResponseUrl(value: unknown): string | null {
+  const rawUrl = readResponseString(value)
+
+  if (rawUrl === null) {
+    return null
+  }
+
+  try {
+    const url = new URL(rawUrl)
+
+    return url.protocol === "https:" ? url.toString() : null
+  } catch {
+    return null
   }
 }
 

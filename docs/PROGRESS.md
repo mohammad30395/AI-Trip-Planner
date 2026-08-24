@@ -32,7 +32,8 @@
 - [x] Milestone 25 - Leaflet interactive map
 - [x] Milestone 26 - Leaflet markers and interaction
 - [x] Milestone 27 - UX resilience
-- [ ] Milestone 28 - Production readiness and Vercel deployment
+- [x] Milestone 28 - Security and privacy audit
+- [ ] Milestone 29 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -1312,3 +1313,49 @@ Open issues:
 
 Next milestone:
 - Milestone 28
+
+## Milestone 28 - Security and Privacy Audit
+
+Changed:
+- Added `docs/SECURITY_REVIEW.md` with findings, fixes, verified controls, OSM tile policy notes, and remaining risks.
+- Tightened Geoapify optional image normalization so only HTTPS image URLs enter the normalized provider contract.
+- Tightened place-enrichment response parsing so non-HTTPS provider image URLs are rejected before UI state.
+- Confirmed `.env*` files are ignored and no `.env*` files are tracked.
+- Confirmed forbidden public place/map variables are absent by name: `NEXT_PUBLIC_GEOAPIFY_API_KEY`, `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`, `GOOGLE_PLACE_API_KEY`, and `NEXT_PUBLIC_GOOGLE_PLACE_API_KEY`.
+- Confirmed active Mapbox and Google Places runtime assumptions are absent; remaining mentions are historical/superseded docs.
+- Confirmed Convex owner authorization derives from Clerk/Convex identity and does not accept client-provided owner, user, email, premium, plan, or subscription flags as authorization.
+- Confirmed Geoapify and Leaflet provider URLs are application/server-controlled constants and not client-supplied backend URLs.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/PROJECT_SPEC.md docs/ARCHITECTURE.md docs/DECISIONS.md docs/ENVIRONMENT.md docs/PROGRESS.md package.json`
+- `git check-ignore -v .env.local .env .env.development .env.production`
+- `git ls-files '.env*'`
+- Official OpenStreetMap tile usage policy lookup
+- `rg -n "(CLERK_SECRET_KEY|ARCJET_KEY|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|GEOAPIFY_API_KEY|NEXT_PUBLIC_GEOAPIFY_API_KEY|NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN|GOOGLE_PLACE_API_KEY|NEXT_PUBLIC_GOOGLE_PLACE_API_KEY|CONVEX_DEPLOYMENT|CLERK_JWT_ISSUER_DOMAIN|sk-|pk_live|sk_live|sk_test|apiKey|secret|token|password)" ...`
+- `rg -n "(dangerouslySetInnerHTML|innerHTML|insertAdjacentHTML|bindPopup|setContent|new URL\\(|fetch\\(|redirect\\(|router\\.push|window\\.location|href=|src=|backgroundImage|tileLayer|tile\\.openstreetmap|mapbox|Mapbox|NEXT_PUBLIC_MAPBOX|GOOGLE_PLACE|Geoapify|geoapify)" ...`
+- `rg -n "(ownerIdentityKey|userId|user_id|email|isPremium|premium|planName|subscription|has\\(|auth\\.protect|getUserIdentity|tokenIdentifier)" ...`
+- `rg -n "(BEGIN .*KEY|PRIVATE KEY|sk-[A-Za-z0-9]|sk_or|pk_live|sk_live|sk_test|AIza|eyJ[A-Za-z0-9_-]{20,}|password\\s*=|secret\\s*=|token\\s*=|apiKey\\s*=)" ...`
+- `node --env-file=.env.local -e "... variable-name presence check without printing values ..."`
+- `npm audit --audit-level=moderate`
+- `npm run lint`
+- `npm run build`
+
+Results:
+- No secret values were printed.
+- `.env.local`, `.env`, `.env.development`, and `.env.production` are ignored by `.gitignore`.
+- No `.env*` files are tracked by Git.
+- Name-only environment check reported required configured variables present and forbidden public Geoapify/Mapbox/Google place variables missing.
+- `npm audit --audit-level=moderate` reported 0 vulnerabilities.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- OSM policy review confirmed the current HTTPS standard tile URL and visible attribution are required, public tiles are best-effort/no-SLA, and bulk/preload/offline tile scraping is prohibited.
+
+Open issues:
+- If the OpenRouter key previously printed during Milestone 13 has not already been rotated, rotate it in OpenRouter and update `.env.local` and deployment environments.
+- Authenticated browser testing is still needed for real Clerk sessions, Convex owner isolation, premium entitlement behavior, Arcjet exhaustion, Geoapify provider failures, and Leaflet tile failures.
+- Public OSM standard tiles should be re-evaluated before production traffic; use an appropriate OSM-derived provider or self-hosted tiles if expected use exceeds modest interactive viewing.
+- No separate Arcjet bot/security rule currently protects premium users. Future abuse controls should apply to both free and premium users.
+
+Next milestone:
+- Milestone 29

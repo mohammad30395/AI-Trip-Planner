@@ -266,7 +266,7 @@ function extractWikiAndMediaImage(
       continue
     }
 
-    const imageUrl = readValidHttpUrl(wikiAndMedia.image)
+    const imageUrl = readValidHttpsUrl(wikiAndMedia.image)
 
     if (imageUrl !== null) {
       return {
@@ -348,7 +348,7 @@ function readNonEmptyString(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
-function readValidHttpUrl(value: unknown): string | null {
+function readValidHttpsUrl(value: unknown): string | null {
   const rawUrl = readNonEmptyString(value)
 
   if (rawUrl === null) {
@@ -358,7 +358,7 @@ function readValidHttpUrl(value: unknown): string | null {
   try {
     const url = new URL(rawUrl)
 
-    if (url.protocol !== "https:" && url.protocol !== "http:") {
+    if (url.protocol !== "https:") {
       return null
     }
 
