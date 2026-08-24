@@ -17,29 +17,21 @@ import {
 } from "@/components/ui/card"
 import { usePlaceEnrichments } from "@/components/trips/place-enrichment"
 import {
+  OSM_ATTRIBUTION,
+  OSM_STANDARD_TILE_URL,
+  GLOBAL_FALLBACK_CENTER,
+  CANONICAL_PLACE_ZOOM,
+  GLOBAL_FALLBACK_ZOOM,
+  buildTripMarkerData,
   buildMappablePlaces,
   type TripMapLookup,
+  type TripMarkerPopupText,
   type TripMappablePlace,
 } from "@/lib/trips/map"
 import {
   createUserSafeError,
   type UserSafeError,
 } from "@/lib/errors/user-safe-error"
-
-type MapLocation = {
-  lat: number
-  lng: number
-}
-
-const OSM_STANDARD_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-const GLOBAL_FALLBACK_CENTER = {
-  lat: 20,
-  lng: 0,
-} satisfies MapLocation
-const CANONICAL_PLACE_ZOOM = 13
-const GLOBAL_FALLBACK_ZOOM = 2
 
 function TripMapSection({
   focusedProviderPlaceId,
@@ -264,21 +256,21 @@ function LeafletTripMap({
     const markerLayer = leafletModule.layerGroup().addTo(map)
     markerLayerRef.current = markerLayer
 
-    for (const place of places) {
+    for (const markerData of buildTripMarkerData(places)) {
       const marker = leafletModule
-        .marker([place.location.lat, place.location.lng], {
+        .marker([markerData.position.lat, markerData.position.lng], {
           icon: markerIconRef.current,
-          title: place.displayName,
+          title: markerData.title,
         })
-        .bindPopup(buildSafePopupContent(place))
+        .bindPopup(buildSafePopupContent(markerData.popup))
 
       marker.on("click", () => {
-        onMarkerFocus(place.providerPlaceId)
-        scrollPlaceCardIntoView(place.providerPlaceId)
+        onMarkerFocus(markerData.providerPlaceId)
+        scrollPlaceCardIntoView(markerData.providerPlaceId)
       })
 
       marker.addTo(markerLayer)
-      markersByProviderIdRef.current.set(place.providerPlaceId, marker)
+      markersByProviderIdRef.current.set(markerData.providerPlaceId, marker)
     }
 
     if (places.length === 1) {
@@ -353,23 +345,23 @@ function LeafletTripMap({
   )
 }
 
-function buildSafePopupContent(place: TripMappablePlace) {
+function buildSafePopupContent(popup: TripMarkerPopupText) {
   const container = document.createElement("div")
   container.className = "grid gap-1 text-sm"
 
   const title = document.createElement("p")
   title.className = "font-medium"
-  title.textContent = place.displayName
+  title.textContent = popup.title
   container.append(title)
 
   const day = document.createElement("p")
   day.className = "text-xs text-muted-foreground"
-  day.textContent = place.dayLabel
+  day.textContent = popup.dayLabel
   container.append(day)
 
   const address = document.createElement("p")
   address.className = "text-xs text-muted-foreground"
-  address.textContent = place.formattedAddress
+  address.textContent = popup.formattedAddress
   container.append(address)
 
   return container

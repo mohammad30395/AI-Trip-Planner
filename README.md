@@ -20,6 +20,18 @@ Run linting:
 npm run lint
 ```
 
+Run automated tests:
+
+```bash
+npm test
+```
+
+Run tests in watch mode:
+
+```bash
+npm run test:watch
+```
+
 Create a production build:
 
 ```bash

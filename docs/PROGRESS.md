@@ -33,7 +33,8 @@
 - [x] Milestone 26 - Leaflet markers and interaction
 - [x] Milestone 27 - UX resilience
 - [x] Milestone 28 - Security and privacy audit
-- [ ] Milestone 29 - Production readiness and Vercel deployment
+- [x] Milestone 29 - Automated tests
+- [ ] Milestone 30 - Production readiness and Vercel deployment
 
 ## Milestone 00 - Read-only Preflight
 
@@ -1359,3 +1360,47 @@ Open issues:
 
 Next milestone:
 - Milestone 29
+
+## Milestone 29 - Automated Tests
+
+Changed:
+- Added Vitest 4.1.11 as the smallest project test runner for Node-mode pure TypeScript tests.
+- Added `vitest.config.mts` with a local `server-only` test alias so server-only modules can be imported by Node tests without changing production boundaries.
+- Added `npm test` and `npm run test:watch` scripts.
+- Added test commands to `README.md` and `AGENTS.md`.
+- Added AI contract tests for valid conversational responses, invalid selectors, valid final itineraries, malformed itineraries, and day-count validation.
+- Added create-trip state tests for validation, compact requirements, requirement updates, AI success transition, and final-readiness checks.
+- Added mocked Geoapify adapter tests for successful geocoding/details, no result, malformed coordinates, auth/quota/provider errors, details failure fallback, and HTTPS-only image handling.
+- Added pure billing access tests for free quota enforcement and premium quota bypass.
+- Added pure map tests for providerPlaceId deduplication, coordinate validation, fixed HTTPS OSM tile config, fallback/canonical center selection, and marker popup text modeling.
+- Moved Leaflet-facing constants and marker text data into `lib/trips/map.ts` so they can be tested without live OSM tile requests or browser map initialization.
+- Kept Convex authorization test coverage limited to audit/static review. A full supported Convex function test pattern would require an additional dedicated Convex test harness dependency, so it was not added in this milestone.
+- Did not add browser smoke automation because signed-in Clerk and Convex flows need a practical mocked auth/browser harness that is beyond the smallest runner setup.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... AGENTS.md docs/PROJECT_SPEC.md docs/ARCHITECTURE.md docs/DECISIONS.md docs/PROGRESS.md package.json`
+- `rg --files -g '*test*' -g '*spec*' -g 'vitest.config.*' -g 'jest.config.*' -g 'playwright.config.*' -g 'cypress.config.*' -g 'tsconfig*.json'`
+- `rg -n "(vitest|jest|playwright|cypress|node:test|describe\\(|it\\(|test\\()" . -g '!node_modules' -g '!.next' -g '!.git'`
+- `npm view vitest version peerDependencies engines --json`
+- `npm install -D vitest@4.1.11`
+- `npm test`
+- `npm audit --audit-level=moderate`
+- `npm run lint`
+- `npm run build`
+
+Results:
+- No real API keys were added to tests.
+- Tests use fixtures and mocks; they do not call Geoapify, OpenStreetMap tiles, Clerk Billing, OpenRouter, Arcjet, Convex, or other external providers.
+- `npm test` passed: 4 test files, 24 tests.
+- `npm audit --audit-level=moderate` reported 0 vulnerabilities.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+
+Open issues:
+- Add Convex function-level tests later if a dedicated Convex test harness is approved.
+- Add browser smoke automation later when a signed-in Clerk test strategy and mocked provider/data layer are defined.
+- npm reported allow-scripts review warnings for `esbuild` and `unrs-resolver`; no script approval was performed.
+
+Next milestone:
+- Milestone 30
