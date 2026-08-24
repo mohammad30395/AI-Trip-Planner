@@ -1509,8 +1509,9 @@ Next milestone:
 
 Changed:
 - Added `vercel.json` so Vercel uses `npm run build:vercel` instead of the default plain `npm run build`.
+- Added an explicit Vercel install command of `npm ci` so dependency installation follows the committed lockfile.
 - Clarified the Convex client missing-URL error so Vercel build failures point to `CONVEX_DEPLOY_KEY` and the Convex-aware build command.
-- Updated `docs/PRODUCTION.md` to explain that `NEXT_PUBLIC_CONVEX_URL` is injected by `convex deploy` and that dashboard build-command overrides must also use `npm run build:vercel`.
+- Updated `docs/PRODUCTION.md` to explain that `NEXT_PUBLIC_CONVEX_URL` is injected by `convex deploy`, dashboard build-command overrides must also use `npm run build:vercel`, dashboard install-command overrides should use `npm ci`, and Vercel should redeploy without build cache after changing build settings.
 
 Reason:
 - Vercel deployment logs showed `npm run build` was being used directly, so `NEXT_PUBLIC_CONVEX_URL` was missing during prerendering of `/_not-found`.
@@ -1520,12 +1521,14 @@ Commands run:
 - `sed -n ... AGENTS.md docs/PROJECT_SPEC.md docs/ARCHITECTURE.md docs/DECISIONS.md docs/ENVIRONMENT.md docs/PROGRESS.md package.json`
 - Official Vercel `vercel.json` build command documentation lookup
 - Official Convex Vercel deployment documentation lookup
+- `npm ci`
 - `npm test`
 - `npm run lint`
 - `npm run build`
 - `node -e "JSON.parse(require('node:fs').readFileSync('vercel.json','utf8')); console.log('vercel.json valid JSON')"`
 
 Results:
+- `npm ci` passed locally on Node.js 24/npm 11; the visible Vercel `eslint` line is a warning, not a fatal error.
 - `npm test` passed: 4 test files, 24 tests.
 - `npm run lint` passed.
 - `npm run build` passed with Next.js 16.3.2.
@@ -1535,6 +1538,8 @@ Results:
 Open issues:
 - Vercel must have `CONVEX_DEPLOY_KEY` configured. Without it, `npm run build:vercel` cannot deploy Convex or inject `NEXT_PUBLIC_CONVEX_URL`.
 - If the Vercel dashboard has an explicit Build Command override, set it to `npm run build:vercel` or remove the override so `vercel.json` controls it.
+- If the Vercel dashboard has an explicit Install Command override, set it to `npm ci` or remove the override so `vercel.json` controls it.
+- If Vercel still fails during dependency installation, copy the full build log lines after the `eslint@9.39.5` warning; the screenshot does not show the actual fatal error.
 
 Next milestone:
 - Milestone 32
