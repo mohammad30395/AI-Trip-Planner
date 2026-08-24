@@ -73,7 +73,7 @@ export const validFinalItineraryFixture: FinalItineraryResponse = {
     },
   ],
   practicalNotes: [
-    "Use Google Places enrichment later for canonical place IDs, coordinates, and photos.",
+    "Use provider enrichment later for canonical place IDs, coordinates, optional images, and attribution.",
   ],
 }
 

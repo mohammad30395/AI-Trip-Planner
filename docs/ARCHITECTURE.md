@@ -14,6 +14,8 @@ Client-safe values:
 - Mapbox public access token
 
 Mapbox runs client-side and must clean up map instances on unmount.
+The browser must call an internal place-enrichment route for place data. It must
+never call Geoapify directly or receive the Geoapify API key.
 
 ## Server Boundary
 
@@ -25,10 +27,10 @@ Server-only responsibilities:
 - Convex mutations and queries that require verified identity
 - Arcjet quota/rate-limit checks
 - OpenRouter AI calls
-- Google Places API (New) calls
+- Geoapify place-enrichment calls
 - Structured itinerary validation before persistence
 
-AI, Google Places, and Arcjet logic must not run in client components.
+AI, Geoapify, and Arcjet logic must not run in client components.
 
 ## OpenRouter Server Boundary
 
@@ -55,7 +57,31 @@ The `/api/ai-itinerary` route is the authenticated server boundary for final
 itinerary generation. It accepts complete normalized requirements only, requests
 the strict final itinerary schema, validates the model response server-side, and
 rejects mismatched itinerary day counts. Generated prices and place details are
-not verified facts until later Google Places enrichment.
+not verified facts until later Geoapify enrichment.
+
+## Place Enrichment Boundary
+
+Future place enrichment should use an internal server route named
+`app/api/place-enrichment/route.ts`, or the repository's clean equivalent.
+That route reads `GEOAPIFY_API_KEY` only on the server. The browser calls the
+internal route and receives normalized provider-neutral place data, never raw
+Geoapify JSON and never the API key.
+
+The normalized contract for enriched places should support:
+- `provider`
+- `providerPlaceId`
+- `displayName`
+- `formattedAddress`
+- `location` with `lat` and `lng`
+- optional `image`
+- attribution metadata
+
+Geoapify Geocoding Search is the planned free-text semantic lookup provider.
+Geoapify Place Details may be used after lookup for optional additional details
+or images. Provider-enriched place IDs, addresses, and coordinates are
+canonical for maps. AI/model-generated coordinates remain non-authoritative
+hints only. Mapbox stays client-side and consumes normalized place data instead
+of raw provider payloads.
 
 ## AI Contract Boundary
 
@@ -74,9 +100,9 @@ shapes. Runtime parsers accept `unknown` data and return typed data or a clear
 validation error.
 
 AI output may include place names, addresses, and approximate area hints. It must
-not provide canonical `placeId`, latitude/longitude, photo, or map data. Google
-Places enrichment is the later authoritative source for place IDs, canonical
-coordinates, and photos.
+not provide canonical `providerPlaceId`, latitude/longitude, provider image, or
+map data. Provider enrichment is the later authoritative source for place IDs,
+canonical coordinates, optional images, and attribution metadata.
 
 ## Persistence
 

@@ -114,7 +114,7 @@ function buildFinalSystemInstruction() {
     "Each day must include useful activities with timeWindow, timeOfDay when helpful, duration, semantic descriptions, and place names or addresses when available.",
     "Include 2 to 4 hotel recommendations with areas, addresses when available, priceTier, and estimatedPriceText.",
     "Use estimatedPriceText for generated cost guidance only; do not claim exact prices, ratings, business availability, opening hours, or verified coordinates.",
-    "Do not include latitude, longitude, lat, lng, placeId, photos, ratings, or availability. Google Places enrichment will verify canonical place data later.",
+    "Do not include latitude, longitude, lat, lng, providerPlaceId, photos, ratings, or availability. Provider enrichment will verify canonical place data later.",
   ].join(" ")
 }
 

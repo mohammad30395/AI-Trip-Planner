@@ -22,7 +22,8 @@
 - [x] Milestone 17 - View trip data page
 - [x] Milestone 18 - Trip presentation components
 - [x] Milestone 19 - My trips
-- [ ] Milestone 20 - Google Places enrichment
+- [x] Milestone 19A - Place provider migration: Google Places to Geoapify
+- [ ] Revised Prompt 20 - Geoapify place enrichment
 - [ ] Milestone 21 - Mapbox trip map
 - [ ] Milestone 22 - Arcjet free quota
 - [ ] Milestone 23 - Clerk Billing paid access
@@ -373,7 +374,7 @@ Results:
 - `npm run build` passed with Next.js 16.3.2.
 
 Open issues:
-- The trip payload validator is intentionally conservative and must be tightened when the AI itinerary and Google Places enrichment schemas are implemented.
+- The trip payload validator is intentionally conservative and must be tightened when the AI itinerary and provider enrichment schemas are implemented.
 - Synthetic debug user/trip records were created in the development Convex deployment during smoke testing.
 - Full browser-authenticated Convex calls still depend on signing in through Clerk in a local browser session.
 
@@ -690,7 +691,7 @@ Results:
 
 Open issues:
 - Full authenticated browser E2E through Clerk still requires signing into the local app with a Clerk test user.
-- Generated hotels, prices, addresses, and place names are unverified model output until Google Places enrichment is implemented.
+- Generated hotels, prices, addresses, and place names are unverified model output until revised Geoapify enrichment is implemented.
 - Final itinerary results are client-state only and are not persisted to Convex yet.
 - The Node live-smoke commands emitted the existing module-type warning because the project package is not marked as an ES module; no package metadata was changed.
 - If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
@@ -738,7 +739,7 @@ Results:
 Open issues:
 - Full browser E2E through Clerk still requires signing into the local app with a Clerk test user, then running create -> generate -> save -> redirect.
 - Existing development Convex data includes legacy test trips from earlier milestones. The schema keeps them readable, but new trip saves use the current final itinerary contract.
-- Generated hotels, prices, addresses, and place names remain unverified model output until Google Places enrichment is implemented.
+- Generated hotels, prices, addresses, and place names remain unverified model output until revised Geoapify enrichment is implemented.
 - If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
 
 Next milestone:
@@ -818,7 +819,7 @@ Results:
 
 Open issues:
 - Full browser E2E through Clerk still requires signing into the local app with a Clerk test user and opening a saved trip.
-- Place photos are placeholders until Google Places enrichment is implemented.
+- Place photos are placeholders until revised Geoapify enrichment is implemented.
 - If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
 
 Next milestone:
@@ -859,8 +860,47 @@ Results:
 
 Open issues:
 - Full authenticated browser E2E through Clerk still requires signing into the local app with a Clerk test user and opening `/my-trips`.
-- Trip card images remain placeholders until Google Places enrichment is implemented.
+- Trip card images remain placeholders until revised Geoapify enrichment is implemented.
 - If it has not already been rotated, the existing `OPEN_ROUTER_API_KEY` should be rotated in OpenRouter and replaced in `.env.local` because it was accidentally printed in terminal output during Milestone 13.
 
 Next milestone:
-- Milestone 20
+- Milestone 19A
+
+## Milestone 19A - Place Provider Migration: Google Places to Geoapify
+
+Changed:
+- Updated current source-of-truth docs so Geoapify is the selected place-enrichment provider instead of Google Places API (New).
+- Recorded the architecture deviation explicitly: original provider was Google Places API (New), replacement provider is Geoapify, and the reason is the unavailable Google Cloud billing/payment prerequisite.
+- Documented that Geoapify calls are server-only through a future internal `app/api/place-enrichment/route.ts` boundary.
+- Documented `GEOAPIFY_API_KEY` as server-only and explicitly prohibited `NEXT_PUBLIC_GEOAPIFY_API_KEY`.
+- Documented the future provider-neutral enriched place contract: provider, providerPlaceId, displayName, formattedAddress, location, optional image, and attribution metadata.
+- Updated active AI validation and prompt wording to say provider enrichment, not Google, supplies canonical place data.
+- Preserved historical notes about earlier prompts; Google-specific historical mentions are superseded by this migration.
+- Did not add a Geoapify runtime route, API call, dependency, or UI behavior change.
+
+Commands run:
+- `git status --short --branch && git branch --show-current`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg -n -i "Google Places|Places API \\(New\\)|GOOGLE_PLACE_API_KEY|NEXT_PUBLIC_GOOGLE_PLACE_API_KEY|canonical Google|Google place|Google photo|photo resource names|canonical coordinates|canonical location|placeId|coordinates|photos|photo" ...`
+- `rg -n "GOOGLE_PLACE_API_KEY|NEXT_PUBLIC_GOOGLE_PLACE_API_KEY|NEXT_PUBLIC_GEOAPIFY_API_KEY|GEOAPIFY_API_KEY|Google Places|Geoapify|placeId|providerPlaceId|canonical" ...`
+- `node -e "... checked place-provider environment variable names without printing values ..."`
+- `npm run lint`
+- `npm run build`
+
+Results:
+- Current architecture, spec, decisions, and environment docs identify Geoapify as the future place-enrichment provider.
+- `GEOAPIFY_API_KEY` is documented server-only.
+- `NEXT_PUBLIC_GEOAPIFY_API_KEY` is documented only as prohibited.
+- `.env.local` contains `GEOAPIFY_API_KEY` by name, and no public Geoapify or Google place-provider key names were present.
+- No Geoapify network call was implemented.
+- No new dependency was installed.
+- AI-generated coordinates remain non-authoritative.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+
+Open issues:
+- Revised Prompt 20 must implement Geoapify enrichment and respect Geoapify free-plan plus OpenStreetMap attribution requirements.
+- Configure `GEOAPIFY_API_KEY` in deployment environments when Revised Prompt 20 is implemented; no value was printed in this milestone.
+
+Next milestone:
+- Revised Prompt 20

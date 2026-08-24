@@ -22,11 +22,25 @@
 - Use `/api/ai-itinerary` as the distinct authenticated final-generation boundary so conversational and itinerary schemas cannot be confused.
 - Store generated final itineraries in client state only until the Convex persistence milestone.
 - Treat model-generated prices, place details, ratings, business availability, and coordinates as unverified; UI price labels must say they are generated estimates.
-- Call Google Places API (New) server-side.
-- Treat Google Places API (New) as authoritative for place IDs, canonical coordinates, and photos.
+- Call Geoapify only from the server through an internal place-enrichment route.
+- Use Geoapify Geocoding Search for free-text semantic place lookup.
+- Geoapify Place Details may be used after lookup for optional additional details or images.
+- Treat provider-enriched `providerPlaceId`, formatted address, and coordinates as canonical for maps.
 - Do not trust model-generated coordinates as canonical.
+- Keep place images optional and provide placeholder fallbacks when provider images are absent.
+- Respect Geoapify free-plan limits and OpenStreetMap attribution requirements.
 - Run Arcjet before expensive AI work to enforce free quota and abuse controls.
 - The free tier default is one successful trip generation per rolling/day policy documented in one config.
 - Paid Clerk Billing entitlement bypasses the free quota.
 - Run Mapbox client-side and clean up map instances on unmount.
+- Feed Mapbox provider-neutral normalized place data, not raw Geoapify JSON.
 - Keep `/pricing` public so unauthenticated visitors can review access options before signing in. Enforce paid entitlement checks later at billing-protected server/data boundaries, not by hiding the pricing page.
+
+## 2026 Place Provider Deviation
+
+- Original provider in the prompt pack: Google Places API (New).
+- Replacement provider for this build: Geoapify.
+- Reason: the Google Cloud billing/payment prerequisite is unavailable for this project.
+- The current architecture must not pretend Geoapify is Google Places.
+- `GEOAPIFY_API_KEY` is server-only. Do not create or use `NEXT_PUBLIC_GEOAPIFY_API_KEY`.
+- AI coordinates remain hints only; provider-enriched coordinates are canonical for map rendering.

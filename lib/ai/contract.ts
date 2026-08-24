@@ -759,7 +759,7 @@ function parsePlaceTextHint(
 
   if (coordinateKey !== undefined) {
     return validationError(
-      `${path}.${coordinateKey} is not accepted; Google Places will provide canonical coordinates later`
+      `${path}.${coordinateKey} is not accepted; provider enrichment will provide canonical coordinates later`
     )
   }
 
