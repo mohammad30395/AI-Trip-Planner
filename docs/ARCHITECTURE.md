@@ -61,11 +61,12 @@ not verified facts until later Geoapify enrichment.
 
 ## Place Enrichment Boundary
 
-Future place enrichment should use an internal server route named
-`app/api/place-enrichment/route.ts`, or the repository's clean equivalent.
-That route reads `GEOAPIFY_API_KEY` only on the server. The browser calls the
-internal route and receives normalized provider-neutral place data, never raw
-Geoapify JSON and never the API key.
+Place enrichment uses the internal server route
+`app/api/place-enrichment/route.ts`. That route is protected by Clerk, reads
+`GEOAPIFY_API_KEY` only on the server, and calls the server-only adapter in
+`lib/places/geoapify.ts`. The browser calls the internal route and receives
+normalized provider-neutral place data, never raw Geoapify JSON and never the
+API key.
 
 The normalized contract for enriched places should support:
 - `provider`
@@ -76,12 +77,16 @@ The normalized contract for enriched places should support:
 - optional `image`
 - attribution metadata
 
-Geoapify Geocoding Search is the planned free-text semantic lookup provider.
-Geoapify Place Details may be used after lookup for optional additional details
-or images. Provider-enriched place IDs, addresses, and coordinates are
-canonical for maps. AI/model-generated coordinates remain non-authoritative
-hints only. Mapbox stays client-side and consumes normalized place data instead
-of raw provider payloads.
+Geoapify Geocoding Search is the free-text semantic lookup provider. Geoapify
+Place Details is optional after lookup and is used only as fallback-tolerant
+enrichment, currently for `wiki_and_media.image` when available. Place Details
+failure must not invalidate an otherwise valid geocoding result.
+Provider-enriched place IDs, addresses, and coordinates are canonical for maps.
+AI/model-generated coordinates remain non-authoritative hints only. Mapbox stays
+client-side and consumes normalized place data instead of raw provider payloads.
+
+Provider URLs include the Geoapify key as a query parameter, so code must never
+log complete Geoapify request URLs.
 
 ## AI Contract Boundary
 

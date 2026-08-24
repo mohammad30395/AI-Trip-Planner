@@ -23,7 +23,7 @@
 - [x] Milestone 18 - Trip presentation components
 - [x] Milestone 19 - My trips
 - [x] Milestone 19A - Place provider migration: Google Places to Geoapify
-- [ ] Revised Prompt 20 - Geoapify place enrichment
+- [x] Revised Prompt 20 - Geoapify server place adapter
 - [ ] Milestone 21 - Mapbox trip map
 - [ ] Milestone 22 - Arcjet free quota
 - [ ] Milestone 23 - Clerk Billing paid access
@@ -904,3 +904,48 @@ Open issues:
 
 Next milestone:
 - Revised Prompt 20
+
+## Revised Prompt 20 - Geoapify Server Place Adapter
+
+Changed:
+- Added the authenticated provider-neutral `app/api/place-enrichment/route.ts` server route.
+- Added `lib/places/place-enrichment.ts` with the internal `PlaceEnrichment` type, request validation, request length limits, search-text construction, and attribution metadata.
+- Added `lib/places/geoapify.ts` as a server-only Geoapify adapter using built-in `fetch`.
+- Implemented Geoapify Geocoding Search lookup with a small result limit and normalized `providerPlaceId`, display name, formatted address, and canonical coordinates.
+- Implemented optional Geoapify Place Details lookup for `wiki_and_media.image`; details failures fall back to the base geocoding result.
+- Added sanitized handling for missing configuration, no results, provider auth failures, rate/quota responses, malformed provider data, provider 5xx failures, and timeouts.
+- Kept Geoapify URLs and the `GEOAPIFY_API_KEY` server-only; route JSON responses and development diagnostics do not include the key or full provider request URLs.
+- Updated architecture and decision docs for the implemented route, server-only adapter, canonical provider coordinates, AI-coordinate hint policy, and attribution requirements.
+- Did not modify stored trip data, add UI, add dependencies, or implement maps.
+
+Commands run:
+- `git status --short --branch && git branch --show-current`
+- `sed -n ... AGENTS.md docs/*.md package.json`
+- `rg --files app lib components convex docs | sort`
+- Official Geoapify documentation lookup for Geocoding Search, Place Details, and attribution requirements
+- `npm run lint`
+- `node --env-file=.env.local --experimental-strip-types --input-type=module -e "... attempted direct adapter smoke import ..."`
+- `node --env-file=.env.local -e "... live Geoapify lookup with sanitized output ..."`
+- `npm run dev`
+- `curl -sS ... -X POST http://localhost:3000/api/place-enrichment ...`
+- `npm run build`
+- `rg -n "NEXT_PUBLIC_GEOAPIFY_API_KEY|GEOAPIFY_API_KEY|geoapify.com/v|apiKey|console\\.(log|warn|error)|axios|Google Places|GOOGLE_PLACE" app lib docs package.json`
+- `node --experimental-strip-types --input-type=module -e "... place request parser smoke check ..."`
+- `git diff --stat`
+
+Results:
+- `npm run lint` passed.
+- Live Geoapify lookup for a public place returned a valid normalized shape with provider, providerPlaceId presence, display name, formatted address presence, finite coordinates, attribution provider, and optional image availability. No key or provider URL was printed.
+- Signed-out POST to `/api/place-enrichment` returned HTTP 307 to `/sign-in`, verifying the route is protected.
+- `npm run build` passed with Next.js 16.3.2 and included `/api/place-enrichment`.
+- Parser smoke check accepted a trimmed valid request and rejected an overlong query plus a non-object body. Node emitted the existing module-type warning; no package metadata was changed.
+- Direct adapter import through plain Node did not run because Node cannot resolve the app's Next.js `@/` path alias outside the Next build. The Next production build compiled the adapter successfully, and the live provider lookup was verified with the same documented endpoint/field contract.
+- Source scan found no Axios dependency/use and no `NEXT_PUBLIC_GEOAPIFY_API_KEY` outside documentation that explicitly prohibits it.
+
+Open issues:
+- Full authenticated browser/API smoke through Clerk still requires signing in locally with a Clerk test user.
+- Place enrichment is not persisted to Convex yet and stored trip data remains unchanged.
+- Mapbox rendering of enriched coordinates belongs to Milestone 21.
+
+Next milestone:
+- Milestone 21

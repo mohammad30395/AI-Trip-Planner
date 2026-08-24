@@ -24,11 +24,13 @@
 - Treat model-generated prices, place details, ratings, business availability, and coordinates as unverified; UI price labels must say they are generated estimates.
 - Call Geoapify only from the server through an internal place-enrichment route.
 - Use Geoapify Geocoding Search for free-text semantic place lookup.
-- Geoapify Place Details may be used after lookup for optional additional details or images.
+- Use the provider-neutral route `app/api/place-enrichment/route.ts` for place lookups.
+- Geoapify Place Details may be used after lookup for optional additional details or images, and Place Details failures must fall back to the base geocoding result.
 - Treat provider-enriched `providerPlaceId`, formatted address, and coordinates as canonical for maps.
 - Do not trust model-generated coordinates as canonical.
 - Keep place images optional and provide placeholder fallbacks when provider images are absent.
 - Respect Geoapify free-plan limits and OpenStreetMap attribution requirements.
+- Never log full Geoapify request URLs because the API key is a provider query parameter.
 - Run Arcjet before expensive AI work to enforce free quota and abuse controls.
 - The free tier default is one successful trip generation per rolling/day policy documented in one config.
 - Paid Clerk Billing entitlement bypasses the free quota.
