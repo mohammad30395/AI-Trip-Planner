@@ -183,17 +183,26 @@ export const saveTrip = mutation({
 export const listCurrentUserTrips = query({
   args: {},
   handler: async (ctx) => {
-    const ownerIdentityKey = await requireOwnerIdentityKey(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+
+    if (identity === null) {
+      return {
+        status: "unauthenticated" as const,
+      }
+    }
 
     const trips = await ctx.db
       .query("trips")
       .withIndex("by_owner_created_at", (q) =>
-        q.eq("ownerIdentityKey", ownerIdentityKey)
+        q.eq("ownerIdentityKey", identity.tokenIdentifier)
       )
       .order("desc")
       .collect()
 
-    return trips.map(toClientTrip)
+    return {
+      status: "ok" as const,
+      trips: trips.map(toClientTrip),
+    }
   },
 })
 

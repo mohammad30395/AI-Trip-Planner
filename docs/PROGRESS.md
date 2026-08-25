@@ -1505,6 +1505,40 @@ Open issues:
 Next milestone:
 - Milestone 32
 
+## Post-Milestone 31 My Trips Convex Auth Guard
+
+Changed:
+- Updated `/my-trips` dashboard to skip the owner-scoped Convex query until `useConvexAuth()` reports verified auth.
+- Changed `trips:listCurrentUserTrips` to return a safe `unauthenticated` status if called without a verified Convex identity instead of throwing `ConvexError: UNAUTHENTICATED`.
+- Synced the updated Convex function to the active development deployment.
+
+Reason:
+- The local app could show a Next.js error overlay from `trips:listCurrentUserTrips` when the page rendered before Convex had verified the Clerk token.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... docs/PROJECT_SPEC.md docs/ARCHITECTURE.md docs/DECISIONS.md docs/ENVIRONMENT.md docs/PROGRESS.md components/trips/my-trips-dashboard.tsx convex/trips.ts`
+- `rg -n "useQuery\\(api\\.trips|useQuery\\(" components app tests`
+- `npm test`
+- `npm run lint`
+- `npm run build`
+- `npx convex dev --once`
+- `git diff --check`
+
+Results:
+- `npm test` passed: 4 test files, 28 tests.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `npx convex dev --once` completed and reported Convex functions ready.
+- `git diff --check` passed.
+- No secret values were printed.
+
+Open issues:
+- If `/my-trips` stays on the account-sync message after refresh/sign-in, the Clerk Convex integration/JWT template or active Convex auth configuration still needs to be fixed. Do not bypass Convex server identity checks.
+
+Next milestone:
+- Milestone 32
+
 ## Post-Milestone 31 User Profile Sync Auth Guard
 
 Changed:

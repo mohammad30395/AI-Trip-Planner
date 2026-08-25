@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useQuery } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
 
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -17,11 +17,21 @@ import { buildTripCardData, type TripCardData } from "@/lib/trips/dashboard"
 import { cn } from "@/lib/utils"
 
 function MyTripsDashboard() {
-  const trips = useQuery(api.trips.listCurrentUserTrips)
+  const { isAuthenticated, isLoading } = useConvexAuth()
+  const result = useQuery(
+    api.trips.listCurrentUserTrips,
+    isAuthenticated ? {} : "skip"
+  )
 
-  if (trips === undefined) {
+  if (isLoading || result === undefined) {
     return <TripGridSkeleton />
   }
+
+  if (!isAuthenticated || result.status === "unauthenticated") {
+    return <TripsAuthState />
+  }
+
+  const { trips } = result
 
   if (trips.length === 0) {
     return <EmptyTripsState />
@@ -53,6 +63,26 @@ function MyTripsDashboard() {
         ))}
       </ul>
     </section>
+  )
+}
+
+function TripsAuthState() {
+  return (
+    <Card className="app-card max-w-2xl">
+      <CardHeader>
+        <CardTitle>Trips are waiting for account sync</CardTitle>
+        <CardDescription>
+          Clerk is signed in, but Convex has not verified the account token yet.
+          Refresh this page after signing in, or sign out and sign in again if it
+          stays here.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Link href="/sign-in" className={buttonVariants({ variant: "outline" })}>
+          Sign In Again
+        </Link>
+      </CardContent>
+    </Card>
   )
 }
 
