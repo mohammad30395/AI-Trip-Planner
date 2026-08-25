@@ -1505,6 +1505,36 @@ Open issues:
 Next milestone:
 - Milestone 32
 
+## Post-Milestone 31 User Profile Sync Auth Guard
+
+Changed:
+- Updated `UserProfileSync` to wait for both Clerk sign-in and verified Convex auth before calling `users:upsertCurrentUserFromIdentity`.
+- Prevented the local Next.js error overlay caused by an unauthenticated Convex profile-sync mutation during auth startup or misconfiguration.
+
+Reason:
+- The local app could show `ConvexError: UNAUTHENTICATED` from `users:upsertCurrentUserFromIdentity` even though the mutation failure was recoverable and should not run until Convex auth is ready.
+
+Commands run:
+- `git status --short --branch`
+- `sed -n ... docs/PROJECT_SPEC.md docs/ARCHITECTURE.md docs/DECISIONS.md docs/ENVIRONMENT.md docs/PROGRESS.md AGENTS.md package.json components/auth/user-profile-sync.tsx convex/users.ts`
+- `npm test`
+- `npm run lint`
+- `npm run build`
+- `git diff --check`
+
+Results:
+- `npm test` passed: 4 test files, 28 tests.
+- `npm run lint` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `git diff --check` passed.
+- No secret values were printed.
+
+Open issues:
+- If Convex auth never becomes verified, the profile sync now waits quietly; fix the Clerk Convex integration/JWT template named `convex` and active Convex auth configuration rather than bypassing server identity checks.
+
+Next milestone:
+- Milestone 32
+
 ## Post-Milestone 31 Convex Save Auth Fix
 
 Changed:
