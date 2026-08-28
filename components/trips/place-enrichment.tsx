@@ -34,6 +34,7 @@ type PlaceEnrichmentStatus =
   | {
       status: "empty"
       message: string
+      retryable?: boolean
     }
   | {
       status: "error"
@@ -253,10 +254,9 @@ function PlaceEnrichmentPanel({
   if (state.status === "empty" || state.status === "error") {
     return (
       <div className="grid gap-3 rounded-lg border bg-muted/20 p-3">
-        <p className="app-muted text-sm">
-          {state.status === "empty" ? emptyMessage : state.message}
-        </p>
-        {request !== null ? (
+        <p className="app-muted text-sm">{state.message}</p>
+        {request !== null &&
+        (state.status === "error" || state.retryable !== false) ? (
           <div>
             <Button
               size="sm"
@@ -484,6 +484,14 @@ async function fetchPlaceEnrichment(
             },
           })
         ),
+      }
+    }
+
+    if ("matchStatus" in parsed.data) {
+      return {
+        status: "empty",
+        message: parsed.data.message ?? "No matching canonical place was found.",
+        retryable: false,
       }
     }
 

@@ -49,6 +49,11 @@ export type PlaceEnrichmentResponseEnvelope =
       place: PlaceEnrichment
     }
   | {
+      ok: true
+      matchStatus: "no_confident_match"
+      message?: string
+    }
+  | {
       ok: false
       error: string
       missingVariables?: string[]
@@ -243,6 +248,36 @@ export function parsePlaceEnrichmentResponseEnvelope(
     return {
       ok: false,
       error: "Place enrichment response status is invalid.",
+    }
+  }
+
+  if (value.matchStatus === "no_confident_match") {
+    if (value.message === undefined) {
+      return {
+        ok: true,
+        data: {
+          ok: true,
+          matchStatus: "no_confident_match",
+        },
+      }
+    }
+
+    const message = readResponseString(value.message)
+
+    if (message === null) {
+      return {
+        ok: false,
+        error: "Place enrichment no-match message is invalid.",
+      }
+    }
+
+    return {
+      ok: true,
+      data: {
+        ok: true,
+        matchStatus: "no_confident_match",
+        message,
+      },
     }
   }
 

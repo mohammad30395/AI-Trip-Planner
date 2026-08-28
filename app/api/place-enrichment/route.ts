@@ -85,6 +85,14 @@ async function runPlaceEnrichment(
     }
 
     if (error instanceof GeoapifyProviderError) {
+      if (isExpectedNoMatch(error)) {
+        return NextResponse.json({
+          ok: true,
+          matchStatus: "no_confident_match",
+          message: getProviderMessage(error),
+        } satisfies PlaceEnrichmentResponseEnvelope)
+      }
+
       return placeEnrichmentError(getProviderMessage(error), error.status)
     }
 
@@ -96,6 +104,13 @@ async function runPlaceEnrichment(
 
     return placeEnrichmentError("Place enrichment route failed.", 500)
   }
+}
+
+function isExpectedNoMatch(error: GeoapifyProviderError) {
+  return (
+    error.code === "provider_no_results" ||
+    error.code === "provider_no_confident_match"
+  )
 }
 
 function getProviderMessage(error: GeoapifyProviderError) {
