@@ -36,7 +36,49 @@
 - [x] Milestone 29 - Automated tests
 - [x] Post-build Fix - Canonical place matching
 - [x] Post-build Fix - External image URL enrichment
+- [x] Prompt-03 - Map UX and route comprehension
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## Prompt-03 - Map UX and Route Comprehension
+
+Completion pass:
+- Added a normalized `TripMapPoint` map model derived from accepted
+  provider-neutral place enrichment, not raw Geoapify JSON.
+- Added explicit origin and destination city-level map lookups so Dhaka and
+  Sylhet are represented as first-class journey points.
+- Kept map points limited to accepted canonical provider coordinates with
+  verified/probable match status; rejected, no-confident-match, invalid, and
+  outlier points do not become markers.
+- Added outlier protection before bounds calculation so distant incorrect
+  coordinates cannot expand the Dhaka to Sylhet map to a world-scale view.
+- Added journey header, visible marker semantics, responsive legend, Mapped
+  Journey stop summary, DOM-safe popups, approximate connection line labeling,
+  and map/card focus interaction.
+- Reverted the geographically misleading large marker-displacement experiment.
+  Current collision handling keeps markers at true canonical coordinates,
+  prioritizes focused marker, destination, start, then itinerary stops, and can
+  temporarily suppress lower-priority colliding itinerary markers at wide zoom.
+- Authenticated visual map smoke was performed manually by the user because
+  browser automation was unavailable.
+
+Manual verification:
+- Dhaka to Sylhet viewport: PASS.
+- Start/destination semantics: PASS.
+- Ratargul marker: PASS.
+- Card to map focus: PASS.
+- Generic activity marker safety: PASS.
+- Unmatched hotel marker safety: PASS.
+- Duplicate marker/navigation behavior: PASS.
+- Mobile map layout: PASS.
+- Attribution: PASS.
+- Console/network stability: PASS.
+
+Automated verification:
+- `npm test` passed with 9 test files, 70 tests passed, and 2 skipped live
+  smoke guards.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
 
 ## Post-build Fix - External Image URL Enrichment
 
