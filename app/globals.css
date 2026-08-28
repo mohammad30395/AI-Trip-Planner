@@ -157,21 +157,67 @@
   }
 
   .trip-map-marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 1.75rem;
     height: 1.75rem;
-    border: 3px solid white;
-    border-radius: 9999px 9999px 9999px 0;
+    border: 2px solid white;
+    border-radius: 9999px;
     background: var(--primary);
+    color: var(--primary-foreground);
     box-shadow: 0 10px 24px oklch(0 0 0 / 20%);
-    transform: rotate(-45deg);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
   }
 
-  .trip-map-marker::after {
-    position: absolute;
-    inset: 0.38rem;
-    content: "";
+  .trip-map-marker-origin,
+  .trip-map-summary-marker-origin,
+  .trip-map-legend-dot-origin {
+    background: oklch(0.52 0.14 150);
+    color: white;
+  }
+
+  .trip-map-marker-destination,
+  .trip-map-summary-marker-destination,
+  .trip-map-legend-dot-destination {
+    background: oklch(0.48 0.18 260);
+    color: white;
+  }
+
+  .trip-map-marker-activity,
+  .trip-map-summary-marker-activity,
+  .trip-map-legend-dot-activity {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  .trip-map-marker-hotel,
+  .trip-map-summary-marker-hotel,
+  .trip-map-legend-dot-hotel {
+    background: oklch(0.66 0.16 75);
+    color: oklch(0.16 0.02 75);
+  }
+
+  .trip-map-summary-marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: 0 0 auto;
     border-radius: 9999px;
-    background: var(--primary-foreground);
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .trip-map-legend-dot {
+    display: inline-block;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 9999px;
   }
 }
 

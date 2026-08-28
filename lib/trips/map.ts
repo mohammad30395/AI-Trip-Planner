@@ -8,29 +8,36 @@ import {
   isGenericActivityPlaceQuery,
 } from "@/lib/places/place-lookup-policy"
 import type { TripPresentationData } from "@/lib/trips/presentation"
+import type { PresentedActivity, PresentedHotel } from "@/lib/trips/presentation"
+
+export type TripMapPointKind = "origin" | "destination" | "activity" | "hotel"
 
 export type TripMapLookup = {
   id: string
+  kind: TripMapPointKind
   label: string
-  dayLabel: string
+  day?: number
+  dayLabel?: string
+  sequence?: number
   request: PlaceEnrichmentRequest
-}
-
-export type TripMappablePlace = {
-  lookupId: string
-  providerPlaceId: string
-  displayName: string
-  formattedAddress: string
-  dayLabel: string
-  location: {
-    lat: number
-    lng: number
-  }
 }
 
 export type TripMapEnrichedLookup = {
   lookup: TripMapLookup
   place: PlaceEnrichment
+}
+
+export type TripMapPoint = {
+  id: string
+  kind: TripMapPointKind
+  label: string
+  day?: number
+  sequence?: number
+  providerPlaceId?: string
+  lat: number
+  lng: number
+  address?: string
+  imageUrl?: string
 }
 
 export type MapLocation = {
@@ -41,11 +48,18 @@ export type MapLocation = {
 export type TripMapView = {
   center: MapLocation
   zoom: number
-  source: "canonical-place" | "global-fallback"
+  source: "single-point" | "global-fallback"
+}
+
+export type TripMapBounds = {
+  southWest: MapLocation
+  northEast: MapLocation
 }
 
 export type TripMarkerData = {
-  providerPlaceId: string
+  id: string
+  kind: TripMapPointKind
+  markerLabel: string
   position: MapLocation
   title: string
   popup: TripMarkerPopupText
@@ -53,8 +67,10 @@ export type TripMarkerData = {
 
 export type TripMarkerPopupText = {
   title: string
-  dayLabel: string
-  formattedAddress: string
+  typeLabel: string
+  sequenceLabel?: string
+  formattedAddress?: string
+  imageUrl?: string
 }
 
 export const OSM_STANDARD_TILE_URL =
@@ -67,93 +83,190 @@ export const GLOBAL_FALLBACK_CENTER = {
 } satisfies MapLocation
 export const CANONICAL_PLACE_ZOOM = 13
 export const GLOBAL_FALLBACK_ZOOM = 2
+export const MAP_OUTLIER_MAX_DISTANCE_METERS = 300_000
 
 export function buildTripMapLookups(
   trip: TripPresentationData
 ): TripMapLookup[] {
-  const hotelLookups = trip.hotels.map((hotel, index) => ({
+  const cityLookups: TripMapLookup[] = [
+    {
+      id: stableMapId(["origin", trip.source]),
+      kind: "origin",
+      label: trip.source,
+      request: {
+        query: trip.source,
+        lookupKind: "city",
+      },
+    },
+    {
+      id: stableMapId(["destination", trip.destination]),
+      kind: "destination",
+      label: trip.destination,
+      request: {
+        query: trip.destination,
+        lookupKind: "city",
+      },
+    },
+  ]
+  const hotelLookups = trip.hotels.map((hotel, index) =>
+    buildTripHotelMapLookup({
+      destination: trip.destination,
+      hotel,
+      index,
+    })
+  )
+
+  let activitySequence = 0
+  const activityLookups = trip.days.flatMap((day) =>
+    day.activities.flatMap((activity, index) => {
+      const lookup = buildTripActivityMapLookup({
+        activity,
+        dayNumber: day.dayNumber,
+        destination: trip.destination,
+        index,
+        sequence: activitySequence + 1,
+      })
+
+      if (lookup === null) {
+        return []
+      }
+
+      activitySequence += 1
+      return lookup
+    })
+  )
+
+  return [...cityLookups, ...hotelLookups, ...activityLookups]
+}
+
+export function buildTripHotelMapLookup({
+  destination,
+  hotel,
+  index,
+}: {
+  destination: string
+  hotel: PresentedHotel
+  index: number
+}): TripMapLookup {
+  return {
     id: stableMapId(["hotel", String(index), hotel.name]),
+    kind: "hotel",
     label: hotel.name,
     dayLabel: "Hotel",
     request: buildHotelPlaceEnrichmentRequest({
       address: hotel.address,
       area: hotel.area,
-      destination: trip.destination,
+      destination,
       name: hotel.name,
     }),
-  }))
-
-  const activityLookups = trip.days.flatMap((day) =>
-    day.activities.flatMap((activity, index) => {
-      const request = buildActivityPlaceEnrichmentRequest({
-        address: activity.address,
-        approximateArea: activity.approximateArea,
-        destination: trip.destination,
-        placeName: activity.placeName,
-        title: activity.title,
-      })
-
-      if (request === null) {
-        return []
-      }
-
-      return {
-        id: stableMapId([
-          "activity",
-          String(day.dayNumber),
-          String(index),
-          request.query,
-        ]),
-        label: request.query,
-        dayLabel: `Day ${day.dayNumber}`,
-        request,
-      }
-    })
-  )
-
-  return [...hotelLookups, ...activityLookups]
+  }
 }
 
-export function buildMappablePlaces(
-  enrichedLookups: readonly TripMapEnrichedLookup[]
-): TripMappablePlace[] {
-  const placesByProviderId = new Map<string, TripMappablePlace>()
+export function buildTripActivityMapLookup({
+  activity,
+  dayNumber,
+  destination,
+  index,
+  sequence,
+}: {
+  activity: PresentedActivity
+  dayNumber: number
+  destination: string
+  index: number
+  sequence: number
+}): TripMapLookup | null {
+  const request = buildActivityPlaceEnrichmentRequest({
+    address: activity.address,
+    approximateArea: activity.approximateArea,
+    destination,
+    placeName: activity.placeName,
+    title: activity.title,
+  })
 
-  for (const item of enrichedLookups) {
-    if (placesByProviderId.has(item.place.providerPlaceId)) {
-      continue
-    }
-
-    if (!isValidMapLocation(item.place.location)) {
-      continue
-    }
-
-    if (
-      item.place.matchStatus !== "verified" &&
-      item.place.matchStatus !== "probable"
-    ) {
-      continue
-    }
-
-    placesByProviderId.set(item.place.providerPlaceId, {
-      lookupId: item.lookup.id,
-      providerPlaceId: item.place.providerPlaceId,
-      displayName: item.place.displayName,
-      formattedAddress: item.place.formattedAddress,
-      dayLabel: item.lookup.dayLabel,
-      location: item.place.location,
-    })
+  if (request === null) {
+    return null
   }
 
-  return Array.from(placesByProviderId.values())
+  return {
+    id: stableMapId([
+      "activity",
+      String(dayNumber),
+      String(index),
+      request.query,
+    ]),
+    kind: "activity",
+    label: request.query,
+    day: dayNumber,
+    dayLabel: `Day ${dayNumber}`,
+    sequence,
+    request,
+  }
+}
+
+export function buildTripMapPoints({
+  enrichedLookups,
+  onDiagnostic,
+}: {
+  enrichedLookups: readonly TripMapEnrichedLookup[]
+  onDiagnostic?: (diagnostic: string, metadata: Record<string, string>) => void
+}): TripMapPoint[] {
+  const accepted = enrichedLookups.flatMap((item) => {
+    if (!isAcceptedPlace(item.place) || !isValidMapLocation(item.place.location)) {
+      return []
+    }
+
+    return {
+      item,
+      point: toTripMapPoint(item),
+    }
+  })
+  const destinationPoint = accepted.find(
+    (entry) => entry.point.kind === "destination"
+  )?.point
+  const pointsByKey = new Map<string, TripMapPoint>()
+  let acceptedActivitySequence = 0
+
+  for (const entry of accepted) {
+    if (
+      destinationPoint !== undefined &&
+      isDestinationLocalPoint(entry.point) &&
+      getDistanceMeters(destinationPoint, entry.point) >
+        MAP_OUTLIER_MAX_DISTANCE_METERS
+    ) {
+      onDiagnostic?.("map-point-outlier-skipped", {
+        id: entry.point.id,
+        kind: entry.point.kind,
+        label: entry.point.label,
+      })
+      continue
+    }
+
+    const dedupeKey = getMapPointDedupeKey(entry.point)
+
+    if (pointsByKey.has(dedupeKey)) {
+      continue
+    }
+
+    if (entry.point.kind === "activity") {
+      acceptedActivitySequence += 1
+      pointsByKey.set(dedupeKey, {
+        ...entry.point,
+        sequence: acceptedActivitySequence,
+      })
+    } else {
+      pointsByKey.set(dedupeKey, entry.point)
+    }
+  }
+
+  return Array.from(pointsByKey.values())
 }
 
 export function selectTripMapInitialView(
-  places: readonly TripMappablePlace[]
+  points: readonly TripMapPoint[]
 ): TripMapView {
-  const firstPlace = places.find((place) => isValidMapLocation(place.location))
+  const firstPoint = points.find(hasValidLocation)
 
-  if (firstPlace === undefined) {
+  if (firstPoint === undefined) {
     return {
       center: GLOBAL_FALLBACK_CENTER,
       zoom: GLOBAL_FALLBACK_ZOOM,
@@ -162,31 +275,86 @@ export function selectTripMapInitialView(
   }
 
   return {
-    center: firstPlace.location,
+    center: {
+      lat: firstPoint.lat,
+      lng: firstPoint.lng,
+    },
     zoom: CANONICAL_PLACE_ZOOM,
-    source: "canonical-place",
+    source: "single-point",
+  }
+}
+
+export function getTripMapBounds(points: readonly TripMapPoint[]): TripMapBounds | null {
+  const validPoints = points.filter(hasValidLocation)
+
+  if (validPoints.length < 2) {
+    return null
+  }
+
+  const lats = validPoints.map((point) => point.lat)
+  const lngs = validPoints.map((point) => point.lng)
+
+  return {
+    southWest: {
+      lat: Math.min(...lats),
+      lng: Math.min(...lngs),
+    },
+    northEast: {
+      lat: Math.max(...lats),
+      lng: Math.max(...lngs),
+    },
   }
 }
 
 export function buildTripMarkerData(
-  places: readonly TripMappablePlace[]
+  points: readonly TripMapPoint[]
 ): TripMarkerData[] {
-  return places.filter(hasValidLocation).map((place) => ({
-    providerPlaceId: place.providerPlaceId,
-    position: place.location,
-    title: place.displayName,
-    popup: buildTripMarkerPopupText(place),
+  return points.filter(hasValidLocation).map((point) => ({
+    id: point.id,
+    kind: point.kind,
+    markerLabel: getMarkerLabel(point),
+    position: {
+      lat: point.lat,
+      lng: point.lng,
+    },
+    title: point.label,
+    popup: buildTripMarkerPopupText(point),
   }))
 }
 
 export function buildTripMarkerPopupText(
-  place: TripMappablePlace
+  point: TripMapPoint
 ): TripMarkerPopupText {
   return {
-    title: place.displayName,
-    dayLabel: place.dayLabel,
-    formattedAddress: place.formattedAddress,
+    title: point.label,
+    typeLabel: getPointTypeLabel(point.kind),
+    ...(point.kind === "activity" && point.sequence !== undefined
+      ? {
+          sequenceLabel: `Stop ${point.sequence}${
+            point.day !== undefined ? ` - Day ${point.day}` : ""
+          }`,
+        }
+      : {}),
+    ...(point.kind === "hotel" ? { sequenceLabel: "Hotel option" } : {}),
+    ...(point.address !== undefined ? { formattedAddress: point.address } : {}),
+    ...(point.imageUrl !== undefined ? { imageUrl: point.imageUrl } : {}),
   }
+}
+
+export function getPointTypeLabel(kind: TripMapPointKind) {
+  if (kind === "origin") {
+    return "Start"
+  }
+
+  if (kind === "destination") {
+    return "Destination"
+  }
+
+  if (kind === "hotel") {
+    return "Hotel"
+  }
+
+  return "Itinerary stop"
 }
 
 export function isValidMapLocation(value: MapLocation) {
@@ -200,8 +368,79 @@ export function isValidMapLocation(value: MapLocation) {
   )
 }
 
-function hasValidLocation(place: TripMappablePlace) {
-  return isValidMapLocation(place.location)
+function isAcceptedPlace(place: PlaceEnrichment) {
+  return place.matchStatus === "verified" || place.matchStatus === "probable"
+}
+
+function toTripMapPoint({ lookup, place }: TripMapEnrichedLookup): TripMapPoint {
+  return {
+    id: lookup.id,
+    kind: lookup.kind,
+    label: place.displayName,
+    ...(lookup.day !== undefined ? { day: lookup.day } : {}),
+    ...(lookup.sequence !== undefined ? { sequence: lookup.sequence } : {}),
+    providerPlaceId: place.providerPlaceId,
+    lat: place.location.lat,
+    lng: place.location.lng,
+    address: place.formattedAddress,
+    ...(place.image !== undefined ? { imageUrl: place.image.url } : {}),
+  }
+}
+
+function isDestinationLocalPoint(point: TripMapPoint) {
+  return point.kind === "activity" || point.kind === "hotel"
+}
+
+function getMapPointDedupeKey(point: TripMapPoint) {
+  if (point.providerPlaceId === undefined) {
+    return point.id
+  }
+
+  return `${point.kind}:${point.providerPlaceId}`
+}
+
+function getMarkerLabel(point: TripMapPoint) {
+  if (point.kind === "origin") {
+    return "S"
+  }
+
+  if (point.kind === "destination") {
+    return "D"
+  }
+
+  if (point.kind === "hotel") {
+    return "H"
+  }
+
+  return String(point.sequence ?? "")
+}
+
+function hasValidLocation(point: TripMapPoint) {
+  return isValidMapLocation({
+    lat: point.lat,
+    lng: point.lng,
+  })
+}
+
+function getDistanceMeters(left: MapLocation, right: MapLocation) {
+  const earthRadiusMeters = 6_371_000
+  const leftLat = toRadians(left.lat)
+  const rightLat = toRadians(right.lat)
+  const deltaLat = toRadians(right.lat - left.lat)
+  const deltaLng = toRadians(right.lng - left.lng)
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(leftLat) *
+      Math.cos(rightLat) *
+      Math.sin(deltaLng / 2) *
+      Math.sin(deltaLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+  return earthRadiusMeters * c
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180
 }
 
 function stableMapId(parts: string[]) {

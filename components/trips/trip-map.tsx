@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import type {
-  DivIcon,
   LayerGroup,
   Map as LeafletMap,
   Marker,
@@ -22,11 +21,15 @@ import {
   GLOBAL_FALLBACK_CENTER,
   CANONICAL_PLACE_ZOOM,
   GLOBAL_FALLBACK_ZOOM,
+  buildTripMapPoints,
   buildTripMarkerData,
-  buildMappablePlaces,
+  getPointTypeLabel,
+  getTripMapBounds,
+  selectTripMapInitialView,
   type TripMapLookup,
+  type TripMapPoint,
+  type TripMapPointKind,
   type TripMarkerPopupText,
-  type TripMappablePlace,
 } from "@/lib/trips/map"
 import {
   createUserSafeError,
@@ -34,13 +37,19 @@ import {
 } from "@/lib/errors/user-safe-error"
 
 function TripMapSection({
-  focusedProviderPlaceId,
+  destination,
+  durationLabel,
+  focusedMapPointId,
   lookups,
   onMarkerFocus,
+  source,
 }: {
-  focusedProviderPlaceId: string | null
+  destination: string
+  durationLabel: string
+  focusedMapPointId: string | null
   lookups: TripMapLookup[]
-  onMarkerFocus: (providerPlaceId: string) => void
+  onMarkerFocus: (mapPointId: string) => void
+  source: string
 }) {
   const lookupStatuses = usePlaceEnrichments(
     useMemo(
@@ -52,7 +61,7 @@ function TripMapSection({
       [lookups]
     )
   )
-  const places = useMemo(() => {
+  const points = useMemo(() => {
     const lookupsById = new Map(
       lookups.map((lookup) => [lookup.id, lookup] as const)
     )
@@ -69,9 +78,20 @@ function TripMapSection({
       }
     })
 
-    return buildMappablePlaces(enrichedLookups)
+    return buildTripMapPoints({
+      enrichedLookups,
+      onDiagnostic:
+        process.env.NODE_ENV === "development"
+          ? (diagnostic, metadata) => {
+              console.warn("Trip map diagnostic", {
+                diagnostic,
+                ...metadata,
+              })
+            }
+          : undefined,
+    })
   }, [lookupStatuses, lookups])
-  const statusText = getMapStatusText(lookups.length, places.length)
+  const statusText = getMapStatusText(lookups.length, points.length)
 
   return (
     <section aria-labelledby="trip-map" className="grid gap-4">
@@ -80,25 +100,39 @@ function TripMapSection({
           Trip Map
         </h2>
         <p className="app-muted mt-2 text-sm">
-          The map uses canonical Geoapify-enriched coordinates when available.
+          {source} {"->"} {destination}
         </p>
       </div>
 
       <Card className="app-card overflow-hidden">
         <CardHeader>
-          <CardTitle>Interactive Map</CardTitle>
-          <CardDescription>{statusText}</CardDescription>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>{source} {"->"} {destination}</CardTitle>
+              <CardDescription>
+                {durationLabel} trip - {points.length} mapped{" "}
+                {points.length === 1 ? "place" : "places"}
+              </CardDescription>
+            </div>
+            <MapLegend points={points} />
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="grid gap-4">
+          <p className="app-muted text-sm">{statusText}</p>
           <LeafletTripMap
-            focusedProviderPlaceId={focusedProviderPlaceId}
+            focusedMapPointId={focusedMapPointId}
             label={
-              places.length > 0
-                ? "Leaflet trip map with canonical Geoapify itinerary markers"
+              points.length > 0
+                ? `${source} to ${destination} trip map with start, destination, and numbered itinerary markers`
                 : "Leaflet trip map using global fallback center"
             }
             onMarkerFocus={onMarkerFocus}
-            places={places}
+            points={points}
+          />
+          <StopSummary
+            focusedMapPointId={focusedMapPointId}
+            onMarkerFocus={onMarkerFocus}
+            points={points}
           />
         </CardContent>
       </Card>
@@ -107,31 +141,36 @@ function TripMapSection({
 }
 
 function LeafletTripMap({
-  focusedProviderPlaceId,
+  focusedMapPointId,
   label,
   onMarkerFocus,
-  places,
+  points,
 }: {
-  focusedProviderPlaceId: string | null
+  focusedMapPointId: string | null
   label: string
-  onMarkerFocus: (providerPlaceId: string) => void
-  places: TripMappablePlace[]
+  onMarkerFocus: (mapPointId: string) => void
+  points: TripMapPoint[]
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<LeafletMap | null>(null)
   const markerLayerRef = useRef<LayerGroup | null>(null)
-  const markersByProviderIdRef = useRef<Map<string, Marker>>(new Map())
-  const markerIconRef = useRef<DivIcon | null>(null)
+  const markersByPointIdRef = useRef<Map<string, Marker>>(new Map())
+  const pointsRef = useRef(points)
   const tileErrorReportedRef = useRef(false)
+  const pointsKey = useMemo(() => buildPointsKey(points), [points])
   const [leafletModule, setLeafletModule] = useState<
     typeof import("leaflet") | null
   >(null)
   const [mapError, setMapError] = useState<UserSafeError | null>(null)
 
   useEffect(() => {
+    pointsRef.current = points
+  }, [points])
+
+  useEffect(() => {
     let disposed = false
     let animationFrame: number | null = null
-    const markersByProviderId = markersByProviderIdRef.current
+    const markersByPointId = markersByPointIdRef.current
 
     async function initializeMap() {
       try {
@@ -183,12 +222,6 @@ function LeafletTripMap({
           .addTo(map)
 
         mapRef.current = map
-        markerIconRef.current = leaflet.divIcon({
-          className: "trip-map-marker",
-          iconAnchor: [14, 28],
-          iconSize: [28, 28],
-          popupAnchor: [0, -28],
-        })
         setLeafletModule(leaflet)
         setMapError(null)
         animationFrame = window.requestAnimationFrame(() => {
@@ -226,7 +259,7 @@ function LeafletTripMap({
       }
       markerLayerRef.current?.remove()
       markerLayerRef.current = null
-      markersByProviderId.clear()
+      markersByPointId.clear()
       tileErrorReportedRef.current = false
       mapRef.current?.remove()
       mapRef.current = null
@@ -237,15 +270,17 @@ function LeafletTripMap({
   useEffect(() => {
     const map = mapRef.current
 
-    if (map === null || leafletModule === null || markerIconRef.current === null) {
+    if (map === null || leafletModule === null) {
       return
     }
 
+    const currentPoints = pointsRef.current
+
     markerLayerRef.current?.remove()
     markerLayerRef.current = null
-    markersByProviderIdRef.current.clear()
+    markersByPointIdRef.current.clear()
 
-    if (places.length === 0) {
+    if (currentPoints.length === 0) {
       map.setView(
         [GLOBAL_FALLBACK_CENTER.lat, GLOBAL_FALLBACK_CENTER.lng],
         GLOBAL_FALLBACK_ZOOM
@@ -255,30 +290,59 @@ function LeafletTripMap({
 
     const markerLayer = leafletModule.layerGroup().addTo(map)
     markerLayerRef.current = markerLayer
+    const connectionPoints = getConnectionPoints(currentPoints)
 
-    for (const markerData of buildTripMarkerData(places)) {
+    if (connectionPoints.length >= 2) {
+      leafletModule
+        .polyline(
+          connectionPoints.map((point) => [point.lat, point.lng]),
+          {
+            color: "var(--foreground)",
+            dashArray: "6 8",
+            opacity: 0.55,
+            weight: 3,
+          }
+        )
+        .bindTooltip("Approximate connection", {
+          sticky: true,
+        })
+        .addTo(markerLayer)
+    }
+
+    for (const markerData of buildTripMarkerData(currentPoints)) {
       const marker = leafletModule
         .marker([markerData.position.lat, markerData.position.lng], {
-          icon: markerIconRef.current,
+          icon: leafletModule.divIcon({
+            className: "",
+            html: buildMarkerHtml(markerData.kind, markerData.markerLabel),
+            iconAnchor: [14, 28],
+            iconSize: [28, 28],
+            popupAnchor: [0, -28],
+          }),
           title: markerData.title,
         })
         .bindPopup(buildSafePopupContent(markerData.popup))
 
       marker.on("click", () => {
-        onMarkerFocus(markerData.providerPlaceId)
-        scrollPlaceCardIntoView(markerData.providerPlaceId)
+        onMarkerFocus(markerData.id)
+        scrollPlaceCardIntoView(markerData.id)
       })
 
       marker.addTo(markerLayer)
-      markersByProviderIdRef.current.set(markerData.providerPlaceId, marker)
+      markersByPointIdRef.current.set(markerData.id, marker)
     }
 
-    if (places.length === 1) {
-      const place = places[0]
-      map.setView([place.location.lat, place.location.lng], CANONICAL_PLACE_ZOOM)
+    const mapBounds = getTripMapBounds(currentPoints)
+
+    if (mapBounds === null) {
+      const view = selectTripMapInitialView(currentPoints)
+      map.setView([view.center.lat, view.center.lng], view.zoom)
     } else {
       const bounds = leafletModule.latLngBounds(
-        places.map((place) => [place.location.lat, place.location.lng])
+        [
+          [mapBounds.southWest.lat, mapBounds.southWest.lng],
+          [mapBounds.northEast.lat, mapBounds.northEast.lng],
+        ]
       )
       map.fitBounds(bounds, {
         animate: !prefersReducedMotion(),
@@ -303,15 +367,15 @@ function LeafletTripMap({
         markerLayerRef.current = null
       }
     }
-  }, [leafletModule, onMarkerFocus, places])
+  }, [leafletModule, onMarkerFocus, pointsKey])
 
   useEffect(() => {
-    if (focusedProviderPlaceId === null) {
+    if (focusedMapPointId === null) {
       return
     }
 
     const map = mapRef.current
-    const marker = markersByProviderIdRef.current.get(focusedProviderPlaceId)
+    const marker = markersByPointIdRef.current.get(focusedMapPointId)
 
     if (map === null || marker === undefined) {
       return
@@ -326,7 +390,7 @@ function LeafletTripMap({
       })
     }
     marker.openPopup()
-  }, [focusedProviderPlaceId])
+  }, [focusedMapPointId])
 
   return (
     <div className="grid gap-2">
@@ -350,35 +414,154 @@ function LeafletTripMap({
   )
 }
 
+function MapLegend({ points }: { points: TripMapPoint[] }) {
+  const visibleKinds = getVisibleKinds(points)
+
+  if (visibleKinds.length === 0) {
+    return null
+  }
+
+  return (
+    <ul className="flex flex-wrap gap-2 text-xs" aria-label="Map legend">
+      {visibleKinds.map((kind) => (
+        <li
+          key={kind}
+          className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2 py-1"
+        >
+          <span className={`trip-map-legend-dot trip-map-legend-dot-${kind}`} />
+          <span>{getPointTypeLabel(kind)}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function StopSummary({
+  focusedMapPointId,
+  onMarkerFocus,
+  points,
+}: {
+  focusedMapPointId: string | null
+  onMarkerFocus: (mapPointId: string) => void
+  points: TripMapPoint[]
+}) {
+  const summaryPoints = getSummaryPoints(points)
+
+  if (summaryPoints.length === 0) {
+    return (
+      <div className="rounded-lg border bg-muted/20 p-3">
+        <p className="app-muted text-sm">
+          No verified map points are available yet. The written itinerary remains
+          available below.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid gap-2 rounded-lg border bg-muted/20 p-3">
+      <h3 className="text-sm font-medium">Mapped Journey</h3>
+      <ol className="grid gap-2 sm:grid-cols-2">
+        {summaryPoints.map((point) => {
+          const selected = focusedMapPointId === point.id
+
+          return (
+            <li key={point.id}>
+              <button
+                type="button"
+                className={`app-focus-ring flex w-full min-w-0 items-start gap-2 rounded-md border bg-background p-2 text-left transition-colors ${
+                  selected ? "border-foreground ring-2 ring-ring/35" : ""
+                }`}
+                data-map-point-id={point.id}
+                onClick={() => {
+                  onMarkerFocus(point.id)
+                }}
+              >
+                <span
+                  className={`trip-map-summary-marker trip-map-summary-marker-${point.kind}`}
+                >
+                  {getSummaryMarkerText(point)}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-muted-foreground">
+                    {getPointTypeLabel(point.kind)}
+                  </span>
+                  <span className="block truncate text-sm font-medium">
+                    {point.label}
+                  </span>
+                  {point.day !== undefined ? (
+                    <span className="app-muted block text-xs">
+                      Day {point.day}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
 function buildSafePopupContent(popup: TripMarkerPopupText) {
   const container = document.createElement("div")
   container.className = "grid gap-1 text-sm"
+
+  if (popup.imageUrl !== undefined) {
+    const image = document.createElement("img")
+    image.alt = popup.title
+    image.className = "mb-1 aspect-video w-full rounded object-cover"
+    image.loading = "lazy"
+    image.referrerPolicy = "no-referrer"
+    image.src = popup.imageUrl
+    container.append(image)
+  }
 
   const title = document.createElement("p")
   title.className = "font-medium"
   title.textContent = popup.title
   container.append(title)
 
-  const day = document.createElement("p")
-  day.className = "text-xs text-muted-foreground"
-  day.textContent = popup.dayLabel
-  container.append(day)
+  const type = document.createElement("p")
+  type.className = "text-xs text-muted-foreground"
+  type.textContent = popup.sequenceLabel
+    ? `${popup.typeLabel} - ${popup.sequenceLabel}`
+    : popup.typeLabel
+  container.append(type)
 
-  const address = document.createElement("p")
-  address.className = "text-xs text-muted-foreground"
-  address.textContent = popup.formattedAddress
-  container.append(address)
+  if (popup.formattedAddress !== undefined) {
+    const address = document.createElement("p")
+    address.className = "text-xs text-muted-foreground"
+    address.textContent = popup.formattedAddress
+    container.append(address)
+  }
 
   return container
 }
 
-function scrollPlaceCardIntoView(providerPlaceId: string) {
+function buildMarkerHtml(kind: TripMapPointKind, markerLabel: string) {
+  return `<span class="trip-map-marker trip-map-marker-${kind}">${escapeHtml(
+    markerLabel
+  )}</span>`
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
+function scrollPlaceCardIntoView(mapPointId: string) {
   const placeCards = document.querySelectorAll<HTMLElement>(
-    "[data-provider-place-id]"
+    "[data-map-point-id]"
   )
 
   for (const placeCard of placeCards) {
-    if (placeCard.dataset.providerPlaceId === providerPlaceId) {
+    if (placeCard.dataset.mapPointId === mapPointId) {
       placeCard.focus({ preventScroll: true })
       placeCard.scrollIntoView({
         behavior: prefersReducedMotion() ? "auto" : "smooth",
@@ -403,10 +586,69 @@ function getMapStatusText(lookupCount: number, placeCount: number) {
   }
 
   if (placeCount === 1) {
-    return "Showing 1 verified itinerary place. Select a trip card to focus it on the map."
+    return "Showing 1 verified map point. Select a mapped item to focus it."
   }
 
-  return `Showing ${placeCount} verified itinerary places. Select a trip card to focus it on the map.`
+  return `Showing ${placeCount} verified map points. Select a mapped item to focus it.`
+}
+
+function getVisibleKinds(points: TripMapPoint[]) {
+  return (["origin", "destination", "activity", "hotel"] as const).filter((kind) =>
+    points.some((point) => point.kind === kind)
+  )
+}
+
+function getSummaryPoints(points: TripMapPoint[]) {
+  return [
+    ...points.filter((point) => point.kind === "origin"),
+    ...points.filter((point) => point.kind === "destination"),
+    ...points
+      .filter((point) => point.kind === "activity")
+      .sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0)),
+    ...points.filter((point) => point.kind === "hotel"),
+  ]
+}
+
+function getConnectionPoints(points: TripMapPoint[]) {
+  return [
+    ...points.filter((point) => point.kind === "origin"),
+    ...points.filter((point) => point.kind === "destination"),
+    ...points
+      .filter((point) => point.kind === "activity")
+      .sort((left, right) => (left.sequence ?? 0) - (right.sequence ?? 0)),
+  ]
+}
+
+function buildPointsKey(points: TripMapPoint[]) {
+  return points
+    .map((point) =>
+      [
+        point.id,
+        point.kind,
+        point.sequence ?? "",
+        point.lat,
+        point.lng,
+        point.providerPlaceId ?? "",
+        point.imageUrl ?? "",
+      ].join(":")
+    )
+    .join("|")
+}
+
+function getSummaryMarkerText(point: TripMapPoint) {
+  if (point.kind === "origin") {
+    return "S"
+  }
+
+  if (point.kind === "destination") {
+    return "D"
+  }
+
+  if (point.kind === "hotel") {
+    return "H"
+  }
+
+  return String(point.sequence ?? "")
 }
 
 export { TripMapSection }

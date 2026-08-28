@@ -52,8 +52,8 @@ type PlaceEnrichmentLookupStatus = {
 }
 
 type PlaceMapControls = {
-  focusedProviderPlaceId: string | null
-  onFocusPlace: (providerPlaceId: string) => void
+  focusedMapPointId: string | null
+  onFocusMapPoint: (mapPointId: string) => void
 }
 
 const placeLookupCache = new Map<string, Promise<PlaceEnrichmentStatus>>()
@@ -156,12 +156,14 @@ function HotelPlaceEnrichment({
   area,
   destination,
   mapControls,
+  mapPointId,
   name,
 }: {
   address: string | null
   area: string | null
   destination: string
   mapControls?: PlaceMapControls
+  mapPointId?: string
   name: string
 }) {
   const request = useMemo<PlaceEnrichmentRequest>(
@@ -173,6 +175,7 @@ function HotelPlaceEnrichment({
     <PlaceEnrichmentPanel
       label="Hotel place enrichment"
       mapControls={mapControls}
+      mapPointId={mapPointId}
       request={request}
     />
   )
@@ -183,6 +186,7 @@ function ActivityPlaceEnrichment({
   approximateArea,
   destination,
   mapControls,
+  mapPointId,
   placeName,
   title,
 }: {
@@ -190,6 +194,7 @@ function ActivityPlaceEnrichment({
   approximateArea: string | null
   destination: string
   mapControls?: PlaceMapControls
+  mapPointId: string | null
   placeName: string | null
   title: string
 }) {
@@ -210,6 +215,7 @@ function ActivityPlaceEnrichment({
       emptyMessage="No canonical place lookup is available for this activity yet."
       label="Activity place enrichment"
       mapControls={mapControls}
+      mapPointId={mapPointId ?? undefined}
       request={request}
     />
   )
@@ -219,11 +225,13 @@ function PlaceEnrichmentPanel({
   emptyMessage = "No matching canonical place was found.",
   label,
   mapControls,
+  mapPointId,
   request,
 }: {
   emptyMessage?: string
   label: string
   mapControls?: PlaceMapControls
+  mapPointId?: string
   request: PlaceEnrichmentRequest | null
 }) {
   const [retryToken, setRetryToken] = useState(0)
@@ -274,24 +282,33 @@ function PlaceEnrichmentPanel({
     )
   }
 
-  return <CanonicalPlaceDetails mapControls={mapControls} place={state.place} />
+  return (
+    <CanonicalPlaceDetails
+      mapControls={mapControls}
+      mapPointId={mapPointId}
+      place={state.place}
+    />
+  )
 }
 
 function CanonicalPlaceDetails({
   mapControls,
+  mapPointId,
   place,
 }: {
   mapControls: PlaceMapControls | undefined
+  mapPointId: string | undefined
   place: PlaceEnrichment
 }) {
   const isFocused =
-    mapControls?.focusedProviderPlaceId === place.providerPlaceId
+    mapPointId !== undefined && mapControls?.focusedMapPointId === mapPointId
 
   return (
     <div
+      data-map-point-id={mapPointId}
       data-provider-place-id={place.providerPlaceId}
       className={`overflow-hidden rounded-lg border bg-muted/10 transition-shadow ${
-        isFocused ? "ring-3 ring-ring/40" : ""
+        isFocused ? "ring-2 ring-ring/40" : ""
       }`}
       tabIndex={-1}
     >
@@ -318,14 +335,14 @@ function CanonicalPlaceDetails({
             )}`}
           />
         </dl>
-        {mapControls !== undefined ? (
+        {mapControls !== undefined && mapPointId !== undefined ? (
           <div>
             <Button
               size="sm"
               type="button"
               variant="outline"
               onClick={() => {
-                mapControls.onFocusPlace(place.providerPlaceId)
+                mapControls.onFocusMapPoint(mapPointId)
               }}
             >
               Show on map

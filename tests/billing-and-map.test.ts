@@ -2,24 +2,22 @@ import { describe, expect, test } from "vitest"
 
 import { getTripGenerationAccessStatus } from "@/lib/billing/trip-generation-access"
 import {
-  rankGeoapifyCandidates,
-  type DestinationContext,
-  type GeoapifyCandidate,
-} from "@/lib/places/geoapify"
-import {
   CANONICAL_PLACE_ZOOM,
   GLOBAL_FALLBACK_CENTER,
   GLOBAL_FALLBACK_ZOOM,
   OSM_STANDARD_TILE_URL,
+  buildTripMapPoints,
   buildTripMapLookups,
-  buildMappablePlaces,
   buildTripMarkerData,
+  getTripMapBounds,
   isValidMapLocation,
   selectTripMapInitialView,
   type TripMapEnrichedLookup,
-  type TripMappablePlace,
+  type TripMapPoint,
+  type TripMapPointKind,
 } from "@/lib/trips/map"
 import { getGeoapifyAttribution } from "@/lib/places/place-enrichment"
+import type { PlaceEnrichment } from "@/lib/places/place-enrichment"
 import type { TripPresentationData } from "@/lib/trips/presentation"
 
 describe("billing access decisions", () => {
@@ -47,26 +45,57 @@ describe("map normalization and Leaflet-facing config", () => {
   })
 
   test("deduplicates by providerPlaceId and skips invalid coordinates", () => {
-    const places = buildMappablePlaces([
-      enrichedLookup("one", "place-1", 35, 139),
-      enrichedLookup("duplicate", "place-1", 36, 140),
-      enrichedLookup("bad", "place-2", Number.NaN, 140),
-    ])
+    const points = buildTripMapPoints({
+      enrichedLookups: [
+        enrichedLookup("one", "place-1", 35, 139),
+        enrichedLookup("duplicate", "place-1", 36, 140),
+        enrichedLookup("bad", "place-2", Number.NaN, 140),
+      ],
+    })
 
-    expect(places).toHaveLength(1)
-    expect(places[0]?.providerPlaceId).toBe("place-1")
+    expect(points).toHaveLength(1)
+    expect(points[0]?.providerPlaceId).toBe("place-1")
+  })
+
+  test("adds explicit city lookups for origin and destination", () => {
+    const lookups = buildTripMapLookups({
+      ...baseTrip,
+      source: "Dhaka",
+      destination: "Sylhet",
+    })
+
+    expect(lookups.slice(0, 2)).toEqual([
+      {
+        id: "origin-dhaka",
+        kind: "origin",
+        label: "Dhaka",
+        request: {
+          query: "Dhaka",
+          lookupKind: "city",
+        },
+      },
+      {
+        id: "destination-sylhet",
+        kind: "destination",
+        label: "Sylhet",
+        request: {
+          query: "Sylhet",
+          lookupKind: "city",
+        },
+      },
+    ])
   })
 
   test("selects canonical center when a verified place exists", () => {
-    const places = [mappablePlace("place-1", 35.6, 139.7)]
+    const points = [mapPoint("place-1", 35.6, 139.7)]
 
-    expect(selectTripMapInitialView(places)).toEqual({
+    expect(selectTripMapInitialView(points)).toEqual({
       center: {
         lat: 35.6,
         lng: 139.7,
       },
       zoom: CANONICAL_PLACE_ZOOM,
-      source: "canonical-place",
+      source: "single-point",
     })
   })
 
@@ -78,14 +107,24 @@ describe("map normalization and Leaflet-facing config", () => {
     })
   })
 
-  test("builds marker data and safe popup text model without HTML strings", () => {
+  test("builds marker data and safe popup text model without raw provider JSON", () => {
     const markerData = buildTripMarkerData([
-      mappablePlace("<script>alert(1)</script>", 35, 139),
+      {
+        ...mapPoint("place-1", 35, 139),
+        id: "activity-1",
+        kind: "activity",
+        label: "Place <b>Name</b>",
+        day: 1,
+        sequence: 1,
+        address: "1 Test Street <img>",
+      },
     ])
 
     expect(markerData).toEqual([
       {
-        providerPlaceId: "<script>alert(1)</script>",
+        id: "activity-1",
+        kind: "activity",
+        markerLabel: "1",
         position: {
           lat: 35,
           lng: 139,
@@ -93,7 +132,8 @@ describe("map normalization and Leaflet-facing config", () => {
         title: "Place <b>Name</b>",
         popup: {
           title: "Place <b>Name</b>",
-          dayLabel: "Day 1",
+          typeLabel: "Itinerary stop",
+          sequenceLabel: "Stop 1 - Day 1",
           formattedAddress: "1 Test Street <img>",
         },
       },
@@ -135,7 +175,10 @@ describe("map normalization and Leaflet-facing config", () => {
       ],
     })
 
-    expect(lookups).toHaveLength(0)
+    expect(lookups.map((lookup) => lookup.kind)).toEqual([
+      "origin",
+      "destination",
+    ])
   })
 
   test("requires accepted match status before creating mappable places", () => {
@@ -155,17 +198,21 @@ describe("map normalization and Leaflet-facing config", () => {
       },
     } as unknown as TripMapEnrichedLookup
 
-    const places = buildMappablePlaces([verified, probable, rejected])
+    const points = buildTripMapPoints({
+      enrichedLookups: [verified, probable, rejected],
+    })
 
-    expect(places.map((place) => place.providerPlaceId)).toEqual([
+    expect(points.map((point) => point.providerPlaceId)).toEqual([
       "place-verified",
       "place-probable",
     ])
   })
 
-  test("Dhaka to Sylhet smoke keeps local markers inside destination geography", () => {
+  test("Dhaka to Sylhet smoke adds start and destination without North American outliers", () => {
     const lookups = buildTripMapLookups({
       ...baseTrip,
+      source: "Dhaka",
+      destination: "Sylhet",
       durationLabel: "3 days",
       hotels: [
         {
@@ -212,79 +259,87 @@ describe("map normalization and Leaflet-facing config", () => {
         },
       ],
     })
-    const destinationContext = {
-      query: "Sylhet",
-      country: "Bangladesh",
-      countryCode: "bd",
-      location: {
-        lat: 24.8949,
-        lng: 91.8687,
-      },
-    } satisfies DestinationContext
     const acceptedLookups = lookups.flatMap((lookup) => {
-      const ranking = rankGeoapifyCandidates({
-        request: lookup.request,
-        destinationContext,
-        candidates:
-          lookup.request.query === "Hotel Supreme"
-            ? [
-                geoCandidate({
-                  providerPlaceId: "north-america-hotel",
-                  displayName: "Hotel Supreme",
-                  formattedAddress: "Hotel Supreme, Toronto, Canada",
-                  countryCode: "ca",
-                  country: "Canada",
-                  city: "Toronto",
-                  category: "accommodation.hotel",
-                  location: {
-                    lat: 43.6532,
-                    lng: -79.3832,
-                  },
-                }),
-              ]
-            : [
-                geoCandidate({
-                  providerPlaceId: "ratargul",
-                  displayName: "Ratargul Swamp Forest",
-                  formattedAddress: "Ratargul Swamp Forest, Sylhet, Bangladesh",
-                  countryCode: "bd",
-                  country: "Bangladesh",
-                  city: "Sylhet",
-                  category: "tourism.sights",
-                }),
-              ],
-      })
-
-      if (ranking.status === "no_confident_match") {
+      const place = getDhakaSylhetPlace(lookup)
+      if (place === null) {
         return []
       }
-
       return {
         lookup,
-        place: {
-          provider: "geoapify",
-          providerPlaceId: ranking.candidate.providerPlaceId,
-          displayName: ranking.candidate.displayName,
-          formattedAddress: ranking.candidate.formattedAddress,
-          location: ranking.candidate.location,
-          attribution: getGeoapifyAttribution(),
-          matchStatus: ranking.status,
-          matchScore: ranking.score,
-          matchedQuery: ranking.matchedQuery,
-        },
+        place,
       } satisfies TripMapEnrichedLookup
     })
-    const markers = buildTripMarkerData(buildMappablePlaces(acceptedLookups))
+    const diagnostics: string[] = []
+    const points = buildTripMapPoints({
+      enrichedLookups: acceptedLookups,
+      onDiagnostic: (diagnostic) => {
+        diagnostics.push(diagnostic)
+      },
+    })
+    const markers = buildTripMarkerData(points)
+    const bounds = getTripMapBounds(points)
 
     expect(lookups.map((lookup) => lookup.request.query)).toEqual([
+      "Dhaka",
+      "Sylhet",
       "Hotel Supreme",
       "Ratargul Swamp Forest",
     ])
-    expect(markers).toHaveLength(1)
-    expect(markers[0]?.position.lat).toBeGreaterThan(24)
-    expect(markers[0]?.position.lat).toBeLessThan(26)
-    expect(markers[0]?.position.lng).toBeGreaterThan(91)
-    expect(markers[0]?.position.lng).toBeLessThan(93)
+    expect(markers.map((marker) => marker.markerLabel)).toEqual(["S", "D", "1"])
+    expect(points.some((point) => point.label === "Hotel Supreme")).toBe(false)
+    expect(points.some((point) => point.lng < -60)).toBe(false)
+    expect(bounds?.southWest.lat).toBeGreaterThan(23)
+    expect(bounds?.northEast.lat).toBeLessThan(25.5)
+    expect(bounds?.southWest.lng).toBeGreaterThan(90)
+    expect(bounds?.northEast.lng).toBeLessThan(92.5)
+    expect(diagnostics).toEqual([])
+  })
+
+  test("skips gross destination-local outliers before fit bounds", () => {
+    const diagnostics: string[] = []
+    const points = buildTripMapPoints({
+      enrichedLookups: [
+        enrichedLookup(
+          "destination-sylhet",
+          "sylhet",
+          24.8949,
+          91.8687,
+          "destination"
+        ),
+        enrichedLookup("activity-local", "ratargul", 25.002, 91.975, "activity"),
+        enrichedLookup("activity-outlier", "north-america", 43.6532, -79.3832, "activity"),
+      ],
+      onDiagnostic: (diagnostic) => {
+        diagnostics.push(diagnostic)
+      },
+    })
+    const bounds = getTripMapBounds(points)
+
+    expect(points.map((point) => point.providerPlaceId)).toEqual([
+      "sylhet",
+      "ratargul",
+    ])
+    expect(bounds?.southWest.lng).toBeGreaterThan(91)
+    expect(diagnostics).toEqual(["map-point-outlier-skipped"])
+  })
+
+  test("handles one and twenty-plus points with stable bounds", () => {
+    const onePoint = [mapPoint("only", 24.9, 91.9)]
+    const manyPoints = Array.from({ length: 24 }, (_, index) =>
+      mapPoint(`point-${index}`, 24.8 + index * 0.01, 91.8 + index * 0.01)
+    )
+
+    expect(getTripMapBounds(onePoint)).toBeNull()
+    expect(getTripMapBounds(manyPoints)).toEqual({
+      southWest: {
+        lat: 24.8,
+        lng: 91.8,
+      },
+      northEast: {
+        lat: 25.03,
+        lng: 92.03,
+      },
+    })
   })
 })
 
@@ -292,12 +347,15 @@ function enrichedLookup(
   lookupId: string,
   providerPlaceId: string,
   lat: number,
-  lng: number
+  lng: number,
+  kind: TripMapPointKind = "activity"
 ): TripMapEnrichedLookup {
   return {
     lookup: {
       id: lookupId,
+      kind,
       label: "Lookup",
+      ...(kind === "activity" ? { day: 1, sequence: 1 } : {}),
       dayLabel: "Day 1",
       request: {
         query: "Lookup",
@@ -320,36 +378,76 @@ function enrichedLookup(
   }
 }
 
-function mappablePlace(
+function mapPoint(
   providerPlaceId: string,
   lat: number,
   lng: number
-): TripMappablePlace {
+): TripMapPoint {
   return {
-    lookupId: "lookup",
+    id: providerPlaceId,
+    kind: "activity",
+    label: "Place",
+    sequence: 1,
     providerPlaceId,
-    displayName: "Place <b>Name</b>",
-    formattedAddress: "1 Test Street <img>",
-    dayLabel: "Day 1",
-    location: {
-      lat,
-      lng,
-    },
+    lat,
+    lng,
+    address: "1 Test Street",
   }
 }
 
-function geoCandidate(overrides: Partial<GeoapifyCandidate>): GeoapifyCandidate {
+function getDhakaSylhetPlace(lookup: TripMapEnrichedLookup["lookup"]) {
+  if (lookup.kind === "origin") {
+    return placeFixture({
+      providerPlaceId: "dhaka",
+      displayName: "Dhaka",
+      formattedAddress: "Dhaka, Bangladesh",
+      location: {
+        lat: 23.7644,
+        lng: 90.389,
+      },
+    })
+  }
+
+  if (lookup.kind === "destination") {
+    return placeFixture({
+      providerPlaceId: "sylhet",
+      displayName: "Sylhet",
+      formattedAddress: "Sylhet, Bangladesh",
+      location: {
+        lat: 24.8949,
+        lng: 91.8687,
+      },
+    })
+  }
+
+  if (lookup.request.query === "Ratargul Swamp Forest") {
+    return placeFixture({
+      providerPlaceId: "ratargul",
+      displayName: "Ratargul Swamp Forest",
+      formattedAddress: "Ratargul Swamp Forest, Sylhet, Bangladesh",
+      location: {
+        lat: 25.002,
+        lng: 91.975,
+      },
+    })
+  }
+
+  return null
+}
+
+function placeFixture(overrides: Partial<PlaceEnrichment>): PlaceEnrichment {
   return {
-    providerPlaceId: "candidate",
-    displayName: "Candidate",
-    formattedAddress: "Candidate, Sylhet, Bangladesh",
+    provider: "geoapify",
+    providerPlaceId: "place",
+    displayName: "Place",
+    formattedAddress: "Place, Bangladesh",
     location: {
       lat: 24.8949,
       lng: 91.8687,
     },
-    resultType: "amenity",
-    rankConfidence: 1,
-    rankMatchType: "full_match",
+    attribution: getGeoapifyAttribution(),
+    matchStatus: "verified",
+    matchedQuery: "Place",
     ...overrides,
   }
 }

@@ -19,7 +19,11 @@ import {
 } from "@/components/trips/place-enrichment"
 import { TripMapSection } from "@/components/trips/trip-map"
 import { buildActivityPlaceEnrichmentRequest } from "@/lib/places/place-lookup-policy"
-import { buildTripMapLookups } from "@/lib/trips/map"
+import {
+  buildTripActivityMapLookup,
+  buildTripHotelMapLookup,
+  buildTripMapLookups,
+} from "@/lib/trips/map"
 import type {
   PresentedActivity,
   PresentedHotel,
@@ -27,13 +31,13 @@ import type {
 } from "@/lib/trips/presentation"
 
 function TripPresentation({ trip }: { trip: TripPresentationData }) {
-  const [focusedProviderPlaceId, setFocusedProviderPlaceId] = useState<
+  const [focusedMapPointId, setFocusedMapPointId] = useState<
     string | null
   >(null)
   const mapLookups = useMemo(() => buildTripMapLookups(trip), [trip])
   const mapControls = {
-    focusedProviderPlaceId,
-    onFocusPlace: setFocusedProviderPlaceId,
+    focusedMapPointId,
+    onFocusMapPoint: setFocusedMapPointId,
   }
 
   return (
@@ -44,9 +48,12 @@ function TripPresentation({ trip }: { trip: TripPresentationData }) {
         summary={trip.summary}
       />
       <TripMapSection
-        focusedProviderPlaceId={focusedProviderPlaceId}
+        destination={trip.destination}
+        durationLabel={trip.durationLabel}
+        focusedMapPointId={focusedMapPointId}
         lookups={mapLookups}
-        onMarkerFocus={setFocusedProviderPlaceId}
+        onMarkerFocus={setFocusedMapPointId}
+        source={trip.source}
       />
       <HotelList
         destination={trip.destination}
@@ -160,11 +167,12 @@ function HotelList({
 
       {hotels.length > 0 ? (
         <ul className="grid gap-4 md:grid-cols-2">
-          {hotels.map((hotel) => (
+          {hotels.map((hotel, index) => (
             <li key={hotel.id}>
               <HotelCard
                 destination={destination}
                 hotel={hotel}
+                hotelIndex={index}
                 mapControls={mapControls}
               />
             </li>
@@ -180,14 +188,32 @@ function HotelList({
 function HotelCard({
   destination,
   hotel,
+  hotelIndex,
   mapControls,
 }: {
   destination: string
   hotel: PresentedHotel
+  hotelIndex: number
   mapControls: MapControls
 }) {
+  const mapPointId = useMemo(
+    () =>
+      buildTripHotelMapLookup({
+        destination,
+        hotel,
+        index: hotelIndex,
+      }).id,
+    [destination, hotel, hotelIndex]
+  )
+  const isFocused = mapControls.focusedMapPointId === mapPointId
+
   return (
-    <Card className="app-card h-full">
+    <Card
+      className={`app-card h-full transition-shadow ${
+        isFocused ? "ring-2 ring-ring/40" : ""
+      }`}
+      data-map-point-id={mapPointId}
+    >
       <CardHeader>
         <CardTitle>{hotel.name}</CardTitle>
         <CardDescription>{hotel.description}</CardDescription>
@@ -207,6 +233,7 @@ function HotelCard({
           area={hotel.area}
           destination={destination}
           mapControls={mapControls}
+          mapPointId={mapPointId}
           name={hotel.name}
         />
       </CardContent>
@@ -250,10 +277,12 @@ function DayByDayItinerary({
 
             {day.activities.length > 0 ? (
               <ol className="grid gap-3">
-                {day.activities.map((activity) => (
+                {day.activities.map((activity, index) => (
                   <li key={activity.id}>
                     <ActivityPlaceCard
                       activity={activity}
+                      activityIndex={index}
+                      dayNumber={day.dayNumber}
                       destination={destination}
                       mapControls={mapControls}
                     />
@@ -272,10 +301,14 @@ function DayByDayItinerary({
 
 function ActivityPlaceCard({
   activity,
+  activityIndex,
+  dayNumber,
   destination,
   mapControls,
 }: {
   activity: PresentedActivity
+  activityIndex: number
+  dayNumber: number
   destination: string
   mapControls: MapControls
 }) {
@@ -299,13 +332,48 @@ function ActivityPlaceCard({
   const placeImageState = usePlaceEnrichment(placeImageRequest)
   const placeImage =
     placeImageState.status === "success" ? placeImageState.place.image : undefined
+  const mapPointId = useMemo(
+    () =>
+      buildTripActivityMapLookup({
+        activity,
+        dayNumber,
+        destination,
+        index: activityIndex,
+        sequence: 1,
+      })?.id ?? null,
+    [activity, activityIndex, dayNumber, destination]
+  )
   const hasPlaceDetails =
     activity.placeName !== null ||
     activity.address !== null ||
     activity.approximateArea !== null
+  const canFocusMap = placeImageState.status === "success" && mapPointId !== null
+  const isFocused = mapPointId !== null && mapControls.focusedMapPointId === mapPointId
 
   return (
-    <Card className="app-card">
+    <Card
+      className={`app-card transition-shadow ${
+        isFocused ? "ring-2 ring-ring/40" : ""
+      }`}
+      data-map-point-id={mapPointId ?? undefined}
+      role={canFocusMap ? "button" : undefined}
+      tabIndex={canFocusMap ? 0 : undefined}
+      onClick={() => {
+        if (canFocusMap && mapPointId !== null) {
+          mapControls.onFocusMapPoint(mapPointId)
+        }
+      }}
+      onKeyDown={(event) => {
+        if (
+          canFocusMap &&
+          mapPointId !== null &&
+          (event.key === "Enter" || event.key === " ")
+        ) {
+          event.preventDefault()
+          mapControls.onFocusMapPoint(mapPointId)
+        }
+      }}
+    >
       <div className="grid gap-0 sm:grid-cols-[minmax(120px,180px)_minmax(0,1fr)]">
         <ExternalImageFrame
           className="sm:aspect-auto sm:h-full sm:border-r sm:border-b-0"
@@ -355,6 +423,7 @@ function ActivityPlaceCard({
               approximateArea={activity.approximateArea}
               destination={destination}
               mapControls={mapControls}
+              mapPointId={mapPointId}
               placeName={activity.placeName}
               title={activity.title}
             />
@@ -408,8 +477,8 @@ function EmptyContent({ message }: { message: string }) {
 }
 
 type MapControls = {
-  focusedProviderPlaceId: string | null
-  onFocusPlace: (providerPlaceId: string) => void
+  focusedMapPointId: string | null
+  onFocusMapPoint: (mapPointId: string) => void
 }
 
 export { TripPresentation }
