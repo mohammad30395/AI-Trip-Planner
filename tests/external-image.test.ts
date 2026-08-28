@@ -120,6 +120,7 @@ describe("external image validation and lookup policy", () => {
         address: null,
         approximateArea: "Sylhet",
         destination: "Sylhet",
+        placeKind: "generic_activity",
         placeName: "Lunch at local eatery",
       })
     ).toBeNull()
@@ -129,8 +130,36 @@ describe("external image validation and lookup policy", () => {
         address: null,
         approximateArea: null,
         destination: "Sylhet",
+        placeKind: "transport",
         placeName: null,
         title: "Travel from Dhaka to Sylhet",
+      })
+    ).toBeNull()
+  })
+
+  test("builds exact-place requests only for explicit specific-place semantics", () => {
+    expect(
+      buildActivityPlaceEnrichmentRequest({
+        address: null,
+        approximateArea: "Sylhet",
+        destination: "Sylhet",
+        placeKind: "specific_place",
+        placeName: "Ratargul Swamp Forest",
+      })
+    ).toEqual({
+      query: "Ratargul Swamp Forest",
+      lookupKind: "specific_place",
+      destination: "Sylhet",
+      area: "Sylhet",
+    })
+
+    expect(
+      buildActivityPlaceEnrichmentRequest({
+        address: null,
+        approximateArea: "Sylhet",
+        destination: "Sylhet",
+        placeKind: "specific_place",
+        placeName: "Lunch at local eatery",
       })
     ).toBeNull()
   })

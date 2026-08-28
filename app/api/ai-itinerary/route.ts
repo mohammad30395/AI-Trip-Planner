@@ -164,10 +164,14 @@ function buildFinalSystemInstruction() {
     "Return only the strict final_itinerary_response JSON Schema.",
     "Echo the normalized travelPlan exactly from the user request.",
     "The itinerary array must contain exactly one day object per requested duration day, with sequential dayNumber values starting at 1.",
-    "Each day must include useful activities with timeWindow, timeOfDay when helpful, duration, semantic descriptions, and place names or addresses when available.",
+    "Each day must include useful activities with timeWindow, timeOfDay when helpful, duration, semantic descriptions, and explicit place semantics.",
+    "For every activity, set place.kind to specific_place, generic_activity, or transport.",
+    "Use specific_place only for a real named attraction, venue, restaurant, hotel, station, terminal, or other place that can be searched by an external place provider. Put the exact proper place name in place.name and useful area/address hints in areaHint or addressHint when known.",
+    "Use generic_activity for actions such as check-in, freshen up, free time, rest, shopping without a named venue, or meals at an unspecified local eatery. For generic_activity set place.name to null.",
+    "Use transport for intercity transfers or route movements. Put origin and destination text in originHint and destinationHint when useful, but do not pretend the transfer itself is a point of interest. For transport set place.name to null.",
     "Include 2 to 4 hotel recommendations with areas, addresses when available, priceTier, and estimatedPriceText.",
     "Use estimatedPriceText for generated cost guidance only; do not claim exact prices, ratings, business availability, opening hours, or verified coordinates.",
-    "Do not include latitude, longitude, lat, lng, providerPlaceId, photos, ratings, or availability. Provider enrichment will verify canonical place data later.",
+    "Never invent precise coordinates, provider place IDs, image URLs, photos, ratings, or availability. Never turn a generic action into a fake business. Provider enrichment will verify canonical place data later.",
   ].join(" ")
 }
 

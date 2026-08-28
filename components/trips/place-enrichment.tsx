@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 
 import { ExternalImageFrame } from "@/components/images/external-image-frame"
 import { Button } from "@/components/ui/button"
+import type { ItineraryPlaceKind } from "@/lib/ai/contract"
 import {
   createUserSafeError,
   formatUserSafeErrorMessage,
@@ -187,6 +188,7 @@ function ActivityPlaceEnrichment({
   destination,
   mapControls,
   mapPointId,
+  placeKind,
   placeName,
   title,
 }: {
@@ -195,6 +197,7 @@ function ActivityPlaceEnrichment({
   destination: string
   mapControls?: PlaceMapControls
   mapPointId: string | null
+  placeKind?: ItineraryPlaceKind
   placeName: string | null
   title: string
 }) {
@@ -204,15 +207,16 @@ function ActivityPlaceEnrichment({
         address,
         approximateArea,
         destination,
+        placeKind,
         placeName,
         title,
       }),
-    [address, approximateArea, destination, placeName, title]
+    [address, approximateArea, destination, placeKind, placeName, title]
   )
 
   return (
     <PlaceEnrichmentPanel
-      emptyMessage="No canonical place lookup is available for this activity yet."
+      emptyMessage="This activity does not need a mapped place."
       label="Activity place enrichment"
       mapControls={mapControls}
       mapPointId={mapPointId ?? undefined}

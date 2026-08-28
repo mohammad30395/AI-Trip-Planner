@@ -735,12 +735,23 @@ function GeneratedItinerary({
                       value={activity.estimatedPriceText}
                     />
                     <GeneratedDetail
-                      label="Place"
-                      value={activity.place?.placeName}
+                      label="Activity type"
+                      value={formatGeneratedPlaceKind(activity.place?.kind)}
                     />
                     <GeneratedDetail
-                      label="Address"
-                      value={activity.place?.address}
+                      label="Place"
+                      value={activity.place?.name ?? undefined}
+                    />
+                    <GeneratedDetail
+                      label="Area"
+                      value={activity.place?.areaHint ?? undefined}
+                    />
+                    <GeneratedDetail
+                      label="Route"
+                      value={formatGeneratedRoute(
+                        activity.place?.originHint ?? undefined,
+                        activity.place?.destinationHint ?? undefined
+                      )}
                     />
                   </dl>
                 </div>
@@ -781,6 +792,33 @@ function GeneratedDetail({
       <dd className="mt-1 break-words">{value}</dd>
     </div>
   )
+}
+
+function formatGeneratedPlaceKind(kind: string | undefined) {
+  if (kind === "specific_place") {
+    return "Specific place"
+  }
+
+  if (kind === "generic_activity") {
+    return "General activity"
+  }
+
+  if (kind === "transport") {
+    return "Transport"
+  }
+
+  return undefined
+}
+
+function formatGeneratedRoute(
+  originHint: string | undefined,
+  destinationHint: string | undefined
+) {
+  if (originHint === undefined && destinationHint === undefined) {
+    return undefined
+  }
+
+  return `${originHint ?? "Trip origin"} to ${destinationHint ?? "destination"}`
 }
 function UnknownSelectorFallback({ selector }: { selector: string }) {
   return (

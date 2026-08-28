@@ -161,17 +161,21 @@ describe("map normalization and Leaflet-facing config", () => {
             "Check-in and freshen up",
             "Free time",
             "Travel from Dhaka to Sylhet",
-          ].map((placeName, index) => ({
+          ].map((title, index) => ({
             id: `activity-${index}`,
-            title: placeName,
+            title,
             description: "Generic activity text.",
             timeLabel: "12:00",
             timeOfDayLabel: "Afternoon",
             duration: "1 hour",
             estimatedPriceText: "Generated estimate",
-            placeName,
+            placeName: null,
             address: null,
-            approximateArea: "Sylhet",
+            approximateArea: null,
+            place:
+              title === "Travel from Dhaka to Sylhet"
+                ? transportActivityPlace("Dhaka", "Sylhet")
+                : genericActivityPlace(),
           })),
         },
       ],
@@ -244,6 +248,7 @@ describe("map normalization and Leaflet-facing config", () => {
               placeName: "Ratargul Swamp Forest",
               address: null,
               approximateArea: "Sylhet",
+              place: specificActivityPlace("Ratargul Swamp Forest", "Sylhet"),
             },
             {
               id: "activity-2",
@@ -253,9 +258,10 @@ describe("map normalization and Leaflet-facing config", () => {
               timeOfDayLabel: "Afternoon",
               duration: "1 hour",
               estimatedPriceText: "Generated estimate",
-              placeName: "Lunch at local eatery",
+              placeName: null,
               address: null,
-              approximateArea: "Sylhet",
+              approximateArea: null,
+              place: genericActivityPlace(),
             },
           ],
         },
@@ -753,3 +759,36 @@ const baseTrip = {
   days: [],
   practicalNotes: [],
 } satisfies TripPresentationData
+
+function specificActivityPlace(name: string, areaHint: string | null) {
+  return {
+    kind: "specific_place" as const,
+    name,
+    addressHint: null,
+    areaHint,
+    originHint: null,
+    destinationHint: null,
+  }
+}
+
+function genericActivityPlace() {
+  return {
+    kind: "generic_activity" as const,
+    name: null,
+    addressHint: null,
+    areaHint: null,
+    originHint: null,
+    destinationHint: null,
+  }
+}
+
+function transportActivityPlace(originHint: string, destinationHint: string) {
+  return {
+    kind: "transport" as const,
+    name: null,
+    addressHint: null,
+    areaHint: null,
+    originHint,
+    destinationHint,
+  }
+}

@@ -318,12 +318,14 @@ function ActivityPlaceCard({
         address: activity.address,
         approximateArea: activity.approximateArea,
         destination,
+        placeKind: activity.place.kind,
         placeName: activity.placeName,
         title: activity.title,
       }),
     [
       activity.address,
       activity.approximateArea,
+      activity.place.kind,
       activity.placeName,
       activity.title,
       destination,
@@ -344,9 +346,13 @@ function ActivityPlaceCard({
     [activity, activityIndex, dayNumber, destination]
   )
   const hasPlaceDetails =
-    activity.placeName !== null ||
-    activity.address !== null ||
-    activity.approximateArea !== null
+    activity.place.kind === "specific_place" &&
+    (activity.placeName !== null ||
+      activity.address !== null ||
+      activity.approximateArea !== null)
+  const hasTransportDetails =
+    activity.place.kind === "transport" &&
+    (activity.place.originHint !== null || activity.place.destinationHint !== null)
   const canFocusMap = placeImageState.status === "success" && mapPointId !== null
   const isFocused = mapPointId !== null && mapControls.focusedMapPointId === mapPointId
 
@@ -413,20 +419,34 @@ function ActivityPlaceCard({
                   />
                 </dl>
               </div>
+            ) : hasTransportDetails ? (
+              <div className="rounded-lg border bg-muted/20 p-3">
+                <h4 className="text-sm font-medium">Transport</h4>
+                <dl className="mt-2 grid gap-2 text-sm">
+                  <OptionalDetail label="From" value={activity.place.originHint} />
+                  <OptionalDetail
+                    label="To"
+                    value={activity.place.destinationHint}
+                  />
+                </dl>
+              </div>
+            ) : activity.place.kind === "transport" ? (
+              <p className="app-muted text-sm">Transport between trip stops.</p>
             ) : (
-              <p className="app-muted text-sm">
-                No place details were saved for this activity.
-              </p>
+              <p className="app-muted text-sm">Flexible activity, no venue needed.</p>
             )}
-            <ActivityPlaceEnrichment
-              address={activity.address}
-              approximateArea={activity.approximateArea}
-              destination={destination}
-              mapControls={mapControls}
-              mapPointId={mapPointId}
-              placeName={activity.placeName}
-              title={activity.title}
-            />
+            {activity.place.kind === "specific_place" ? (
+              <ActivityPlaceEnrichment
+                address={activity.address}
+                approximateArea={activity.approximateArea}
+                destination={destination}
+                mapControls={mapControls}
+                mapPointId={mapPointId}
+                placeKind={activity.place.kind}
+                placeName={activity.placeName}
+                title={activity.title}
+              />
+            ) : null}
           </CardContent>
         </div>
       </div>

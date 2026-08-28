@@ -1,4 +1,5 @@
 import type { PlaceEnrichmentRequest } from "@/lib/places/place-enrichment"
+import type { ItineraryPlaceKind } from "@/lib/ai/contract"
 
 export function buildDestinationCoverEnrichmentRequest(
   destination: string
@@ -34,16 +35,25 @@ export function buildActivityPlaceEnrichmentRequest({
   approximateArea,
   destination,
   placeName,
+  placeKind,
   title,
 }: {
   address: string | null
   approximateArea: string | null
   destination: string
   placeName: string | null
+  placeKind?: ItineraryPlaceKind
   title?: string
 }): PlaceEnrichmentRequest | null {
+  if (placeKind === "generic_activity" || placeKind === "transport") {
+    return null
+  }
+
   const titlePlaceName =
-    placeName === null && address === null && title !== undefined
+    placeKind === undefined &&
+    placeName === null &&
+    address === null &&
+    title !== undefined
       ? getSpecificPlaceNameFromActivityTitle(title)
       : null
 
@@ -118,6 +128,27 @@ export function isGenericActivityPlaceQuery(query: string) {
     "breakfast",
     "travel from",
     "transfer",
+  ].some((genericText) => hasNormalizedPhrase(normalized, genericText))
+}
+
+export function isTransportActivityPlaceQuery(query: string) {
+  const normalized = query
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+
+  return [
+    "travel from",
+    "transfer from",
+    "intercity",
+    "bus from",
+    "train from",
+    "flight from",
+    "drive from",
+    "return to",
+    "depart",
+    "arrival transfer",
   ].some((genericText) => hasNormalizedPhrase(normalized, genericText))
 }
 

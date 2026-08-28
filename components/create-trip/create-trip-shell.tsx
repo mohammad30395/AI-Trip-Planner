@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { api } from "@/convex/_generated/api"
 import { parseTripConversationResponseEnvelope } from "@/lib/ai/conversation"
 import { parseFinalItineraryResponseEnvelope } from "@/lib/ai/itinerary"
+import { toStoredFinalItineraryPayload } from "@/lib/ai/itinerary-storage"
 import {
   formatSaveTripMutationError,
   getConvexTokenReadinessError,
@@ -319,7 +320,7 @@ function CreateTripShell() {
         budget: requirements.budgetTier,
         groupSize: requirements.groupSize,
         groupType: requirements.groupType,
-        generatedTripPayload: state.finalItinerary,
+        generatedTripPayload: toStoredFinalItineraryPayload(state.finalItinerary),
       })
 
       dispatch({ type: "saveTripSucceeded", tripId })

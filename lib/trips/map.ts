@@ -191,6 +191,7 @@ export function buildTripActivityMapLookup({
     address: activity.address,
     approximateArea: activity.approximateArea,
     destination,
+    placeKind: activity.place.kind,
     placeName: activity.placeName,
     title: activity.title,
   })

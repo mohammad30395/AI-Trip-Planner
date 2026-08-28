@@ -10,8 +10,11 @@ import {
   parseConversationalStepResponse,
   parseFinalItineraryResponse,
   type FinalItineraryResponse,
+  type ItineraryActivity,
 } from "@/lib/ai/contract"
 import { validateItineraryDuration } from "@/lib/ai/itinerary"
+import { toStoredFinalItineraryPayload } from "@/lib/ai/itinerary-storage"
+import { buildTripPresentation } from "@/lib/trips/presentation"
 
 describe("AI runtime validators", () => {
   test("accepts a valid conversational step response", () => {
@@ -42,9 +45,199 @@ describe("AI runtime validators", () => {
     }
   })
 
+  test("accepts specific landmark, hotel, and restaurant activity semantics", () => {
+    const result = parseFinalItineraryResponse(
+      itineraryWithActivities([
+        specificPlaceActivity("Visit Ratargul Swamp Forest", "Ratargul Swamp Forest"),
+        specificPlaceActivity("Check in at Hotel Noorjahan Grand", "Hotel Noorjahan Grand"),
+        specificPlaceActivity("Dinner at Panshi Restaurant", "Panshi Restaurant"),
+      ])
+    )
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(
+        result.data.itinerary[0]?.activities.map((activity) => activity.place?.kind)
+      ).toEqual(["specific_place", "specific_place", "specific_place"])
+    }
+  })
+
+  test("accepts generic lunch, hotel check-in, and free-time semantics without place names", () => {
+    const result = parseFinalItineraryResponse(
+      itineraryWithActivities([
+        genericActivity("Lunch at local eatery"),
+        genericActivity("Check-in and freshen up"),
+        genericActivity("Free time"),
+      ])
+    )
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(
+        result.data.itinerary[0]?.activities.map((activity) => activity.place)
+      ).toEqual([
+        expect.objectContaining({ kind: "generic_activity", name: null }),
+        expect.objectContaining({ kind: "generic_activity", name: null }),
+        expect.objectContaining({ kind: "generic_activity", name: null }),
+      ])
+    }
+  })
+
+  test("accepts intercity transport semantics without turning the route into a POI", () => {
+    const result = parseFinalItineraryResponse(
+      itineraryWithActivities([
+        {
+          ...genericActivity("Travel from Dhaka to Sylhet"),
+          place: {
+            kind: "transport",
+            name: null,
+            addressHint: null,
+            areaHint: null,
+            originHint: "Dhaka",
+            destinationHint: "Sylhet",
+          },
+        },
+      ])
+    )
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.data.itinerary[0]?.activities[0]?.place).toEqual({
+        kind: "transport",
+        name: null,
+        addressHint: null,
+        areaHint: null,
+        originHint: "Dhaka",
+        destinationHint: "Sylhet",
+      })
+    }
+  })
+
   test("rejects malformed final itinerary shapes", () => {
     for (const fixture of invalidFinalItineraryFixtures) {
       expect(parseFinalItineraryResponse(fixture).ok).toBe(false)
+    }
+  })
+
+  test("rejects malformed activity place semantics", () => {
+    const malformedResponses = [
+      itineraryWithActivities([
+        {
+          ...genericActivity("Visit Ratargul Swamp Forest"),
+          place: {
+            kind: "specific_place",
+            name: null,
+            addressHint: null,
+            areaHint: null,
+            originHint: null,
+            destinationHint: null,
+          },
+        },
+      ]),
+      itineraryWithActivities([
+        {
+          ...genericActivity("Lunch at local eatery"),
+          place: {
+            kind: "generic_activity",
+            name: "Invented Lunch Spot",
+            addressHint: null,
+            areaHint: null,
+            originHint: null,
+            destinationHint: null,
+          },
+        },
+      ]),
+      itineraryWithMalformedActivityPlace({
+        kind: "specific_place",
+        name: "Ratargul Swamp Forest",
+        addressHint: null,
+        areaHint: null,
+        originHint: null,
+        destinationHint: null,
+        providerPlaceId: "provider-id",
+      }),
+    ]
+
+    for (const response of malformedResponses) {
+      expect(parseFinalItineraryResponse(response).ok).toBe(false)
+    }
+  })
+
+  test("stores only schema-compatible place hints without AI canonical data", () => {
+    const payload = toStoredFinalItineraryPayload(
+      itineraryWithActivities([
+        specificPlaceActivity("Visit Ratargul Swamp Forest", "Ratargul Swamp Forest"),
+        genericActivity("Lunch at local eatery"),
+        {
+          ...genericActivity("Travel from Dhaka to Sylhet"),
+          place: {
+            kind: "transport",
+            name: null,
+            addressHint: null,
+            areaHint: null,
+            originHint: "Dhaka",
+            destinationHint: "Sylhet",
+          },
+        },
+      ])
+    )
+
+    expect(payload.itinerary[0]?.activities.map((activity) => activity.place)).toEqual([
+      { placeName: "Ratargul Swamp Forest", approximateArea: "Sylhet" },
+      undefined,
+      undefined,
+    ])
+  })
+
+  test("normalizes legacy saved place hints into readable presentation semantics", () => {
+    const result = buildTripPresentation({
+      _id: "trip-1",
+      source: "Dhaka",
+      destination: "Sylhet",
+      durationDays: 1,
+      budget: "budget",
+      groupSize: 2,
+      groupType: "family",
+      enrichmentStatus: "not_started",
+      createdAt: Date.UTC(2026, 7, 28),
+      generatedTripPayload: {
+        ...validFinalItineraryFixture,
+        travelPlan: {
+          ...validFinalItineraryFixture.travelPlan,
+          destination: "Sylhet",
+          durationDays: 1,
+        },
+        itinerary: [
+          {
+            dayNumber: 1,
+            title: "Legacy saved payload",
+            activities: [
+              {
+                title: "Visit Ratargul Swamp Forest",
+                description: "Visit Ratargul Swamp Forest.",
+                timeWindow: "Morning",
+                estimatedPriceText: "Generated estimate.",
+                place: {
+                  placeName: "Ratargul Swamp Forest",
+                  approximateArea: "Sylhet",
+                },
+              },
+              {
+                title: "Travel from Dhaka to Sylhet",
+                description: "Take the bus to Sylhet.",
+                timeWindow: "Morning",
+                estimatedPriceText: "Generated estimate.",
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.data.days[0]?.activities.map((activity) => activity.place.kind))
+        .toEqual(["specific_place", "transport"])
     }
   })
 
@@ -71,3 +264,88 @@ describe("AI runtime validators", () => {
     expect(validateItineraryDuration(itinerary, 1).ok).toBe(true)
   })
 })
+
+function itineraryWithActivities(
+  activities: ItineraryActivity[]
+): FinalItineraryResponse {
+  return {
+    ...validFinalItineraryFixture,
+    travelPlan: {
+      ...validFinalItineraryFixture.travelPlan,
+      destination: "Sylhet",
+      durationDays: 1,
+    },
+    itinerary: [
+      {
+        dayNumber: 1,
+        title: "Structured place semantics",
+        activities,
+      },
+    ],
+  }
+}
+
+function specificPlaceActivity(
+  title: string,
+  name: string
+): ItineraryActivity {
+  return {
+    title,
+    description: `${title}.`,
+    timeWindow: "Morning",
+    duration: "2 hours",
+    estimatedPriceText: "Generated estimate.",
+    place: {
+      kind: "specific_place",
+      name,
+      addressHint: null,
+      areaHint: "Sylhet",
+      originHint: null,
+      destinationHint: null,
+    },
+  }
+}
+
+function genericActivity(title: string): ItineraryActivity {
+  return {
+    title,
+    description: `${title}.`,
+    timeWindow: "Flexible",
+    duration: "1 hour",
+    estimatedPriceText: "Generated estimate.",
+    place: {
+      kind: "generic_activity",
+      name: null,
+      addressHint: null,
+      areaHint: null,
+      originHint: null,
+      destinationHint: null,
+    },
+  }
+}
+
+function itineraryWithMalformedActivityPlace(place: Record<string, unknown>) {
+  return {
+    ...validFinalItineraryFixture,
+    travelPlan: {
+      ...validFinalItineraryFixture.travelPlan,
+      destination: "Sylhet",
+      durationDays: 1,
+    },
+    itinerary: [
+      {
+        dayNumber: 1,
+        title: "Malformed place semantics",
+        activities: [
+          {
+            title: "Visit Ratargul Swamp Forest",
+            description: "Visit Ratargul Swamp Forest.",
+            timeWindow: "Morning",
+            estimatedPriceText: "Generated estimate.",
+            place,
+          },
+        ],
+      },
+    ],
+  }
+}

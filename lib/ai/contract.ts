@@ -26,10 +26,18 @@ export type ConversationalStepResponse = {
   requirementUpdate?: NormalizedRequirementUpdate
 }
 
+export type ItineraryPlaceKind =
+  | "specific_place"
+  | "generic_activity"
+  | "transport"
+
 export type PlaceTextHint = {
-  placeName: string
-  address?: string
-  approximateArea?: string
+  kind: ItineraryPlaceKind
+  name: string | null
+  addressHint: string | null
+  areaHint: string | null
+  originHint: string | null
+  destinationHint: string | null
 }
 
 export type ItineraryActivity = {
@@ -180,6 +188,7 @@ export const finalItineraryResponseSchema = {
                 "description",
                 "timeWindow",
                 "estimatedPriceText",
+                "place",
               ],
               properties: {
                 title: { type: "string", minLength: 1 },
@@ -194,11 +203,28 @@ export const finalItineraryResponseSchema = {
                 place: {
                   type: "object",
                   additionalProperties: false,
-                  required: ["placeName"],
+                  required: [
+                    "kind",
+                    "name",
+                    "addressHint",
+                    "areaHint",
+                    "originHint",
+                    "destinationHint",
+                  ],
                   properties: {
-                    placeName: { type: "string", minLength: 1 },
-                    address: { type: "string", minLength: 1 },
-                    approximateArea: { type: "string", minLength: 1 },
+                    kind: {
+                      type: "string",
+                      enum: [
+                        "specific_place",
+                        "generic_activity",
+                        "transport",
+                      ],
+                    },
+                    name: { type: ["string", "null"], minLength: 1 },
+                    addressHint: { type: ["string", "null"], minLength: 1 },
+                    areaHint: { type: ["string", "null"], minLength: 1 },
+                    originHint: { type: ["string", "null"], minLength: 1 },
+                    destinationHint: { type: ["string", "null"], minLength: 1 },
                   },
                 },
               },
@@ -240,6 +266,12 @@ const timeOfDayValues: readonly NonNullable<ItineraryActivity["timeOfDay"]>[] = 
   "evening",
   "night",
   "flexible",
+]
+
+const itineraryPlaceKinds: readonly ItineraryPlaceKind[] = [
+  "specific_place",
+  "generic_activity",
+  "transport",
 ]
 
 export function parseConversationalStepResponse(
@@ -754,16 +786,100 @@ function parsePlaceTextHint(
     return object
   }
 
-  const forbiddenCoordinateKeys = ["lat", "lng", "latitude", "longitude"]
-  const coordinateKey = forbiddenCoordinateKeys.find((key) => key in object.data)
+  const forbiddenProviderKeys = [
+    "lat",
+    "lng",
+    "latitude",
+    "longitude",
+    "providerPlaceId",
+    "providerId",
+    "placeId",
+    "photos",
+    "photo",
+    "image",
+    "imageUrl",
+  ]
+  const forbiddenKey = forbiddenProviderKeys.find((key) => key in object.data)
 
-  if (coordinateKey !== undefined) {
+  if (forbiddenKey !== undefined) {
     return validationError(
-      `${path}.${coordinateKey} is not accepted; provider enrichment will provide canonical coordinates later`
+      `${path}.${forbiddenKey} is not accepted; provider enrichment will provide canonical place data later`
     )
   }
 
+  if ("placeName" in object.data) {
+    return parseLegacyPlaceTextHint(object.data, path)
+  }
+
   const unknownKeysError = rejectUnknownKeys(object.data, [
+    "kind",
+    "name",
+    "addressHint",
+    "areaHint",
+    "originHint",
+    "destinationHint",
+  ])
+
+  if (unknownKeysError !== null) {
+    return validationError(`${path}.${unknownKeysError}`)
+  }
+
+  const kind = readEnum(object.data, "kind", itineraryPlaceKinds, path)
+  const name = readNullableString(object.data, "name", path)
+  const addressHint = readNullableString(object.data, "addressHint", path)
+  const areaHint = readNullableString(object.data, "areaHint", path)
+  const originHint = readNullableString(object.data, "originHint", path)
+  const destinationHint = readNullableString(
+    object.data,
+    "destinationHint",
+    path
+  )
+
+  if (!kind.ok) {
+    return kind
+  }
+  if (!name.ok) {
+    return name
+  }
+  if (!addressHint.ok) {
+    return addressHint
+  }
+  if (!areaHint.ok) {
+    return areaHint
+  }
+  if (!originHint.ok) {
+    return originHint
+  }
+  if (!destinationHint.ok) {
+    return destinationHint
+  }
+
+  if (kind.data === "specific_place" && name.data === null) {
+    return validationError(`${path}.name is required for a specific place`)
+  }
+
+  if (kind.data !== "specific_place" && name.data !== null) {
+    return validationError(`${path}.name must be null unless kind is specific_place`)
+  }
+
+  return {
+    ok: true,
+    data: {
+      kind: kind.data,
+      name: name.data,
+      addressHint: addressHint.data,
+      areaHint: areaHint.data,
+      originHint: originHint.data,
+      destinationHint: destinationHint.data,
+    },
+  }
+}
+
+function parseLegacyPlaceTextHint(
+  object: JsonObject,
+  path: string
+): ValidationResult<PlaceTextHint> {
+  const unknownKeysError = rejectUnknownKeys(object, [
     "placeName",
     "address",
     "approximateArea",
@@ -773,14 +889,12 @@ function parsePlaceTextHint(
     return validationError(`${path}.${unknownKeysError}`)
   }
 
-  const placeName = readRequiredString(object.data, "placeName", path)
+  const placeName = readRequiredString(object, "placeName", path)
   const address =
-    "address" in object.data
-      ? readRequiredString(object.data, "address", path)
-      : optionalString()
+    "address" in object ? readRequiredString(object, "address", path) : optionalString()
   const approximateArea =
-    "approximateArea" in object.data
-      ? readRequiredString(object.data, "approximateArea", path)
+    "approximateArea" in object
+      ? readRequiredString(object, "approximateArea", path)
       : optionalString()
 
   if (!placeName.ok) {
@@ -796,11 +910,12 @@ function parsePlaceTextHint(
   return {
     ok: true,
     data: {
-      placeName: placeName.data,
-      ...(address.data !== undefined ? { address: address.data } : {}),
-      ...(approximateArea.data !== undefined
-        ? { approximateArea: approximateArea.data }
-        : {}),
+      kind: "specific_place",
+      name: placeName.data,
+      addressHint: address.data ?? null,
+      areaHint: approximateArea.data ?? null,
+      originHint: null,
+      destinationHint: null,
     },
   }
 }
@@ -855,6 +970,31 @@ function readRequiredString(
 function readStringValue(value: unknown, path: string): ValidationResult<string> {
   if (typeof value !== "string") {
     return validationError(`${path} must be a string`)
+  }
+
+  const trimmed = value.trim()
+
+  if (trimmed.length === 0) {
+    return validationError(`${path} must not be empty`)
+  }
+
+  return { ok: true, data: trimmed }
+}
+
+function readNullableString(
+  object: JsonObject,
+  key: string,
+  parentPath?: string
+): ValidationResult<string | null> {
+  const value = object[key]
+  const path = formatPath(key, parentPath)
+
+  if (value === null) {
+    return { ok: true, data: null }
+  }
+
+  if (typeof value !== "string") {
+    return validationError(`${path} must be a string or null`)
   }
 
   const trimmed = value.trim()

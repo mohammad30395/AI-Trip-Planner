@@ -3,9 +3,14 @@ import {
   type BudgetTier,
   type GroupType,
   type HotelRecommendation,
+  type ItineraryPlaceKind,
   type ItineraryActivity,
   type ItineraryDay,
 } from "../ai/contract"
+import {
+  getSpecificPlaceNameFromActivityTitle,
+  isTransportActivityPlaceQuery,
+} from "@/lib/places/place-lookup-policy"
 
 export type StoredTripForPresentation = {
   _id: string
@@ -64,6 +69,16 @@ export type PresentedActivity = {
   placeName: string | null
   address: string | null
   approximateArea: string | null
+  place: PresentedActivityPlace
+}
+
+export type PresentedActivityPlace = {
+  kind: ItineraryPlaceKind
+  name: string | null
+  addressHint: string | null
+  areaHint: string | null
+  originHint: string | null
+  destinationHint: string | null
 }
 
 export type TripPresentationResult =
@@ -161,6 +176,8 @@ function toPresentedActivity(
   dayNumber: number,
   index: number
 ): PresentedActivity {
+  const place = normalizePresentedActivityPlace(activity)
+
   return {
     id: stableKey([
       "activity",
@@ -181,9 +198,58 @@ function toPresentedActivity(
       activity.estimatedPriceText,
       "No generated estimate saved."
     ),
-    placeName: optionalText(activity.place?.placeName),
-    address: optionalText(activity.place?.address),
-    approximateArea: optionalText(activity.place?.approximateArea),
+    placeName: place.name,
+    address: place.addressHint,
+    approximateArea: place.areaHint,
+    place,
+  }
+}
+
+function normalizePresentedActivityPlace(
+  activity: ItineraryActivity
+): PresentedActivityPlace {
+  if (activity.place !== undefined) {
+    return {
+      kind: activity.place.kind,
+      name: optionalText(activity.place.name ?? undefined),
+      addressHint: optionalText(activity.place.addressHint),
+      areaHint: optionalText(activity.place.areaHint),
+      originHint: optionalText(activity.place.originHint),
+      destinationHint: optionalText(activity.place.destinationHint),
+    }
+  }
+
+  if (isTransportActivityPlaceQuery(activity.title)) {
+    return {
+      kind: "transport",
+      name: null,
+      addressHint: null,
+      areaHint: null,
+      originHint: null,
+      destinationHint: null,
+    }
+  }
+
+  const titlePlaceName = getSpecificPlaceNameFromActivityTitle(activity.title)
+
+  if (titlePlaceName !== null) {
+    return {
+      kind: "specific_place",
+      name: titlePlaceName,
+      addressHint: null,
+      areaHint: null,
+      originHint: null,
+      destinationHint: null,
+    }
+  }
+
+  return {
+    kind: "generic_activity",
+    name: null,
+    addressHint: null,
+    areaHint: null,
+    originHint: null,
+    destinationHint: null,
   }
 }
 
@@ -223,7 +289,7 @@ function safeText(value: string, fallback: string) {
   return normalized.length > 0 ? normalized : fallback
 }
 
-function optionalText(value: string | undefined) {
+function optionalText(value: string | null | undefined) {
   const normalized = value?.trim()
 
   return normalized === undefined || normalized.length === 0 ? null : normalized
