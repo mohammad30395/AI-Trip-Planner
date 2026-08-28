@@ -483,6 +483,72 @@ describe("map normalization and Leaflet-facing config", () => {
       )
     ).toBeGreaterThanOrEqual(80)
   })
+
+  test("assigns distinct readable slots to a destination plus two close itinerary markers", () => {
+    const points: TripMapPoint[] = [
+      {
+        id: "destination-sylhet",
+        kind: "destination",
+        label: "Sylhet",
+        providerPlaceId: "sylhet",
+        lat: 24.8949,
+        lng: 91.8687,
+        address: "Sylhet, Bangladesh",
+      },
+      {
+        id: "activity-1-keane-bridge",
+        kind: "activity",
+        label: "Keane Bridge",
+        sequence: 1,
+        providerPlaceId: "keane-bridge",
+        lat: 24.895,
+        lng: 91.8688,
+        address: "Keane Bridge, Sylhet, Bangladesh",
+      },
+      {
+        id: "activity-2-ratargul-swamp-forest",
+        kind: "activity",
+        label: "Ratargul Swamp Forest",
+        sequence: 2,
+        providerPlaceId: "ratargul",
+        lat: 25.002,
+        lng: 91.975,
+        address: "Ratargul Swamp Forest, Sylhet, Bangladesh",
+      },
+    ]
+    const markers = buildTripMarkerData(points)
+
+    expect(markers.map((marker) => marker.markerLabel)).toEqual(["D", "1", "2"])
+    expect(markers.map((marker) => marker.position)).toEqual(
+      points.map((point) => ({
+        lat: point.lat,
+        lng: point.lng,
+      }))
+    )
+    expect(
+      new Set(
+        markers.map((marker) => `${marker.visualOffset.x},${marker.visualOffset.y}`)
+      ).size
+    ).toBe(3)
+
+    for (const leftMarker of markers) {
+      for (const rightMarker of markers) {
+        if (leftMarker.id >= rightMarker.id) {
+          continue
+        }
+
+        expect(
+          getPixelDistance(leftMarker.visualOffset, rightMarker.visualOffset)
+        ).toBeGreaterThanOrEqual(100)
+      }
+    }
+
+    expect(markers.map((marker) => marker.popup.title)).toEqual([
+      "Sylhet",
+      "Keane Bridge",
+      "Ratargul Swamp Forest",
+    ])
+  })
 })
 
 function enrichedLookup(

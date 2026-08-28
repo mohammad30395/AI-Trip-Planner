@@ -314,15 +314,18 @@ function LeafletTripMap({
       const marker = leafletModule
         .marker([markerData.position.lat, markerData.position.lng], {
           icon: leafletModule.divIcon({
-            className: "",
+            className: "trip-map-marker-shell",
             html: buildMarkerHtml(
               markerData.kind,
               markerData.markerLabel,
               markerData.visualOffset
             ),
-            iconAnchor: [14, 28],
-            iconSize: [28, 28],
-            popupAnchor: [0, -28],
+            iconAnchor: [80, 80],
+            iconSize: [160, 160],
+            popupAnchor: [
+              markerData.visualOffset.x,
+              markerData.visualOffset.y - 28,
+            ],
           }),
           title: markerData.title,
         })

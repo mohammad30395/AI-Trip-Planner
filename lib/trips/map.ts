@@ -91,7 +91,7 @@ export const CANONICAL_PLACE_ZOOM = 13
 export const GLOBAL_FALLBACK_ZOOM = 2
 export const MAP_OUTLIER_MAX_DISTANCE_METERS = 300_000
 export const MARKER_OVERLAP_DISTANCE_METERS = 25_000
-const MARKER_OVERLAP_OFFSET_RADIUS_PX = 42
+const MARKER_OVERLAP_OFFSET_RADIUS_PX = 58
 
 export function buildTripMapLookups(
   trip: TripPresentationData
@@ -345,15 +345,7 @@ export function buildMarkerVisualOffsets(
       continue
     }
 
-    const group = points.filter(
-      (candidate) =>
-        !visited.has(candidate.id) &&
-        getDistanceMeters(point, candidate) <= MARKER_OVERLAP_DISTANCE_METERS
-    )
-
-    for (const groupedPoint of group) {
-      visited.add(groupedPoint.id)
-    }
+    const group = collectMarkerProximityGroup(point, points, visited)
 
     if (group.length < 2) {
       offsets.set(point.id, { x: 0, y: 0 })
@@ -361,15 +353,9 @@ export function buildMarkerVisualOffsets(
     }
 
     const sortedGroup = [...group].sort(compareMapPointsForOverlap)
-    const step = (Math.PI * 2) / sortedGroup.length
-    const startAngle = -Math.PI / 2
 
     sortedGroup.forEach((groupedPoint, index) => {
-      const angle = startAngle + step * index
-      offsets.set(groupedPoint.id, {
-        x: Math.round(Math.cos(angle) * MARKER_OVERLAP_OFFSET_RADIUS_PX),
-        y: Math.round(Math.sin(angle) * MARKER_OVERLAP_OFFSET_RADIUS_PX),
-      })
+      offsets.set(groupedPoint.id, getMarkerGroupSlotOffset(index, sortedGroup.length))
     })
   }
 
@@ -467,6 +453,80 @@ function getMarkerLabel(point: TripMapPoint) {
   }
 
   return String(point.sequence ?? "")
+}
+
+function collectMarkerProximityGroup(
+  startPoint: TripMapPoint,
+  points: readonly TripMapPoint[],
+  visited: Set<string>
+) {
+  const group: TripMapPoint[] = []
+  const queue = [startPoint]
+  visited.add(startPoint.id)
+
+  for (const point of queue) {
+    group.push(point)
+
+    for (const candidate of points) {
+      if (
+        visited.has(candidate.id) ||
+        getDistanceMeters(point, candidate) > MARKER_OVERLAP_DISTANCE_METERS
+      ) {
+        continue
+      }
+
+      visited.add(candidate.id)
+      queue.push(candidate)
+    }
+  }
+
+  return group
+}
+
+function getMarkerGroupSlotOffset(index: number, groupSize: number): MapPixelOffset {
+  const fixedSlots = getFixedMarkerGroupSlots(groupSize)
+
+  if (fixedSlots !== null) {
+    return fixedSlots[index] ?? { x: 0, y: 0 }
+  }
+
+  const radius = MARKER_OVERLAP_OFFSET_RADIUS_PX + Math.max(0, groupSize - 4) * 8
+  const step = (Math.PI * 2) / groupSize
+  const startAngle = -Math.PI / 2
+  const angle = startAngle + step * index
+
+  return {
+    x: Math.round(Math.cos(angle) * radius),
+    y: Math.round(Math.sin(angle) * radius),
+  }
+}
+
+function getFixedMarkerGroupSlots(groupSize: number): MapPixelOffset[] | null {
+  if (groupSize === 2) {
+    return [
+      { x: -MARKER_OVERLAP_OFFSET_RADIUS_PX, y: -16 },
+      { x: MARKER_OVERLAP_OFFSET_RADIUS_PX, y: 16 },
+    ]
+  }
+
+  if (groupSize === 3) {
+    return [
+      { x: 0, y: -MARKER_OVERLAP_OFFSET_RADIUS_PX },
+      { x: -MARKER_OVERLAP_OFFSET_RADIUS_PX, y: MARKER_OVERLAP_OFFSET_RADIUS_PX },
+      { x: MARKER_OVERLAP_OFFSET_RADIUS_PX, y: MARKER_OVERLAP_OFFSET_RADIUS_PX },
+    ]
+  }
+
+  if (groupSize === 4) {
+    return [
+      { x: 0, y: -MARKER_OVERLAP_OFFSET_RADIUS_PX },
+      { x: MARKER_OVERLAP_OFFSET_RADIUS_PX, y: 0 },
+      { x: 0, y: MARKER_OVERLAP_OFFSET_RADIUS_PX },
+      { x: -MARKER_OVERLAP_OFFSET_RADIUS_PX, y: 0 },
+    ]
+  }
+
+  return null
 }
 
 function compareMapPointsForOverlap(left: TripMapPoint, right: TripMapPoint) {
