@@ -1,10 +1,13 @@
 "use client"
 
 import Link from "next/link"
+import { useMemo } from "react"
 import { useConvexAuth, useQuery } from "convex/react"
 
+import { ExternalImageFrame } from "@/components/images/external-image-frame"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+import { usePlaceEnrichment } from "@/components/trips/place-enrichment"
 import {
   Card,
   CardContent,
@@ -13,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { api } from "@/convex/_generated/api"
+import { buildDestinationCoverEnrichmentRequest } from "@/lib/places/place-lookup-policy"
 import { buildTripCardData, type TripCardData } from "@/lib/trips/dashboard"
 import { cn } from "@/lib/utils"
 
@@ -87,14 +91,21 @@ function TripsAuthState() {
 }
 
 function TripCard({ trip }: { trip: TripCardData }) {
+  const coverRequest = useMemo(
+    () => buildDestinationCoverEnrichmentRequest(trip.destination),
+    [trip.destination]
+  )
+  const coverState = usePlaceEnrichment(coverRequest)
+  const coverImage =
+    coverState.status === "success" ? coverState.place.image : undefined
+
   return (
     <Card className="app-card h-full">
-      <div
-        aria-hidden="true"
-        className="flex aspect-[16/9] items-center justify-center border-b bg-muted/40 text-xs font-medium uppercase text-muted-foreground"
-      >
-        Photo pending
-      </div>
+      <ExternalImageFrame
+        fallbackLabel={`${trip.destination} destination`}
+        image={coverImage}
+        state={coverState.status === "loading" ? "loading" : "ready"}
+      />
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 
+import { ExternalImageFrame } from "@/components/images/external-image-frame"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -14,8 +15,10 @@ import {
   ActivityPlaceEnrichment,
   HotelPlaceEnrichment,
   PlaceAttributionNotice,
+  usePlaceEnrichment,
 } from "@/components/trips/place-enrichment"
 import { TripMapSection } from "@/components/trips/trip-map"
+import { buildActivityPlaceEnrichmentRequest } from "@/lib/places/place-lookup-policy"
 import { buildTripMapLookups } from "@/lib/trips/map"
 import type {
   PresentedActivity,
@@ -276,6 +279,19 @@ function ActivityPlaceCard({
   destination: string
   mapControls: MapControls
 }) {
+  const placeImageRequest = useMemo(
+    () =>
+      buildActivityPlaceEnrichmentRequest({
+        address: activity.address,
+        approximateArea: activity.approximateArea,
+        destination,
+        placeName: activity.placeName,
+      }),
+    [activity.address, activity.approximateArea, activity.placeName, destination]
+  )
+  const placeImageState = usePlaceEnrichment(placeImageRequest)
+  const placeImage =
+    placeImageState.status === "success" ? placeImageState.place.image : undefined
   const hasPlaceDetails =
     activity.placeName !== null ||
     activity.address !== null ||
@@ -284,12 +300,12 @@ function ActivityPlaceCard({
   return (
     <Card className="app-card">
       <div className="grid gap-0 sm:grid-cols-[minmax(120px,180px)_minmax(0,1fr)]">
-        <div
-          aria-hidden="true"
-          className="flex aspect-[16/9] items-center justify-center border-b bg-muted/40 text-xs font-medium uppercase text-muted-foreground sm:aspect-auto sm:border-r sm:border-b-0"
-        >
-          Photo pending
-        </div>
+        <ExternalImageFrame
+          className="sm:aspect-auto sm:h-full sm:border-r sm:border-b-0"
+          fallbackLabel={activity.placeName ?? activity.title}
+          image={placeImage}
+          state={placeImageState.status === "loading" ? "loading" : "ready"}
+        />
         <div className="grid gap-4 py-4">
           <CardHeader>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">

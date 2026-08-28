@@ -1,6 +1,10 @@
 import "server-only"
 
 import {
+  normalizeGeoapifyExternalImage,
+  type ExternalImageKind,
+} from "@/lib/images/external-image"
+import {
   buildGeoapifySearchText,
   getGeoapifyAttribution,
   type PlaceEnrichment,
@@ -132,6 +136,10 @@ export async function enrichPlaceWithGeoapify(
   )
   const image = await getOptionalDetailsImage(
     basePlace.providerPlaceId,
+    getLookupKind(request) === "city" ? "representative" : "exact_place",
+    getLookupKind(request) === "city"
+      ? `${basePlace.displayName} destination`
+      : basePlace.displayName,
     apiKey,
     signal
   )
@@ -853,6 +861,8 @@ function getKnownCountryCode(value: string | undefined) {
 
 async function getOptionalDetailsImage(
   providerPlaceId: string,
+  kind: ExternalImageKind,
+  alt: string,
   apiKey: string,
   signal: AbortSignal
 ): Promise<PlaceEnrichmentImage | undefined> {
@@ -864,7 +874,7 @@ async function getOptionalDetailsImage(
         signal
       )
 
-    return extractWikiAndMediaImage(detailsResponse)
+    return extractWikiAndMediaImage(detailsResponse, kind, alt)
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
       console.warn("Geoapify place details diagnostic", {
@@ -881,7 +891,9 @@ async function getOptionalDetailsImage(
 }
 
 function extractWikiAndMediaImage(
-  response: GeoapifyPlaceDetailsResponse
+  response: GeoapifyPlaceDetailsResponse,
+  kind: ExternalImageKind,
+  alt: string
 ): PlaceEnrichmentImage | undefined {
   if (!Array.isArray(response.features)) {
     return undefined
@@ -902,13 +914,14 @@ function extractWikiAndMediaImage(
       continue
     }
 
-    const imageUrl = readValidHttpsUrl(wikiAndMedia.image)
+    const image = normalizeGeoapifyExternalImage({
+      url: wikiAndMedia.image,
+      kind,
+      alt,
+    })
 
-    if (imageUrl !== null) {
-      return {
-        url: imageUrl,
-        source: "geoapify",
-      }
+    if (image !== null) {
+      return image
     }
   }
 
@@ -1058,26 +1071,6 @@ function readNonEmptyString(value: unknown): string | null {
 
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
-}
-
-function readValidHttpsUrl(value: unknown): string | null {
-  const rawUrl = readNonEmptyString(value)
-
-  if (rawUrl === null) {
-    return null
-  }
-
-  try {
-    const url = new URL(rawUrl)
-
-    if (url.protocol !== "https:") {
-      return null
-    }
-
-    return url.toString()
-  } catch {
-    return null
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

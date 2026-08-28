@@ -2,6 +2,11 @@ import type {
   PlaceEnrichment,
   PlaceEnrichmentRequest,
 } from "@/lib/places/place-enrichment"
+import {
+  buildActivityPlaceEnrichmentRequest,
+  buildHotelPlaceEnrichmentRequest,
+  isGenericActivityPlaceQuery,
+} from "@/lib/places/place-lookup-policy"
 import type { TripPresentationData } from "@/lib/trips/presentation"
 
 export type TripMapLookup = {
@@ -70,13 +75,12 @@ export function buildTripMapLookups(
     id: stableMapId(["hotel", String(index), hotel.name]),
     label: hotel.name,
     dayLabel: "Hotel",
-    request: {
-      query: hotel.name,
-      lookupKind: "hotel" as const,
+    request: buildHotelPlaceEnrichmentRequest({
+      address: hotel.address,
+      area: hotel.area,
       destination: trip.destination,
-      ...(hotel.area !== null ? { area: hotel.area } : {}),
-      ...(hotel.address !== null ? { address: hotel.address } : {}),
-    },
+      name: hotel.name,
+    }),
   }))
 
   const activityLookups = trip.days.flatMap((day) =>
@@ -87,7 +91,14 @@ export function buildTripMapLookups(
         return []
       }
 
-      if (isGenericActivityPlaceQuery(query)) {
+      const request = buildActivityPlaceEnrichmentRequest({
+        address: activity.address,
+        approximateArea: activity.approximateArea,
+        destination: trip.destination,
+        placeName: activity.placeName,
+      })
+
+      if (request === null) {
         return []
       }
 
@@ -100,15 +111,7 @@ export function buildTripMapLookups(
         ]),
         label: activity.placeName ?? activity.title,
         dayLabel: `Day ${day.dayNumber}`,
-        request: {
-          query,
-          lookupKind: "specific_place" as const,
-          destination: trip.destination,
-          ...(activity.address !== null ? { address: activity.address } : {}),
-          ...(activity.approximateArea !== null
-            ? { area: activity.approximateArea }
-            : {}),
-        },
+        request,
       }
     })
   )
@@ -214,24 +217,4 @@ function stableMapId(parts: string[]) {
     .replace(/^-+|-+$/g, "")
 }
 
-export function isGenericActivityPlaceQuery(query: string) {
-  const normalized = query
-    .trim()
-    .toLocaleLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-
-  return [
-    "check in",
-    "checkin",
-    "freshen up",
-    "free time",
-    "local eatery",
-    "local restaurant",
-    "lunch",
-    "dinner",
-    "breakfast",
-    "travel from",
-    "transfer",
-  ].some((genericText) => normalized.includes(genericText))
-}
+export { isGenericActivityPlaceQuery }

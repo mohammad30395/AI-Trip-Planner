@@ -182,6 +182,28 @@ log complete Geoapify request URLs.
 External provider images are optional UI enhancement only and must be validated
 as HTTPS before rendering. Missing images keep stable placeholders.
 
+## External Image Boundary
+
+The application-level image contract is `ExternalImage`, which records only a
+validated remote URL, source, `exact_place` or `representative` kind, alt text,
+and optional attribution. Exact-place images may be shown only for accepted
+canonical place matches. Destination covers use representative semantics even
+when the image comes from a city-level provider match. Generic activities do
+not receive fake canonical POI images.
+
+Image files, base64 payloads, blobs, and downloaded image bytes must not be
+stored in Convex. Current image enrichment remains on-demand through the
+existing place-enrichment cache. Geoapify Place Details is the implemented
+image resolver for accepted places; missing or broken provider media falls back
+to the shared neutral image frame.
+
+Remote image URLs are validated before rendering. The current allowed host
+family is limited to Wikimedia upload/Commons and language Wikipedia subdomains
+observed from Geoapify wiki/media responses. Next Image remote patterns must
+stay aligned with that validator and must not be widened to arbitrary hosts.
+Do not scrape Google Images or browser search result HTML, and do not let AI
+invent image URLs.
+
 ## AI Contract Boundary
 
 Model responses must pass through the shared contract in `lib/ai/contract.ts`

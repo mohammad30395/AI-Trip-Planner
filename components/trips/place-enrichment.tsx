@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 
+import { ExternalImageFrame } from "@/components/images/external-image-frame"
 import { Button } from "@/components/ui/button"
 import {
   createUserSafeError,
@@ -14,6 +15,10 @@ import {
   type PlaceEnrichment,
   type PlaceEnrichmentRequest,
 } from "@/lib/places/place-enrichment"
+import {
+  buildActivityPlaceEnrichmentRequest,
+  buildHotelPlaceEnrichmentRequest,
+} from "@/lib/places/place-lookup-policy"
 
 type PlaceEnrichmentStatus =
   | {
@@ -161,13 +166,7 @@ function HotelPlaceEnrichment({
   name: string
 }) {
   const request = useMemo<PlaceEnrichmentRequest>(
-    () => ({
-      query: name,
-      lookupKind: "hotel",
-      destination,
-      ...(area !== null ? { area } : {}),
-      ...(address !== null ? { address } : {}),
-    }),
+    () => buildHotelPlaceEnrichmentRequest({ address, area, destination, name }),
     [address, area, destination, name]
   )
 
@@ -193,25 +192,16 @@ function ActivityPlaceEnrichment({
   mapControls?: PlaceMapControls
   placeName: string | null
 }) {
-  const request = useMemo<PlaceEnrichmentRequest | null>(() => {
-    if (placeName === null && address === null) {
-      return null
-    }
-
-    const query = placeName ?? address ?? ""
-
-    if (isGenericActivityPlaceQuery(query)) {
-      return null
-    }
-
-    return {
-      query,
-      lookupKind: "specific_place",
-      destination,
-      ...(address !== null ? { address } : {}),
-      ...(approximateArea !== null ? { area: approximateArea } : {}),
-    }
-  }, [address, approximateArea, destination, placeName])
+  const request = useMemo(
+    () =>
+      buildActivityPlaceEnrichmentRequest({
+        address,
+        approximateArea,
+        destination,
+        placeName,
+      }),
+    [address, approximateArea, destination, placeName]
+  )
 
   return (
     <PlaceEnrichmentPanel
@@ -304,7 +294,11 @@ function CanonicalPlaceDetails({
       }`}
       tabIndex={-1}
     >
-      <ProviderImage displayName={place.displayName} imageUrl={place.image?.url} />
+      <ExternalImageFrame
+        fallbackLabel={place.displayName}
+        image={place.image}
+        state={place.image === undefined ? "missing" : "ready"}
+      />
       <div className="grid gap-3 p-3">
         <div>
           <h4 className="text-sm font-medium">Canonical place</h4>
@@ -339,33 +333,6 @@ function CanonicalPlaceDetails({
         ) : null}
       </div>
     </div>
-  )
-}
-
-function ProviderImage({
-  displayName,
-  imageUrl,
-}: {
-  displayName: string
-  imageUrl: string | undefined
-}) {
-  const safeImageUrl = getSafeHttpsImageUrl(imageUrl)
-
-  if (safeImageUrl === null) {
-    return (
-      <div className="flex aspect-[16/9] items-center justify-center border-b bg-muted/40 text-xs font-medium uppercase text-muted-foreground">
-        Image pending
-      </div>
-    )
-  }
-
-  return (
-    <div
-      aria-label={`Provider image for ${displayName}`}
-      className="aspect-[16/9] border-b bg-cover bg-center"
-      role="img"
-      style={{ backgroundImage: `url("${safeImageUrl}")` }}
-    />
   )
 }
 
@@ -550,43 +517,8 @@ async function fetchPlaceEnrichment(
   }
 }
 
-function getSafeHttpsImageUrl(imageUrl: string | undefined) {
-  if (imageUrl === undefined) {
-    return null
-  }
-
-  try {
-    const parsedUrl = new URL(imageUrl)
-    return parsedUrl.protocol === "https:" ? parsedUrl.toString() : null
-  } catch {
-    return null
-  }
-}
-
 function normalizeCachePart(value: string | undefined) {
   return value?.trim().toLocaleLowerCase().replace(/\s+/g, " ") ?? ""
-}
-
-function isGenericActivityPlaceQuery(query: string) {
-  const normalized = query
-    .trim()
-    .toLocaleLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-
-  return [
-    "check in",
-    "checkin",
-    "freshen up",
-    "free time",
-    "local eatery",
-    "local restaurant",
-    "lunch",
-    "dinner",
-    "breakfast",
-    "travel from",
-    "transfer",
-  ].some((genericText) => normalized.includes(genericText))
 }
 
 export {
@@ -594,7 +526,6 @@ export {
   HotelPlaceEnrichment,
   PlaceAttributionNotice,
   buildPlaceEnrichmentCacheKey,
-  getSafeHttpsImageUrl,
   usePlaceEnrichment,
   usePlaceEnrichments,
   type PlaceEnrichmentLookupInput,

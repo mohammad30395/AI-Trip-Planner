@@ -1,3 +1,8 @@
+import {
+  normalizeExternalImage,
+  type ExternalImage,
+} from "@/lib/images/external-image"
+
 export type PlaceEnrichmentRequest = {
   query: string
   lookupKind?: PlaceLookupKind
@@ -12,8 +17,7 @@ export type PlaceLookupKind = "city" | "hotel" | "specific_place"
 
 export type PlaceMatchStatus = "verified" | "probable" | "no_confident_match"
 
-export type PlaceEnrichmentImage = {
-  url: string
+export type PlaceEnrichmentImage = ExternalImage & {
   source: "geoapify"
 }
 
@@ -553,9 +557,15 @@ function parseOptionalImage(
     }
   }
 
-  const url = readHttpsResponseUrl(value.url)
+  const image = normalizeExternalImage({
+    url: value.url,
+    source: value.source,
+    kind: value.kind,
+    alt: value.alt,
+    attribution: value.attribution,
+  })
 
-  if (url === null || value.source !== "geoapify") {
+  if (image === null) {
     return {
       ok: false,
       error: "Place enrichment image values are invalid.",
@@ -564,26 +574,7 @@ function parseOptionalImage(
 
   return {
     ok: true,
-    data: {
-      url,
-      source: "geoapify",
-    },
-  }
-}
-
-function readHttpsResponseUrl(value: unknown): string | null {
-  const rawUrl = readResponseString(value)
-
-  if (rawUrl === null) {
-    return null
-  }
-
-  try {
-    const url = new URL(rawUrl)
-
-    return url.protocol === "https:" ? url.toString() : null
-  } catch {
-    return null
+    data: image,
   }
 }
 

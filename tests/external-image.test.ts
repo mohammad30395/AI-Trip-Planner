@@ -1,0 +1,108 @@
+import { describe, expect, test } from "vitest"
+
+import {
+  getExternalImageRenderMode,
+  normalizeExternalImage,
+  normalizeExternalImageUrl,
+} from "@/lib/images/external-image"
+import {
+  buildActivityPlaceEnrichmentRequest,
+  buildDestinationCoverEnrichmentRequest,
+} from "@/lib/places/place-lookup-policy"
+import { buildPlaceEnrichmentCacheKey } from "@/components/trips/place-enrichment"
+
+describe("external image validation and lookup policy", () => {
+  test("accepts supported HTTPS Geoapify image metadata", () => {
+    expect(
+      normalizeExternalImage({
+        url: "https://upload.wikimedia.org/wikipedia/commons/example.jpg",
+        source: "geoapify",
+        kind: "exact_place",
+        alt: "Ratargul Swamp Forest",
+        attribution: "Geoapify / Wikimedia",
+      })
+    ).toEqual({
+      url: "https://upload.wikimedia.org/wikipedia/commons/example.jpg",
+      source: "geoapify",
+      kind: "exact_place",
+      alt: "Ratargul Swamp Forest",
+      attribution: "Geoapify / Wikimedia",
+    })
+
+    expect(normalizeExternalImageUrl("https://fr.wikipedia.org/wiki/Tour_Eiffel")).toBe(
+      "https://fr.wikipedia.org/wiki/Tour_Eiffel"
+    )
+  })
+
+  test("rejects unsafe or unsupported external image URLs", () => {
+    expect(normalizeExternalImageUrl("http://upload.wikimedia.org/file.jpg")).toBeNull()
+    expect(normalizeExternalImageUrl("javascript:alert(1)")).toBeNull()
+    expect(normalizeExternalImageUrl("data:image/png;base64,abc")).toBeNull()
+    expect(normalizeExternalImageUrl("file:///tmp/file.jpg")).toBeNull()
+    expect(normalizeExternalImageUrl("https://images.example/file.jpg")).toBeNull()
+  })
+
+  test("models loading, successful, missing, and broken image render states", () => {
+    const image = normalizeExternalImage({
+      url: "https://upload.wikimedia.org/wikipedia/commons/example.jpg",
+      source: "geoapify",
+      kind: "representative",
+      alt: "Sylhet destination",
+    })
+
+    expect(
+      getExternalImageRenderMode({
+        image,
+        isLoading: true,
+        loadFailed: false,
+      })
+    ).toBe("loading")
+    expect(
+      getExternalImageRenderMode({
+        image,
+        isLoading: false,
+        loadFailed: false,
+      })
+    ).toBe("image")
+    expect(
+      getExternalImageRenderMode({
+        image: null,
+        isLoading: false,
+        loadFailed: false,
+      })
+    ).toBe("fallback")
+    expect(
+      getExternalImageRenderMode({
+        image,
+        isLoading: false,
+        loadFailed: true,
+      })
+    ).toBe("fallback")
+  })
+
+  test("builds destination cover lookups without inventing image URLs", () => {
+    expect(buildDestinationCoverEnrichmentRequest("Sylhet")).toEqual({
+      query: "Sylhet",
+      lookupKind: "city",
+    })
+  })
+
+  test("does not build exact-place requests for generic activities", () => {
+    expect(
+      buildActivityPlaceEnrichmentRequest({
+        address: null,
+        approximateArea: "Sylhet",
+        destination: "Sylhet",
+        placeName: "Lunch at local eatery",
+      })
+    ).toBeNull()
+  })
+
+  test("deduplicates repeated My Trips destination cover lookup keys", () => {
+    const request = buildDestinationCoverEnrichmentRequest("Sylhet")
+
+    expect(buildPlaceEnrichmentCacheKey(request)).toBe(
+      buildPlaceEnrichmentCacheKey(buildDestinationCoverEnrichmentRequest(" Sylhet "))
+    )
+  })
+})

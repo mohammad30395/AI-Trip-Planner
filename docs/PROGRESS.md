@@ -35,7 +35,45 @@
 - [x] Milestone 28 - Security and privacy audit
 - [x] Milestone 29 - Automated tests
 - [x] Post-build Fix - Canonical place matching
+- [x] Post-build Fix - External image URL enrichment
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## Post-build Fix - External Image URL Enrichment
+
+Changed:
+- Added an app-level `ExternalImage` contract with explicit `exact_place` and
+  `representative` image semantics, required alt text, optional attribution,
+  and HTTPS plus host-family validation.
+- Wired Geoapify Place Details `wiki_and_media.image` through the shared image
+  contract. City lookups produce representative destination images; accepted
+  hotel/POI lookups produce exact-place images when provider media is valid.
+- Added a reusable `ExternalImageFrame` using Next Image for successful media,
+  a loading skeleton while enrichment is pending, and a polished neutral
+  fallback for missing, rejected, or broken images.
+- Replaced My Trips destination card placeholders with cached destination-cover
+  enrichment requests.
+- Replaced activity-card image placeholders with canonical place images when a
+  specific accepted place supplies media, otherwise the shared fallback.
+- Kept generic activities out of canonical POI image lookup and retained
+  fallback visuals for them.
+- Kept Convex unchanged; no image URLs, image files, base64, blobs, or bytes are
+  stored in the database.
+- Added narrow Next Image remote patterns for Wikimedia upload, Commons, and
+  language Wikipedia subdomains to match the application URL validator.
+- Added image-policy and Geoapify image regression tests for valid destination,
+  missing destination media, valid hotel exact images, invalid HTTP URLs,
+  unsupported hosts, broken-load fallback mode, generic activities, and repeated
+  My Trips cover lookup cache keys.
+
+Verification:
+- Live Geoapify media probe used safe diagnostics only. Sylhet destination and
+  Ratargul returned no image; Eiffel Tower returned a language Wikipedia host;
+  Louvre Museum returned `upload.wikimedia.org`.
+- `npm test` passed with 6 test files, 51 tests passed, and 1 skipped live
+  smoke guard.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
 
 ## Post-build Fix - Canonical Place Matching
 

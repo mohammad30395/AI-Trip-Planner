@@ -78,7 +78,7 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
             properties: {
               feature_type: "details",
               wiki_and_media: {
-                image: "https://images.example/tokyo-tower.jpg",
+                image: "https://upload.wikimedia.org/wikipedia/commons/tokyo-tower.jpg",
               },
             },
           },
@@ -107,8 +107,11 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
       matchStatus: "verified",
       matchedQuery: "Tokyo Tower, Tokyo",
       image: {
-        url: "https://images.example/tokyo-tower.jpg",
+        url: "https://upload.wikimedia.org/wikipedia/commons/tokyo-tower.jpg",
         source: "geoapify",
+        kind: "exact_place",
+        alt: "Tokyo Tower",
+        attribution: "Geoapify / Wikimedia",
       },
     })
     expect(fetchMock).toHaveBeenCalledTimes(3)
@@ -193,6 +196,124 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  test("normalizes destination city media as representative images", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "test-key")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: FetchInput) => {
+        const url = toUrl(input)
+
+        if (url.pathname === "/v1/geocode/search") {
+          expect(url.searchParams.get("type")).toBe("city")
+          return jsonResponse({
+            results: [
+              {
+                place_id: "sylhet-city",
+                name: "Sylhet",
+                formatted: "Sylhet, Sylhet Division, Bangladesh",
+                result_type: "city",
+                country: "Bangladesh",
+                country_code: "bd",
+                city: "Sylhet",
+                lat: 24.8949,
+                lon: 91.8687,
+                rank: {
+                  confidence: 1,
+                  match_type: "full_match",
+                },
+              },
+            ],
+          })
+        }
+
+        return jsonResponse({
+          features: [
+            {
+              properties: {
+                feature_type: "details",
+                wiki_and_media: {
+                  image:
+                    "https://upload.wikimedia.org/wikipedia/commons/sylhet.jpg",
+                },
+              },
+            },
+          ],
+        })
+      })
+    )
+
+    const place = await enrichPlaceWithGeoapify(
+      {
+        query: "Sylhet",
+        lookupKind: "city",
+        country: "Bangladesh",
+      },
+      AbortSignal.timeout(1_000)
+    )
+
+    expect(place.image).toEqual({
+      url: "https://upload.wikimedia.org/wikipedia/commons/sylhet.jpg",
+      source: "geoapify",
+      kind: "representative",
+      alt: "Sylhet destination",
+      attribution: "Geoapify / Wikimedia",
+    })
+  })
+
+  test("keeps destination enrichment valid when provider has no image", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "test-key")
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: FetchInput) => {
+        const url = toUrl(input)
+
+        if (url.pathname === "/v1/geocode/search") {
+          return jsonResponse({
+            results: [
+              {
+                place_id: "sylhet-city",
+                name: "Sylhet",
+                formatted: "Sylhet, Sylhet Division, Bangladesh",
+                result_type: "city",
+                country: "Bangladesh",
+                country_code: "bd",
+                city: "Sylhet",
+                lat: 24.8949,
+                lon: 91.8687,
+                rank: {
+                  confidence: 1,
+                  match_type: "full_match",
+                },
+              },
+            ],
+          })
+        }
+
+        return jsonResponse({
+          features: [
+            {
+              properties: {
+                feature_type: "details",
+              },
+            },
+          ],
+        })
+      })
+    )
+
+    const place = await enrichPlaceWithGeoapify(
+      {
+        query: "Sylhet",
+        lookupKind: "city",
+        country: "Bangladesh",
+      },
+      AbortSignal.timeout(1_000)
+    )
+
+    expect(place.displayName).toBe("Sylhet")
+    expect(place.image).toBeUndefined()
+  })
+
   test("returns base geocoding when details fail", async () => {
     vi.stubEnv("GEOAPIFY_API_KEY", "test-key")
     vi.stubGlobal(
@@ -260,7 +381,96 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
     expect(place.image).toBeUndefined()
   })
 
-  test("ignores non-HTTPS details image URLs", async () => {
+  test("ignores non-HTTPS and unsupported details image URLs", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "test-key")
+    const fetchMock = vi.fn(async (input: FetchInput) => {
+      const url = toUrl(input)
+
+      if (url.pathname === "/v1/geocode/search") {
+        return jsonResponse({
+          results: [
+            {
+              place_id: "geo-place-3",
+              formatted: "A place",
+              result_type: "amenity",
+              lat: 1,
+              lon: 2,
+              rank: {
+                confidence: 1,
+                match_type: "full_match",
+              },
+            },
+          ],
+        })
+      }
+
+      return jsonResponse({
+        features: [
+          {
+            properties: {
+              feature_type: "details",
+              wiki_and_media: {
+                image: "http://upload.wikimedia.org/insecure.jpg",
+              },
+            },
+          },
+        ],
+      })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const place = await enrichPlaceWithGeoapify(
+      {
+        query: "A place",
+      },
+      AbortSignal.timeout(1_000)
+    )
+
+    expect(place.image).toBeUndefined()
+
+    fetchMock.mockImplementationOnce(async () =>
+      jsonResponse({
+        results: [
+          {
+            place_id: "geo-place-4",
+            formatted: "Another place",
+            result_type: "amenity",
+            lat: 1,
+            lon: 2,
+            rank: {
+              confidence: 1,
+              match_type: "full_match",
+            },
+          },
+        ],
+      })
+    )
+    fetchMock.mockImplementationOnce(async () =>
+      jsonResponse({
+        features: [
+          {
+            properties: {
+              feature_type: "details",
+              wiki_and_media: {
+                image: "https://images.example/unsupported.jpg",
+              },
+            },
+          },
+        ],
+      })
+    )
+
+    const unsupportedHostPlace = await enrichPlaceWithGeoapify(
+      {
+        query: "Another place",
+      },
+      AbortSignal.timeout(1_000)
+    )
+
+    expect(unsupportedHostPlace.image).toBeUndefined()
+  })
+
+  test("normalizes hotel exact images when details media is valid", async () => {
     vi.stubEnv("GEOAPIFY_API_KEY", "test-key")
     vi.stubGlobal(
       "fetch",
@@ -271,11 +481,16 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
           return jsonResponse({
             results: [
               {
-                place_id: "geo-place-3",
-                formatted: "A place",
+                place_id: "hotel-place",
+                name: "Hotel Metro",
+                formatted: "Hotel Metro, Sylhet, Bangladesh",
                 result_type: "amenity",
-                lat: 1,
-                lon: 2,
+                category: "accommodation.hotel",
+                country: "Bangladesh",
+                country_code: "bd",
+                city: "Sylhet",
+                lat: 24.8949,
+                lon: 91.8687,
                 rank: {
                   confidence: 1,
                   match_type: "full_match",
@@ -291,7 +506,8 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
               properties: {
                 feature_type: "details",
                 wiki_and_media: {
-                  image: "http://images.example/insecure.jpg",
+                  image:
+                    "https://upload.wikimedia.org/wikipedia/commons/hotel-metro.jpg",
                 },
               },
             },
@@ -302,12 +518,20 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
 
     const place = await enrichPlaceWithGeoapify(
       {
-        query: "A place",
+        query: "Hotel Metro",
+        lookupKind: "hotel",
+        destination: "Sylhet",
+        country: "Bangladesh",
       },
       AbortSignal.timeout(1_000)
     )
 
-    expect(place.image).toBeUndefined()
+    expect(place.image).toMatchObject({
+      url: "https://upload.wikimedia.org/wikipedia/commons/hotel-metro.jpg",
+      source: "geoapify",
+      kind: "exact_place",
+      alt: "Hotel Metro",
+    })
   })
 
   test("maps no-result and malformed coordinates to provider errors", async () => {

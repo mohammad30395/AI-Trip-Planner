@@ -37,6 +37,15 @@
 - Do not trust model-generated coordinates as canonical.
 - Keep place images optional and provide placeholder fallbacks when provider images are absent.
 - Render provider images only after HTTPS URL validation.
+- Normalize remote place/destination images through the app-level `ExternalImage`
+  contract with explicit `exact_place` or `representative` semantics and
+  required alt text.
+- Allow only Geoapify-sourced Wikimedia/Wikipedia image URLs in the current
+  renderer; do not add wildcard image hosts, scrape Google Images, or accept
+  AI-invented image URLs.
+- Do not store image files, base64 images, blobs, downloaded bytes, or image
+  cache payloads in Convex. Use on-demand URL metadata only unless a later
+  persistence milestone explicitly adds a small metadata cache.
 - Respect Geoapify free-plan limits and OpenStreetMap attribution requirements.
 - Never log full Geoapify request URLs because the API key is a provider query parameter.
 - Keep place enrichment in memory/UI-only for now. Do not change Convex schema until map or persistence requirements make persisted canonical place data necessary.
