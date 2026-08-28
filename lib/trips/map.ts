@@ -62,7 +62,13 @@ export type TripMarkerData = {
   markerLabel: string
   position: MapLocation
   title: string
+  visualOffset: MapPixelOffset
   popup: TripMarkerPopupText
+}
+
+export type MapPixelOffset = {
+  x: number
+  y: number
 }
 
 export type TripMarkerPopupText = {
@@ -84,6 +90,8 @@ export const GLOBAL_FALLBACK_CENTER = {
 export const CANONICAL_PLACE_ZOOM = 13
 export const GLOBAL_FALLBACK_ZOOM = 2
 export const MAP_OUTLIER_MAX_DISTANCE_METERS = 300_000
+export const MARKER_OVERLAP_DISTANCE_METERS = 25_000
+const MARKER_OVERLAP_OFFSET_RADIUS_PX = 20
 
 export function buildTripMapLookups(
   trip: TripPresentationData
@@ -309,7 +317,10 @@ export function getTripMapBounds(points: readonly TripMapPoint[]): TripMapBounds
 export function buildTripMarkerData(
   points: readonly TripMapPoint[]
 ): TripMarkerData[] {
-  return points.filter(hasValidLocation).map((point) => ({
+  const validPoints = points.filter(hasValidLocation)
+  const visualOffsets = buildMarkerVisualOffsets(validPoints)
+
+  return validPoints.map((point) => ({
     id: point.id,
     kind: point.kind,
     markerLabel: getMarkerLabel(point),
@@ -318,8 +329,51 @@ export function buildTripMarkerData(
       lng: point.lng,
     },
     title: point.label,
+    visualOffset: visualOffsets.get(point.id) ?? { x: 0, y: 0 },
     popup: buildTripMarkerPopupText(point),
   }))
+}
+
+export function buildMarkerVisualOffsets(
+  points: readonly TripMapPoint[]
+): Map<string, MapPixelOffset> {
+  const offsets = new Map<string, MapPixelOffset>()
+  const visited = new Set<string>()
+
+  for (const point of points) {
+    if (visited.has(point.id)) {
+      continue
+    }
+
+    const group = points.filter(
+      (candidate) =>
+        !visited.has(candidate.id) &&
+        getDistanceMeters(point, candidate) <= MARKER_OVERLAP_DISTANCE_METERS
+    )
+
+    for (const groupedPoint of group) {
+      visited.add(groupedPoint.id)
+    }
+
+    if (group.length < 2) {
+      offsets.set(point.id, { x: 0, y: 0 })
+      continue
+    }
+
+    const sortedGroup = [...group].sort(compareMapPointsForOverlap)
+    const step = (Math.PI * 2) / sortedGroup.length
+    const startAngle = -Math.PI / 2
+
+    sortedGroup.forEach((groupedPoint, index) => {
+      const angle = startAngle + step * index
+      offsets.set(groupedPoint.id, {
+        x: Math.round(Math.cos(angle) * MARKER_OVERLAP_OFFSET_RADIUS_PX),
+        y: Math.round(Math.sin(angle) * MARKER_OVERLAP_OFFSET_RADIUS_PX),
+      })
+    })
+  }
+
+  return offsets
 }
 
 export function buildTripMarkerPopupText(
@@ -413,6 +467,27 @@ function getMarkerLabel(point: TripMapPoint) {
   }
 
   return String(point.sequence ?? "")
+}
+
+function compareMapPointsForOverlap(left: TripMapPoint, right: TripMapPoint) {
+  const kindOrder = {
+    origin: 0,
+    destination: 1,
+    activity: 2,
+    hotel: 3,
+  } satisfies Record<TripMapPointKind, number>
+  const kindDifference = kindOrder[left.kind] - kindOrder[right.kind]
+
+  if (kindDifference !== 0) {
+    return kindDifference
+  }
+
+  if (left.sequence !== right.sequence) {
+    return (left.sequence ?? Number.MAX_SAFE_INTEGER) -
+      (right.sequence ?? Number.MAX_SAFE_INTEGER)
+  }
+
+  return left.id.localeCompare(right.id)
 }
 
 function hasValidLocation(point: TripMapPoint) {

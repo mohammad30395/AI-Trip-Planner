@@ -30,6 +30,7 @@ import {
   type TripMapPoint,
   type TripMapPointKind,
   type TripMarkerPopupText,
+  type MapPixelOffset,
 } from "@/lib/trips/map"
 import {
   createUserSafeError,
@@ -314,7 +315,11 @@ function LeafletTripMap({
         .marker([markerData.position.lat, markerData.position.lng], {
           icon: leafletModule.divIcon({
             className: "",
-            html: buildMarkerHtml(markerData.kind, markerData.markerLabel),
+            html: buildMarkerHtml(
+              markerData.kind,
+              markerData.markerLabel,
+              markerData.visualOffset
+            ),
             iconAnchor: [14, 28],
             iconSize: [28, 28],
             popupAnchor: [0, -28],
@@ -540,8 +545,17 @@ function buildSafePopupContent(popup: TripMarkerPopupText) {
   return container
 }
 
-function buildMarkerHtml(kind: TripMapPointKind, markerLabel: string) {
-  return `<span class="trip-map-marker trip-map-marker-${kind}">${escapeHtml(
+function buildMarkerHtml(
+  kind: TripMapPointKind,
+  markerLabel: string,
+  visualOffset: MapPixelOffset
+) {
+  const style =
+    visualOffset.x === 0 && visualOffset.y === 0
+      ? ""
+      : ` style="--trip-map-marker-offset-x:${visualOffset.x}px;--trip-map-marker-offset-y:${visualOffset.y}px;"`
+
+  return `<span class="trip-map-marker trip-map-marker-${kind}"${style}>${escapeHtml(
     markerLabel
   )}</span>`
 }

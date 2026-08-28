@@ -130,6 +130,10 @@ describe("map normalization and Leaflet-facing config", () => {
           lng: 139,
         },
         title: "Place <b>Name</b>",
+        visualOffset: {
+          x: 0,
+          y: 0,
+        },
         popup: {
           title: "Place <b>Name</b>",
           typeLabel: "Itinerary stop",
@@ -340,6 +344,94 @@ describe("map normalization and Leaflet-facing config", () => {
         lng: 92.03,
       },
     })
+  })
+
+  test("keeps very close accepted markers visually addressable without changing coordinates", () => {
+    const points: TripMapPoint[] = [
+      {
+        id: "origin-dhaka",
+        kind: "origin",
+        label: "Dhaka",
+        providerPlaceId: "dhaka",
+        lat: 23.7644,
+        lng: 90.389,
+        address: "Dhaka, Bangladesh",
+      },
+      {
+        id: "destination-sylhet",
+        kind: "destination",
+        label: "Sylhet",
+        providerPlaceId: "sylhet",
+        lat: 24.8949,
+        lng: 91.8687,
+        address: "Sylhet, Bangladesh",
+      },
+      {
+        id: "activity-1-keane-bridge",
+        kind: "activity",
+        label: "Keane Bridge",
+        sequence: 1,
+        providerPlaceId: "keane-bridge",
+        lat: 24.8939,
+        lng: 91.8692,
+        address: "Keane Bridge, Sylhet, Bangladesh",
+      },
+      {
+        id: "activity-2-ratargul-swamp-forest",
+        kind: "activity",
+        label: "Ratargul Swamp Forest",
+        sequence: 2,
+        providerPlaceId: "ratargul",
+        lat: 25.002,
+        lng: 91.975,
+        address: "Ratargul Swamp Forest, Sylhet, Bangladesh",
+      },
+    ]
+    const markers = buildTripMarkerData(points)
+
+    expect(markers.map((marker) => marker.id)).toEqual([
+      "origin-dhaka",
+      "destination-sylhet",
+      "activity-1-keane-bridge",
+      "activity-2-ratargul-swamp-forest",
+    ])
+    expect(markers.map((marker) => marker.markerLabel)).toEqual([
+      "S",
+      "D",
+      "1",
+      "2",
+    ])
+    expect(markers.map((marker) => marker.position)).toEqual(
+      points.map((point) => ({
+        lat: point.lat,
+        lng: point.lng,
+      }))
+    )
+    expect(markers.find((marker) => marker.id === "origin-dhaka")?.visualOffset)
+      .toEqual({
+        x: 0,
+        y: 0,
+      })
+    expect(
+      new Set(
+        markers
+          .filter((marker) => marker.id !== "origin-dhaka")
+          .map((marker) => `${marker.visualOffset.x},${marker.visualOffset.y}`)
+      ).size
+    ).toBe(3)
+    expect(
+      markers
+        .filter((marker) => marker.id !== "origin-dhaka")
+        .every(
+          (marker) => marker.visualOffset.x !== 0 || marker.visualOffset.y !== 0
+        )
+    ).toBe(true)
+    expect(markers.map((marker) => marker.popup.title)).toEqual([
+      "Dhaka",
+      "Sylhet",
+      "Keane Bridge",
+      "Ratargul Swamp Forest",
+    ])
   })
 })
 
