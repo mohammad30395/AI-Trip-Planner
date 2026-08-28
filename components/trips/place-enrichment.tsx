@@ -75,13 +75,12 @@ function usePlaceEnrichment(
     }
 
     let isActive = true
-    const controller = new AbortController()
 
     if (retryToken > 0) {
       placeLookupCache.delete(cacheKey)
     }
 
-    getCachedPlaceEnrichment(cacheKey, request, controller.signal).then((result) => {
+    getCachedPlaceEnrichment(cacheKey, request).then((result) => {
       if (isActive) {
         setState(result)
       }
@@ -89,7 +88,6 @@ function usePlaceEnrichment(
 
     return () => {
       isActive = false
-      controller.abort()
     }
   }, [cacheKey, request, retryToken])
 
