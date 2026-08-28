@@ -72,7 +72,9 @@ export function buildTripMapLookups(
     dayLabel: "Hotel",
     request: {
       query: hotel.name,
+      lookupKind: "hotel" as const,
       destination: trip.destination,
+      ...(hotel.area !== null ? { area: hotel.area } : {}),
       ...(hotel.address !== null ? { address: hotel.address } : {}),
     },
   }))
@@ -82,6 +84,10 @@ export function buildTripMapLookups(
       const query = activity.placeName ?? activity.address
 
       if (query === null) {
+        return []
+      }
+
+      if (isGenericActivityPlaceQuery(query)) {
         return []
       }
 
@@ -96,10 +102,11 @@ export function buildTripMapLookups(
         dayLabel: `Day ${day.dayNumber}`,
         request: {
           query,
+          lookupKind: "specific_place" as const,
           destination: trip.destination,
           ...(activity.address !== null ? { address: activity.address } : {}),
           ...(activity.approximateArea !== null
-            ? { city: activity.approximateArea }
+            ? { area: activity.approximateArea }
             : {}),
         },
       }
@@ -120,6 +127,13 @@ export function buildMappablePlaces(
     }
 
     if (!isValidMapLocation(item.place.location)) {
+      continue
+    }
+
+    if (
+      item.place.matchStatus !== "verified" &&
+      item.place.matchStatus !== "probable"
+    ) {
       continue
     }
 
@@ -198,4 +212,26 @@ function stableMapId(parts: string[]) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
+}
+
+export function isGenericActivityPlaceQuery(query: string) {
+  const normalized = query
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+
+  return [
+    "check in",
+    "checkin",
+    "freshen up",
+    "free time",
+    "local eatery",
+    "local restaurant",
+    "lunch",
+    "dinner",
+    "breakfast",
+    "travel from",
+    "transfer",
+  ].some((genericText) => normalized.includes(genericText))
 }

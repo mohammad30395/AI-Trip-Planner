@@ -26,7 +26,11 @@
 - Use Geoapify Geocoding Search for free-text semantic place lookup.
 - Use the provider-neutral route `app/api/place-enrichment/route.ts` for place lookups.
 - Geoapify Place Details may be used after lookup for optional additional details or images, and Place Details failures must fall back to the base geocoding result.
-- Treat provider-enriched `providerPlaceId`, formatted address, and coordinates as canonical for maps.
+- Request a small Geoapify candidate set and rank candidates server-side before accepting any result as canonical.
+- Treat only `verified` and `probable` provider matches as canonical. Return a no-confident-match lookup instead of silently accepting an unrelated candidate.
+- Use supported Geoapify geocoding parameters such as `type`, `filter`, `bias`, and `limit`; do not invent provider parameters.
+- Reject geographically inconsistent place candidates when trusted destination country or city context is available.
+- Treat provider-enriched `providerPlaceId`, formatted address, and coordinates as canonical for maps only after conservative match acceptance.
 - Do not trust model-generated coordinates as canonical.
 - Keep place images optional and provide placeholder fallbacks when provider images are absent.
 - Render provider images only after HTTPS URL validation.
@@ -64,7 +68,7 @@
 - Do not expose Clerk billing internals to the browser. The final-generation
   route returns only a small Free/Premium access status for UI display.
 - Run Leaflet client-side and clean up map instances on unmount.
-- Feed Leaflet provider-neutral normalized place data, not raw Geoapify JSON.
+- Feed Leaflet provider-neutral normalized place data with accepted match status, not raw Geoapify JSON.
 - Configure base-map tile URLs in application code/configuration; never accept a
   tile URL from user input.
 - Keep `/pricing` public so unauthenticated visitors can review access options before signing in. Enforce paid entitlement checks later at billing-protected server/data boundaries, not by hiding the pricing page.

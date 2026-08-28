@@ -44,8 +44,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const parsedRequest = parsePlaceEnrichmentRequest({
     query: url.searchParams.get("query") ?? undefined,
+    lookupKind: url.searchParams.get("lookupKind") ?? undefined,
     destination: url.searchParams.get("destination") ?? undefined,
     city: url.searchParams.get("city") ?? undefined,
+    area: url.searchParams.get("area") ?? undefined,
+    country: url.searchParams.get("country") ?? undefined,
     address: url.searchParams.get("address") ?? undefined,
   })
 
@@ -98,6 +101,10 @@ async function runPlaceEnrichment(
 function getProviderMessage(error: GeoapifyProviderError) {
   if (error.code === "provider_no_results") {
     return "No matching place was found."
+  }
+
+  if (error.code === "provider_no_confident_match") {
+    return "No confident canonical place match was found."
   }
 
   if (error.code === "provider_auth_failed") {

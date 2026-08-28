@@ -1,9 +1,16 @@
 export type PlaceEnrichmentRequest = {
   query: string
+  lookupKind?: PlaceLookupKind
   destination?: string
   city?: string
+  area?: string
+  country?: string
   address?: string
 }
+
+export type PlaceLookupKind = "city" | "hotel" | "specific_place"
+
+export type PlaceMatchStatus = "verified" | "probable" | "no_confident_match"
 
 export type PlaceEnrichmentImage = {
   url: string
@@ -29,6 +36,9 @@ export type PlaceEnrichment = {
   }
   image?: PlaceEnrichmentImage
   attribution: PlaceEnrichmentAttribution
+  matchStatus: Exclude<PlaceMatchStatus, "no_confident_match">
+  matchScore?: number
+  matchedQuery: string
 }
 
 export type PlaceEnrichmentResponseEnvelope =
@@ -87,9 +97,22 @@ export function parsePlaceEnrichmentRequest(value: unknown): ValidationResult {
     MAX_CONTEXT_LENGTH,
     false
   )
+  const lookupKind = readLookupKind(record.lookupKind)
   const city = readTrimmedString(
     record.city,
     "city",
+    MAX_CONTEXT_LENGTH,
+    false
+  )
+  const area = readTrimmedString(
+    record.area,
+    "area",
+    MAX_CONTEXT_LENGTH,
+    false
+  )
+  const country = readTrimmedString(
+    record.country,
+    "country",
     MAX_CONTEXT_LENGTH,
     false
   )
@@ -103,8 +126,17 @@ export function parsePlaceEnrichmentRequest(value: unknown): ValidationResult {
   if (!destination.ok) {
     return destination
   }
+  if (!lookupKind.ok) {
+    return lookupKind
+  }
   if (!city.ok) {
     return city
+  }
+  if (!area.ok) {
+    return area
+  }
+  if (!country.ok) {
+    return country
   }
   if (!address.ok) {
     return address
@@ -112,8 +144,11 @@ export function parsePlaceEnrichmentRequest(value: unknown): ValidationResult {
 
   const data: PlaceEnrichmentRequest = {
     query: query.data,
+    ...(lookupKind.data !== undefined ? { lookupKind: lookupKind.data } : {}),
     ...(destination.data !== undefined ? { destination: destination.data } : {}),
     ...(city.data !== undefined ? { city: city.data } : {}),
+    ...(area.data !== undefined ? { area: area.data } : {}),
+    ...(country.data !== undefined ? { country: country.data } : {}),
     ...(address.data !== undefined ? { address: address.data } : {}),
   }
 
@@ -136,8 +171,10 @@ export function buildGeoapifySearchText(
   const parts = [
     request.query,
     request.address,
+    request.area,
     request.city,
     request.destination,
+    request.country,
   ].filter((part): part is string => part !== undefined && part.length > 0)
 
   const seen = new Set<string>()
@@ -288,6 +325,34 @@ function readTrimmedString(
   }
 }
 
+function readLookupKind(
+  value: unknown
+):
+  | { ok: true; data?: PlaceLookupKind }
+  | { ok: false; error: string } {
+  if (value === undefined || value === null) {
+    return {
+      ok: true,
+    }
+  }
+
+  if (
+    value === "city" ||
+    value === "hotel" ||
+    value === "specific_place"
+  ) {
+    return {
+      ok: true,
+      data: value,
+    }
+  }
+
+  return {
+    ok: false,
+    error: "lookupKind is invalid.",
+  }
+}
+
 function parsePlaceEnrichment(
   value: unknown
 ):
@@ -309,6 +374,7 @@ function parsePlaceEnrichment(
   const providerPlaceId = readResponseString(value.providerPlaceId)
   const displayName = readResponseString(value.displayName)
   const formattedAddress = readResponseString(value.formattedAddress)
+  const matchedQuery = readResponseString(value.matchedQuery)
 
   if (value.provider !== "geoapify") {
     return {
@@ -320,7 +386,8 @@ function parsePlaceEnrichment(
   if (
     providerPlaceId === null ||
     displayName === null ||
-    formattedAddress === null
+    formattedAddress === null ||
+    matchedQuery === null
   ) {
     return {
       ok: false,
@@ -346,6 +413,27 @@ function parsePlaceEnrichment(
     return image
   }
 
+  if (value.matchStatus !== "verified" && value.matchStatus !== "probable") {
+    return {
+      ok: false,
+      error: "Place enrichment match status is invalid.",
+    }
+  }
+
+  const matchScore =
+    value.matchScore === undefined
+      ? undefined
+      : typeof value.matchScore === "number" && Number.isFinite(value.matchScore)
+        ? value.matchScore
+        : null
+
+  if (matchScore === null) {
+    return {
+      ok: false,
+      error: "Place enrichment match score is invalid.",
+    }
+  }
+
   return {
     ok: true,
     data: {
@@ -356,6 +444,9 @@ function parsePlaceEnrichment(
       location: location.data,
       ...(image.data !== undefined ? { image: image.data } : {}),
       attribution: attribution.data,
+      matchStatus: value.matchStatus,
+      ...(matchScore !== undefined ? { matchScore } : {}),
+      matchedQuery,
     },
   }
 }

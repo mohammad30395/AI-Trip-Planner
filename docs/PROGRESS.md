@@ -34,7 +34,47 @@
 - [x] Milestone 27 - UX resilience
 - [x] Milestone 28 - Security and privacy audit
 - [x] Milestone 29 - Automated tests
+- [x] Post-build Fix - Canonical place matching
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## Post-build Fix - Canonical Place Matching
+
+Changed:
+- Added safe match metadata to the normalized place-enrichment contract:
+  `matchStatus`, `matchScore`, and `matchedQuery`.
+- Extended internal place-enrichment requests with lookup kind, area, and
+  optional country context without changing the Convex schema.
+- Updated the Geoapify server adapter to resolve destination city context when
+  available, request a small candidate set, use supported `type`, `filter`,
+  `bias`, and `limit` parameters, and rank candidates before accepting one.
+- Added conservative candidate rejection for unrelated hotel results,
+  mismatched country/geography, weak name matches, and generic activity text.
+- Updated hotel and map lookup requests to include hotel area context and
+  explicit lookup kinds.
+- Skipped canonical lookups for generic activity text such as local meals,
+  check-in, free time, and transfers.
+- Updated map input normalization to require an accepted match status before a
+  place can generate a marker.
+- Added a Dhaka to Sylhet, 3-day smoke-style unit fixture that rejects a North
+  American local candidate and keeps the remaining marker inside Sylhet-area
+  coordinates.
+- Documented the stricter matching contract in architecture and decisions.
+
+Commands run:
+- `npx tsc --noEmit`
+- `npm test`
+- `npm run lint`
+
+Results:
+- `npx tsc --noEmit` passed.
+- `npm test` passed with 4 test files and 34 tests.
+- `npm run lint` passed.
+
+Open issues:
+- Geoapify images and `/my-trips` cover images remain intentionally unchanged.
+- Destination country is strongest when supplied or when provider destination
+  geocoding returns a country code. A later milestone can collect structured
+  country context in the trip brief.
 
 ## Milestone 00 - Read-only Preflight
 

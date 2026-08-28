@@ -149,11 +149,13 @@ function usePlaceEnrichments(
 
 function HotelPlaceEnrichment({
   address,
+  area,
   destination,
   mapControls,
   name,
 }: {
   address: string | null
+  area: string | null
   destination: string
   mapControls?: PlaceMapControls
   name: string
@@ -161,10 +163,12 @@ function HotelPlaceEnrichment({
   const request = useMemo<PlaceEnrichmentRequest>(
     () => ({
       query: name,
+      lookupKind: "hotel",
       destination,
+      ...(area !== null ? { area } : {}),
       ...(address !== null ? { address } : {}),
     }),
-    [address, destination, name]
+    [address, area, destination, name]
   )
 
   return (
@@ -194,11 +198,18 @@ function ActivityPlaceEnrichment({
       return null
     }
 
+    const query = placeName ?? address ?? ""
+
+    if (isGenericActivityPlaceQuery(query)) {
+      return null
+    }
+
     return {
-      query: placeName ?? address ?? "",
+      query,
+      lookupKind: "specific_place",
       destination,
       ...(address !== null ? { address } : {}),
-      ...(approximateArea !== null ? { city: approximateArea } : {}),
+      ...(approximateArea !== null ? { area: approximateArea } : {}),
     }
   }, [address, approximateArea, destination, placeName])
 
@@ -403,8 +414,11 @@ function RequiredDetail({ label, value }: { label: string; value: string }) {
 function buildPlaceEnrichmentCacheKey(request: PlaceEnrichmentRequest) {
   return [
     normalizeCachePart(request.query),
+    normalizeCachePart(request.lookupKind),
     normalizeCachePart(request.destination),
     normalizeCachePart(request.city),
+    normalizeCachePart(request.area),
+    normalizeCachePart(request.country),
     normalizeCachePart(request.address),
   ].join("|")
 }
@@ -551,6 +565,28 @@ function getSafeHttpsImageUrl(imageUrl: string | undefined) {
 
 function normalizeCachePart(value: string | undefined) {
   return value?.trim().toLocaleLowerCase().replace(/\s+/g, " ") ?? ""
+}
+
+function isGenericActivityPlaceQuery(query: string) {
+  const normalized = query
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+
+  return [
+    "check in",
+    "checkin",
+    "freshen up",
+    "free time",
+    "local eatery",
+    "local restaurant",
+    "lunch",
+    "dinner",
+    "breakfast",
+    "travel from",
+    "transfer",
+  ].some((genericText) => normalized.includes(genericText))
 }
 
 export {

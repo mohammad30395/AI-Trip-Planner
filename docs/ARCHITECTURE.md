@@ -127,22 +127,31 @@ The normalized contract for enriched places should support:
 - `location` with `lat` and `lng`
 - optional `image`
 - attribution metadata
+- canonical match metadata including `matchStatus`, `matchScore`, and
+  `matchedQuery`
 
 Geoapify Geocoding Search is the free-text semantic lookup provider. Geoapify
 Place Details is optional after lookup and is used only as fallback-tolerant
 enrichment, currently for `wiki_and_media.image` when available. Place Details
 failure must not invalidate an otherwise valid geocoding result.
-Provider-enriched place IDs, addresses, and coordinates are canonical for maps.
-AI/model-generated coordinates remain non-authoritative hints only.
+Geoapify geocoding results are requested as a small candidate set and ranked by
+the server adapter before becoming canonical. Candidate acceptance is
+conservative: requested name/address, destination city/country context, result
+type, category, rank confidence, and geographic consistency are considered.
+Only `verified` and `probable` matches become canonical; no-confident-match
+results are returned as empty lookups. Provider-enriched place IDs, addresses,
+and coordinates are canonical for maps only after this match gate. AI/model-
+generated coordinates remain non-authoritative hints only.
 
 ## Map Boundary
 
 Map code uses normalized Geoapify coordinates as its canonical input, then
 renders them through a Leaflet client component with an OpenStreetMap-compatible
 tile layer. The map builds a client-side list of enriched itinerary places,
-skips places without verified provider coordinates, deduplicates by
-`providerPlaceId`, and renders one project-owned `divIcon` marker per unique
-place. Popups are built with DOM text nodes rather than injected AI HTML.
+skips places without accepted provider coordinates or an accepted match status,
+deduplicates by `providerPlaceId`, and renders one project-owned `divIcon`
+marker per unique place. Popups are built with DOM text nodes rather than
+injected AI HTML.
 Trip cards can focus the map, and marker clicks can focus/scroll the matching
 card without using client-supplied authorization or raw provider payloads.
 Downstream map code must consume provider-neutral place data and must never

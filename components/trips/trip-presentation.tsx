@@ -201,6 +201,7 @@ function HotelCard({
         </dl>
         <HotelPlaceEnrichment
           address={hotel.address}
+          area={hotel.area}
           destination={destination}
           mapControls={mapControls}
           name={hotel.name}

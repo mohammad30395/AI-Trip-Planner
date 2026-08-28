@@ -2,10 +2,16 @@ import { describe, expect, test } from "vitest"
 
 import { getTripGenerationAccessStatus } from "@/lib/billing/trip-generation-access"
 import {
+  rankGeoapifyCandidates,
+  type DestinationContext,
+  type GeoapifyCandidate,
+} from "@/lib/places/geoapify"
+import {
   CANONICAL_PLACE_ZOOM,
   GLOBAL_FALLBACK_CENTER,
   GLOBAL_FALLBACK_ZOOM,
   OSM_STANDARD_TILE_URL,
+  buildTripMapLookups,
   buildMappablePlaces,
   buildTripMarkerData,
   isValidMapLocation,
@@ -14,6 +20,7 @@ import {
   type TripMappablePlace,
 } from "@/lib/trips/map"
 import { getGeoapifyAttribution } from "@/lib/places/place-enrichment"
+import type { TripPresentationData } from "@/lib/trips/presentation"
 
 describe("billing access decisions", () => {
   test("enforces quota for free users", () => {
@@ -98,6 +105,159 @@ describe("map normalization and Leaflet-facing config", () => {
     expect(isValidMapLocation({ lat: 91, lng: 0 })).toBe(false)
     expect(isValidMapLocation({ lat: 0, lng: -181 })).toBe(false)
   })
+
+  test("does not build canonical lookup requests for generic activities", () => {
+    const lookups = buildTripMapLookups({
+      ...baseTrip,
+      days: [
+        {
+          id: "day-1",
+          dayNumber: 1,
+          title: "Arrival",
+          activities: [
+            {
+              id: "activity-1",
+              title: "Lunch",
+              description: "Eat near the hotel.",
+              timeLabel: "12:00",
+              timeOfDayLabel: "Afternoon",
+              duration: "1 hour",
+              estimatedPriceText: "Generated estimate",
+              placeName: "Lunch at local eatery",
+              address: null,
+              approximateArea: "Sylhet",
+            },
+          ],
+        },
+      ],
+    })
+
+    expect(lookups).toHaveLength(0)
+  })
+
+  test("Dhaka to Sylhet smoke keeps local markers inside destination geography", () => {
+    const lookups = buildTripMapLookups({
+      ...baseTrip,
+      durationLabel: "3 days",
+      hotels: [
+        {
+          id: "hotel-1",
+          name: "Hotel Supreme",
+          description: "Hotel in central Sylhet.",
+          area: "Zindabazar",
+          address: null,
+          priceTierLabel: "Budget",
+          estimatedPriceText: "Generated estimate",
+        },
+      ],
+      days: [
+        {
+          id: "day-1",
+          dayNumber: 1,
+          title: "Arrival",
+          activities: [
+            {
+              id: "activity-1",
+              title: "Ratargul visit",
+              description: "Visit Ratargul Swamp Forest.",
+              timeLabel: "Morning",
+              timeOfDayLabel: "Morning",
+              duration: "3 hours",
+              estimatedPriceText: "Generated estimate",
+              placeName: "Ratargul Swamp Forest",
+              address: null,
+              approximateArea: "Sylhet",
+            },
+            {
+              id: "activity-2",
+              title: "Lunch",
+              description: "Eat near the hotel.",
+              timeLabel: "Afternoon",
+              timeOfDayLabel: "Afternoon",
+              duration: "1 hour",
+              estimatedPriceText: "Generated estimate",
+              placeName: "Lunch at local eatery",
+              address: null,
+              approximateArea: "Sylhet",
+            },
+          ],
+        },
+      ],
+    })
+    const destinationContext = {
+      query: "Sylhet",
+      country: "Bangladesh",
+      countryCode: "bd",
+      location: {
+        lat: 24.8949,
+        lng: 91.8687,
+      },
+    } satisfies DestinationContext
+    const acceptedLookups = lookups.flatMap((lookup) => {
+      const ranking = rankGeoapifyCandidates({
+        request: lookup.request,
+        destinationContext,
+        candidates:
+          lookup.request.query === "Hotel Supreme"
+            ? [
+                geoCandidate({
+                  providerPlaceId: "north-america-hotel",
+                  displayName: "Hotel Supreme",
+                  formattedAddress: "Hotel Supreme, Toronto, Canada",
+                  countryCode: "ca",
+                  country: "Canada",
+                  city: "Toronto",
+                  category: "accommodation.hotel",
+                  location: {
+                    lat: 43.6532,
+                    lng: -79.3832,
+                  },
+                }),
+              ]
+            : [
+                geoCandidate({
+                  providerPlaceId: "ratargul",
+                  displayName: "Ratargul Swamp Forest",
+                  formattedAddress: "Ratargul Swamp Forest, Sylhet, Bangladesh",
+                  countryCode: "bd",
+                  country: "Bangladesh",
+                  city: "Sylhet",
+                  category: "tourism.sights",
+                }),
+              ],
+      })
+
+      if (ranking.status === "no_confident_match") {
+        return []
+      }
+
+      return {
+        lookup,
+        place: {
+          provider: "geoapify",
+          providerPlaceId: ranking.candidate.providerPlaceId,
+          displayName: ranking.candidate.displayName,
+          formattedAddress: ranking.candidate.formattedAddress,
+          location: ranking.candidate.location,
+          attribution: getGeoapifyAttribution(),
+          matchStatus: ranking.status,
+          matchScore: ranking.score,
+          matchedQuery: ranking.matchedQuery,
+        },
+      } satisfies TripMapEnrichedLookup
+    })
+    const markers = buildTripMarkerData(buildMappablePlaces(acceptedLookups))
+
+    expect(lookups.map((lookup) => lookup.request.query)).toEqual([
+      "Hotel Supreme",
+      "Ratargul Swamp Forest",
+    ])
+    expect(markers).toHaveLength(1)
+    expect(markers[0]?.position.lat).toBeGreaterThan(24)
+    expect(markers[0]?.position.lat).toBeLessThan(26)
+    expect(markers[0]?.position.lng).toBeGreaterThan(91)
+    expect(markers[0]?.position.lng).toBeLessThan(93)
+  })
 })
 
 function enrichedLookup(
@@ -126,6 +286,8 @@ function enrichedLookup(
         lng,
       },
       attribution: getGeoapifyAttribution(),
+      matchStatus: "verified",
+      matchedQuery: "Lookup, Tokyo",
     },
   }
 }
@@ -147,3 +309,35 @@ function mappablePlace(
     },
   }
 }
+
+function geoCandidate(overrides: Partial<GeoapifyCandidate>): GeoapifyCandidate {
+  return {
+    providerPlaceId: "candidate",
+    displayName: "Candidate",
+    formattedAddress: "Candidate, Sylhet, Bangladesh",
+    location: {
+      lat: 24.8949,
+      lng: 91.8687,
+    },
+    resultType: "amenity",
+    rankConfidence: 1,
+    rankMatchType: "full_match",
+    ...overrides,
+  }
+}
+
+const baseTrip = {
+  tripId: "trip",
+  source: "Dhaka",
+  destination: "Sylhet",
+  durationLabel: "3 days",
+  budgetLabel: "Budget",
+  groupLabel: "1 traveler",
+  groupTypeLabel: null,
+  createdLabel: "Aug 28, 2026",
+  enrichmentLabel: "Not started",
+  summary: "Trip summary",
+  hotels: [],
+  days: [],
+  practicalNotes: [],
+} satisfies TripPresentationData
