@@ -24,13 +24,15 @@ import {
   buildTripMapPoints,
   buildTripMarkerData,
   getPointTypeLabel,
+  getTripMarkerRenderPriority,
   getTripMapBounds,
+  resolveTripMarkerVisibility,
   selectTripMapInitialView,
   type TripMapLookup,
   type TripMapPoint,
   type TripMapPointKind,
+  type TripMarkerData,
   type TripMarkerPopupText,
-  type MapPixelOffset,
 } from "@/lib/trips/map"
 import {
   createUserSafeError,
@@ -156,7 +158,9 @@ function LeafletTripMap({
   const mapRef = useRef<LeafletMap | null>(null)
   const markerLayerRef = useRef<LayerGroup | null>(null)
   const markersByPointIdRef = useRef<Map<string, Marker>>(new Map())
+  const markerDataRef = useRef<TripMarkerData[]>([])
   const pointsRef = useRef(points)
+  const focusedMapPointIdRef = useRef(focusedMapPointId)
   const tileErrorReportedRef = useRef(false)
   const pointsKey = useMemo(() => buildPointsKey(points), [points])
   const [leafletModule, setLeafletModule] = useState<
@@ -261,6 +265,7 @@ function LeafletTripMap({
       markerLayerRef.current?.remove()
       markerLayerRef.current = null
       markersByPointId.clear()
+      markerDataRef.current = []
       tileErrorReportedRef.current = false
       mapRef.current?.remove()
       mapRef.current = null
@@ -280,6 +285,7 @@ function LeafletTripMap({
     markerLayerRef.current?.remove()
     markerLayerRef.current = null
     markersByPointIdRef.current.clear()
+    markerDataRef.current = []
 
     if (currentPoints.length === 0) {
       map.setView(
@@ -292,6 +298,8 @@ function LeafletTripMap({
     const markerLayer = leafletModule.layerGroup().addTo(map)
     markerLayerRef.current = markerLayer
     const connectionPoints = getConnectionPoints(currentPoints)
+    const markerData = buildTripMarkerData(currentPoints)
+    markerDataRef.current = markerData
 
     if (connectionPoints.length >= 2) {
       leafletModule
@@ -310,34 +318,30 @@ function LeafletTripMap({
         .addTo(markerLayer)
     }
 
-    for (const markerData of buildTripMarkerData(currentPoints)) {
-      const marker = leafletModule
-        .marker([markerData.position.lat, markerData.position.lng], {
+    for (const markerInfo of markerData) {
+      const leafletMarker = leafletModule
+        .marker([markerInfo.position.lat, markerInfo.position.lng], {
           icon: leafletModule.divIcon({
-            className: "trip-map-marker-shell",
-            html: buildMarkerHtml(
-              markerData.kind,
-              markerData.markerLabel,
-              markerData.visualOffset
-            ),
-            iconAnchor: [80, 80],
-            iconSize: [160, 160],
-            popupAnchor: [
-              markerData.visualOffset.x,
-              markerData.visualOffset.y - 28,
-            ],
+            className: "",
+            html: buildMarkerHtml(markerInfo.kind, markerInfo.markerLabel),
+            iconAnchor: [14, 28],
+            iconSize: [28, 28],
+            popupAnchor: [0, -28],
           }),
-          title: markerData.title,
+          title: markerInfo.title,
         })
-        .bindPopup(buildSafePopupContent(markerData.popup))
+        .bindPopup(buildSafePopupContent(markerInfo.popup))
 
-      marker.on("click", () => {
-        onMarkerFocus(markerData.id)
-        scrollPlaceCardIntoView(markerData.id)
+      leafletMarker.setZIndexOffset(
+        getTripMarkerRenderPriority(markerInfo, focusedMapPointIdRef.current)
+      )
+      leafletMarker.on("click", () => {
+        onMarkerFocus(markerInfo.id)
+        scrollPlaceCardIntoView(markerInfo.id)
       })
 
-      marker.addTo(markerLayer)
-      markersByPointIdRef.current.set(markerData.id, marker)
+      leafletMarker.addTo(markerLayer)
+      markersByPointIdRef.current.set(markerInfo.id, leafletMarker)
     }
 
     const mapBounds = getTripMapBounds(currentPoints)
@@ -359,14 +363,26 @@ function LeafletTripMap({
       })
     }
 
+    const applyMarkerVisibility = () => {
+      updateMarkerCollisionVisibility({
+        focusedMapPointId: focusedMapPointIdRef.current,
+        map,
+        markerData,
+        markersByPointId: markersByPointIdRef.current,
+      })
+    }
+
+    map.on("zoomend moveend", applyMarkerVisibility)
     const animationFrame = window.requestAnimationFrame(() => {
       if (mapRef.current === map) {
         map.invalidateSize()
+        applyMarkerVisibility()
       }
     })
 
     return () => {
       window.cancelAnimationFrame(animationFrame)
+      map.off("zoomend moveend", applyMarkerVisibility)
       markerLayer.eachLayer((layer) => {
         layer.off()
       })
@@ -374,15 +390,29 @@ function LeafletTripMap({
       if (markerLayerRef.current === markerLayer) {
         markerLayerRef.current = null
       }
+      if (markerDataRef.current === markerData) {
+        markerDataRef.current = []
+      }
     }
   }, [leafletModule, onMarkerFocus, pointsKey])
 
   useEffect(() => {
+    focusedMapPointIdRef.current = focusedMapPointId
+    const map = mapRef.current
+
+    if (map !== null) {
+      updateMarkerCollisionVisibility({
+        focusedMapPointId,
+        map,
+        markerData: markerDataRef.current,
+        markersByPointId: markersByPointIdRef.current,
+      })
+    }
+
     if (focusedMapPointId === null) {
       return
     }
 
-    const map = mapRef.current
     const marker = markersByPointIdRef.current.get(focusedMapPointId)
 
     if (map === null || marker === undefined) {
@@ -548,17 +578,60 @@ function buildSafePopupContent(popup: TripMarkerPopupText) {
   return container
 }
 
-function buildMarkerHtml(
-  kind: TripMapPointKind,
-  markerLabel: string,
-  visualOffset: MapPixelOffset
-) {
-  const style =
-    visualOffset.x === 0 && visualOffset.y === 0
-      ? ""
-      : ` style="--trip-map-marker-offset-x:${visualOffset.x}px;--trip-map-marker-offset-y:${visualOffset.y}px;"`
+function updateMarkerCollisionVisibility({
+  focusedMapPointId,
+  map,
+  markerData,
+  markersByPointId,
+}: {
+  focusedMapPointId: string | null
+  map: LeafletMap
+  markerData: TripMarkerData[]
+  markersByPointId: Map<string, Marker>
+}) {
+  const visibility = resolveTripMarkerVisibility({
+    focusedMapPointId,
+    markers: markerData,
+    screenPositions: markerData.map((marker) => {
+      const point = map.latLngToContainerPoint([
+        marker.position.lat,
+        marker.position.lng,
+      ])
 
-  return `<span class="trip-map-marker trip-map-marker-${kind}"${style}>${escapeHtml(
+      return {
+        id: marker.id,
+        x: point.x,
+        y: point.y,
+      }
+    }),
+  })
+  const visibilityById = new Map(
+    visibility.map((item) => [item.id, item.visible] as const)
+  )
+
+  for (const markerInfo of markerData) {
+    const marker = markersByPointId.get(markerInfo.id)
+
+    if (marker === undefined) {
+      continue
+    }
+
+    const visible = visibilityById.get(markerInfo.id) ?? true
+    marker.setOpacity(visible ? 1 : 0)
+    marker.setZIndexOffset(
+      getTripMarkerRenderPriority(markerInfo, focusedMapPointId)
+    )
+    const element = marker.getElement()
+
+    if (element !== undefined) {
+      element.style.pointerEvents = visible ? "" : "none"
+      element.setAttribute("aria-hidden", visible ? "false" : "true")
+    }
+  }
+}
+
+function buildMarkerHtml(kind: TripMapPointKind, markerLabel: string) {
+  return `<span class="trip-map-marker trip-map-marker-${kind}">${escapeHtml(
     markerLabel
   )}</span>`
 }

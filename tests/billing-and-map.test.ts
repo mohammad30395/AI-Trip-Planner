@@ -9,8 +9,10 @@ import {
   buildTripMapPoints,
   buildTripMapLookups,
   buildTripMarkerData,
+  getTripMarkerRenderPriority,
   getTripMapBounds,
   isValidMapLocation,
+  resolveTripMarkerVisibility,
   selectTripMapInitialView,
   type TripMapEnrichedLookup,
   type TripMapPoint,
@@ -130,10 +132,6 @@ describe("map normalization and Leaflet-facing config", () => {
           lng: 139,
         },
         title: "Place <b>Name</b>",
-        visualOffset: {
-          x: 0,
-          y: 0,
-        },
         popup: {
           title: "Place <b>Name</b>",
           typeLabel: "Itinerary stop",
@@ -346,7 +344,7 @@ describe("map normalization and Leaflet-facing config", () => {
     })
   })
 
-  test("keeps very close accepted markers visually addressable without changing coordinates", () => {
+  test("keeps close accepted markers at their canonical coordinates", () => {
     const points: TripMapPoint[] = [
       {
         id: "origin-dhaka",
@@ -407,25 +405,6 @@ describe("map normalization and Leaflet-facing config", () => {
         lng: point.lng,
       }))
     )
-    expect(markers.find((marker) => marker.id === "origin-dhaka")?.visualOffset)
-      .toEqual({
-        x: 0,
-        y: 0,
-      })
-    expect(
-      new Set(
-        markers
-          .filter((marker) => marker.id !== "origin-dhaka")
-          .map((marker) => `${marker.visualOffset.x},${marker.visualOffset.y}`)
-      ).size
-    ).toBe(3)
-    expect(
-      markers
-        .filter((marker) => marker.id !== "origin-dhaka")
-        .every(
-          (marker) => marker.visualOffset.x !== 0 || marker.visualOffset.y !== 0
-        )
-    ).toBe(true)
     expect(markers.map((marker) => marker.popup.title)).toEqual([
       "Dhaka",
       "Sylhet",
@@ -434,7 +413,7 @@ describe("map normalization and Leaflet-facing config", () => {
     ])
   })
 
-  test("keeps destination and nearby itinerary marker individually addressable", () => {
+  test("prioritizes destination over colliding itinerary markers", () => {
     const points: TripMapPoint[] = [
       {
         id: "destination-sylhet",
@@ -457,34 +436,31 @@ describe("map normalization and Leaflet-facing config", () => {
       },
     ]
     const markers = buildTripMarkerData(points)
-    const destinationMarker = markers.find(
-      (marker) => marker.id === "destination-sylhet"
-    )
-    const itineraryMarker = markers.find(
-      (marker) => marker.id === "activity-1-keane-bridge"
-    )
+    const visibility = resolveTripMarkerVisibility({
+      focusedMapPointId: null,
+      markers,
+      screenPositions: [
+        { id: "destination-sylhet", x: 100, y: 100 },
+        { id: "activity-1-keane-bridge", x: 108, y: 105 },
+      ],
+    })
 
-    expect(destinationMarker?.markerLabel).toBe("D")
-    expect(itineraryMarker?.markerLabel).toBe("1")
-    expect(destinationMarker?.position).toEqual({
-      lat: 24.8949,
-      lng: 91.8687,
-    })
-    expect(itineraryMarker?.position).toEqual({
-      lat: 24.895,
-      lng: 91.8688,
-    })
-    expect(destinationMarker?.popup.title).toBe("Sylhet")
-    expect(itineraryMarker?.popup.title).toBe("Keane Bridge")
-    expect(
-      getPixelDistance(
-        destinationMarker?.visualOffset ?? { x: 0, y: 0 },
-        itineraryMarker?.visualOffset ?? { x: 0, y: 0 }
-      )
-    ).toBeGreaterThanOrEqual(80)
+    expect(getTripMarkerRenderPriority(markers[0], null)).toBeGreaterThan(
+      getTripMarkerRenderPriority(markers[1], null)
+    )
+    expect(visibility).toEqual([
+      {
+        id: "destination-sylhet",
+        visible: true,
+      },
+      {
+        id: "activity-1-keane-bridge",
+        visible: false,
+      },
+    ])
   })
 
-  test("assigns distinct readable slots to a destination plus two close itinerary markers", () => {
+  test("suppresses lower-priority itinerary markers only while screen-colliding", () => {
     const points: TripMapPoint[] = [
       {
         id: "destination-sylhet",
@@ -517,6 +493,24 @@ describe("map normalization and Leaflet-facing config", () => {
       },
     ]
     const markers = buildTripMarkerData(points)
+    const overviewVisibility = resolveTripMarkerVisibility({
+      focusedMapPointId: null,
+      markers,
+      screenPositions: [
+        { id: "destination-sylhet", x: 100, y: 100 },
+        { id: "activity-1-keane-bridge", x: 107, y: 105 },
+        { id: "activity-2-ratargul-swamp-forest", x: 112, y: 112 },
+      ],
+    })
+    const zoomedVisibility = resolveTripMarkerVisibility({
+      focusedMapPointId: null,
+      markers,
+      screenPositions: [
+        { id: "destination-sylhet", x: 100, y: 100 },
+        { id: "activity-1-keane-bridge", x: 160, y: 100 },
+        { id: "activity-2-ratargul-swamp-forest", x: 220, y: 100 },
+      ],
+    })
 
     expect(markers.map((marker) => marker.markerLabel)).toEqual(["D", "1", "2"])
     expect(markers.map((marker) => marker.position)).toEqual(
@@ -525,29 +519,113 @@ describe("map normalization and Leaflet-facing config", () => {
         lng: point.lng,
       }))
     )
-    expect(
-      new Set(
-        markers.map((marker) => `${marker.visualOffset.x},${marker.visualOffset.y}`)
-      ).size
-    ).toBe(3)
-
-    for (const leftMarker of markers) {
-      for (const rightMarker of markers) {
-        if (leftMarker.id >= rightMarker.id) {
-          continue
-        }
-
-        expect(
-          getPixelDistance(leftMarker.visualOffset, rightMarker.visualOffset)
-        ).toBeGreaterThanOrEqual(100)
-      }
-    }
-
-    expect(markers.map((marker) => marker.popup.title)).toEqual([
-      "Sylhet",
-      "Keane Bridge",
-      "Ratargul Swamp Forest",
+    expect(overviewVisibility).toEqual([
+      {
+        id: "destination-sylhet",
+        visible: true,
+      },
+      {
+        id: "activity-1-keane-bridge",
+        visible: false,
+      },
+      {
+        id: "activity-2-ratargul-swamp-forest",
+        visible: false,
+      },
     ])
+    expect(zoomedVisibility.every((item) => item.visible)).toBe(true)
+  })
+
+  test("focused itinerary point becomes visible at its real coordinate", () => {
+    const points: TripMapPoint[] = [
+      {
+        id: "destination-sylhet",
+        kind: "destination",
+        label: "Sylhet",
+        providerPlaceId: "sylhet",
+        lat: 24.8949,
+        lng: 91.8687,
+        address: "Sylhet, Bangladesh",
+      },
+      {
+        id: "activity-2-ratargul-swamp-forest",
+        kind: "activity",
+        label: "Ratargul Swamp Forest",
+        sequence: 2,
+        providerPlaceId: "ratargul",
+        lat: 25.002,
+        lng: 91.975,
+        address: "Ratargul Swamp Forest, Sylhet, Bangladesh",
+      },
+    ]
+    const markers = buildTripMarkerData(points)
+    const visibility = resolveTripMarkerVisibility({
+      focusedMapPointId: "activity-2-ratargul-swamp-forest",
+      markers,
+      screenPositions: [
+        { id: "destination-sylhet", x: 100, y: 100 },
+        { id: "activity-2-ratargul-swamp-forest", x: 110, y: 110 },
+      ],
+    })
+    const ratargulMarker = markers.find(
+      (marker) => marker.id === "activity-2-ratargul-swamp-forest"
+    )
+
+    expect(visibility).toEqual([
+      {
+        id: "destination-sylhet",
+        visible: false,
+      },
+      {
+        id: "activity-2-ratargul-swamp-forest",
+        visible: true,
+      },
+    ])
+    expect(ratargulMarker?.position).toEqual({
+      lat: 25.002,
+      lng: 91.975,
+    })
+    expect(ratargulMarker?.popup.title).toBe("Ratargul Swamp Forest")
+  })
+
+  test("fit bounds use canonical coordinates regardless of collision visibility", () => {
+    const points: TripMapPoint[] = [
+      {
+        ...mapPoint("origin-dhaka", 23.7644, 90.389),
+        kind: "origin",
+      },
+      {
+        ...mapPoint("destination-sylhet", 24.8949, 91.8687),
+        kind: "destination",
+      },
+      mapPoint("activity-1-keane-bridge", 24.895, 91.8688),
+    ]
+    const markers = buildTripMarkerData(points)
+    const visibility = resolveTripMarkerVisibility({
+      focusedMapPointId: null,
+      markers,
+      screenPositions: [
+        { id: "origin-dhaka", x: 20, y: 100 },
+        { id: "destination-sylhet", x: 200, y: 100 },
+        { id: "activity-1-keane-bridge", x: 208, y: 105 },
+      ],
+    })
+
+    expect(visibility.find((item) => item.id === "activity-1-keane-bridge"))
+      .toEqual({
+        id: "activity-1-keane-bridge",
+        visible: false,
+      })
+    expect(getTripMapBounds(points)).toEqual({
+      southWest: {
+        lat: 23.7644,
+        lng: 90.389,
+      },
+      northEast: {
+        lat: 24.895,
+        lng: 91.8688,
+      },
+    })
   })
 })
 
@@ -658,13 +736,6 @@ function placeFixture(overrides: Partial<PlaceEnrichment>): PlaceEnrichment {
     matchedQuery: "Place",
     ...overrides,
   }
-}
-
-function getPixelDistance(
-  left: { x: number; y: number },
-  right: { x: number; y: number }
-) {
-  return Math.hypot(left.x - right.x, left.y - right.y)
 }
 
 const baseTrip = {

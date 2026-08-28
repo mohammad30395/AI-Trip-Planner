@@ -62,13 +62,18 @@ export type TripMarkerData = {
   markerLabel: string
   position: MapLocation
   title: string
-  visualOffset: MapPixelOffset
   popup: TripMarkerPopupText
 }
 
-export type MapPixelOffset = {
+export type TripMarkerScreenPosition = {
+  id: string
   x: number
   y: number
+}
+
+export type TripMarkerVisibility = {
+  id: string
+  visible: boolean
 }
 
 export type TripMarkerPopupText = {
@@ -90,8 +95,7 @@ export const GLOBAL_FALLBACK_CENTER = {
 export const CANONICAL_PLACE_ZOOM = 13
 export const GLOBAL_FALLBACK_ZOOM = 2
 export const MAP_OUTLIER_MAX_DISTANCE_METERS = 300_000
-export const MARKER_OVERLAP_DISTANCE_METERS = 25_000
-const MARKER_OVERLAP_OFFSET_RADIUS_PX = 58
+export const MARKER_COLLISION_DISTANCE_PX = 32
 
 export function buildTripMapLookups(
   trip: TripPresentationData
@@ -317,10 +321,7 @@ export function getTripMapBounds(points: readonly TripMapPoint[]): TripMapBounds
 export function buildTripMarkerData(
   points: readonly TripMapPoint[]
 ): TripMarkerData[] {
-  const validPoints = points.filter(hasValidLocation)
-  const visualOffsets = buildMarkerVisualOffsets(validPoints)
-
-  return validPoints.map((point) => ({
+  return points.filter(hasValidLocation).map((point) => ({
     id: point.id,
     kind: point.kind,
     markerLabel: getMarkerLabel(point),
@@ -329,37 +330,8 @@ export function buildTripMarkerData(
       lng: point.lng,
     },
     title: point.label,
-    visualOffset: visualOffsets.get(point.id) ?? { x: 0, y: 0 },
     popup: buildTripMarkerPopupText(point),
   }))
-}
-
-export function buildMarkerVisualOffsets(
-  points: readonly TripMapPoint[]
-): Map<string, MapPixelOffset> {
-  const offsets = new Map<string, MapPixelOffset>()
-  const visited = new Set<string>()
-
-  for (const point of points) {
-    if (visited.has(point.id)) {
-      continue
-    }
-
-    const group = collectMarkerProximityGroup(point, points, visited)
-
-    if (group.length < 2) {
-      offsets.set(point.id, { x: 0, y: 0 })
-      continue
-    }
-
-    const sortedGroup = [...group].sort(compareMapPointsForOverlap)
-
-    sortedGroup.forEach((groupedPoint, index) => {
-      offsets.set(groupedPoint.id, getMarkerGroupSlotOffset(index, sortedGroup.length))
-    })
-  }
-
-  return offsets
 }
 
 export function buildTripMarkerPopupText(
@@ -395,6 +367,88 @@ export function getPointTypeLabel(kind: TripMapPointKind) {
   }
 
   return "Itinerary stop"
+}
+
+export function getTripMarkerRenderPriority(
+  marker: Pick<TripMarkerData, "id" | "kind">,
+  focusedMapPointId: string | null
+) {
+  if (focusedMapPointId === marker.id) {
+    return 400
+  }
+
+  if (marker.kind === "destination") {
+    return 300
+  }
+
+  if (marker.kind === "origin") {
+    return 200
+  }
+
+  return 100
+}
+
+export function resolveTripMarkerVisibility({
+  focusedMapPointId,
+  markers,
+  screenPositions,
+}: {
+  focusedMapPointId: string | null
+  markers: readonly TripMarkerData[]
+  screenPositions: readonly TripMarkerScreenPosition[]
+}): TripMarkerVisibility[] {
+  const positionsById = new Map(
+    screenPositions.map((position) => [position.id, position] as const)
+  )
+  const selectedMarkerId =
+    focusedMapPointId !== null &&
+    markers.some((marker) => marker.id === focusedMapPointId)
+      ? focusedMapPointId
+      : null
+  const sortedMarkers = [...markers].sort((left, right) => {
+    const priorityDifference =
+      getTripMarkerRenderPriority(right, selectedMarkerId) -
+      getTripMarkerRenderPriority(left, selectedMarkerId)
+
+    if (priorityDifference !== 0) {
+      return priorityDifference
+    }
+
+    return compareTripMarkersForCollision(left, right)
+  })
+  const visibleMarkers: TripMarkerData[] = []
+  const visibleById = new Map<string, boolean>()
+
+  for (const marker of sortedMarkers) {
+    const markerPosition = positionsById.get(marker.id)
+
+    if (markerPosition === undefined) {
+      visibleById.set(marker.id, true)
+      visibleMarkers.push(marker)
+      continue
+    }
+
+    const collidesWithVisibleMarker = visibleMarkers.some((visibleMarker) => {
+      const visiblePosition = positionsById.get(visibleMarker.id)
+
+      return (
+        visiblePosition !== undefined &&
+        getPixelDistance(markerPosition, visiblePosition) <=
+          MARKER_COLLISION_DISTANCE_PX
+      )
+    })
+
+    visibleById.set(marker.id, !collidesWithVisibleMarker)
+
+    if (!collidesWithVisibleMarker) {
+      visibleMarkers.push(marker)
+    }
+  }
+
+  return markers.map((marker) => ({
+    id: marker.id,
+    visible: visibleById.get(marker.id) ?? true,
+  }))
 }
 
 export function isValidMapLocation(value: MapLocation) {
@@ -455,81 +509,10 @@ function getMarkerLabel(point: TripMapPoint) {
   return String(point.sequence ?? "")
 }
 
-function collectMarkerProximityGroup(
-  startPoint: TripMapPoint,
-  points: readonly TripMapPoint[],
-  visited: Set<string>
+function compareTripMarkersForCollision(
+  left: TripMarkerData,
+  right: TripMarkerData
 ) {
-  const group: TripMapPoint[] = []
-  const queue = [startPoint]
-  visited.add(startPoint.id)
-
-  for (const point of queue) {
-    group.push(point)
-
-    for (const candidate of points) {
-      if (
-        visited.has(candidate.id) ||
-        getDistanceMeters(point, candidate) > MARKER_OVERLAP_DISTANCE_METERS
-      ) {
-        continue
-      }
-
-      visited.add(candidate.id)
-      queue.push(candidate)
-    }
-  }
-
-  return group
-}
-
-function getMarkerGroupSlotOffset(index: number, groupSize: number): MapPixelOffset {
-  const fixedSlots = getFixedMarkerGroupSlots(groupSize)
-
-  if (fixedSlots !== null) {
-    return fixedSlots[index] ?? { x: 0, y: 0 }
-  }
-
-  const radius = MARKER_OVERLAP_OFFSET_RADIUS_PX + Math.max(0, groupSize - 4) * 8
-  const step = (Math.PI * 2) / groupSize
-  const startAngle = -Math.PI / 2
-  const angle = startAngle + step * index
-
-  return {
-    x: Math.round(Math.cos(angle) * radius),
-    y: Math.round(Math.sin(angle) * radius),
-  }
-}
-
-function getFixedMarkerGroupSlots(groupSize: number): MapPixelOffset[] | null {
-  if (groupSize === 2) {
-    return [
-      { x: -MARKER_OVERLAP_OFFSET_RADIUS_PX, y: -16 },
-      { x: MARKER_OVERLAP_OFFSET_RADIUS_PX, y: 16 },
-    ]
-  }
-
-  if (groupSize === 3) {
-    return [
-      { x: 0, y: -MARKER_OVERLAP_OFFSET_RADIUS_PX },
-      { x: -MARKER_OVERLAP_OFFSET_RADIUS_PX, y: MARKER_OVERLAP_OFFSET_RADIUS_PX },
-      { x: MARKER_OVERLAP_OFFSET_RADIUS_PX, y: MARKER_OVERLAP_OFFSET_RADIUS_PX },
-    ]
-  }
-
-  if (groupSize === 4) {
-    return [
-      { x: 0, y: -MARKER_OVERLAP_OFFSET_RADIUS_PX },
-      { x: MARKER_OVERLAP_OFFSET_RADIUS_PX, y: 0 },
-      { x: 0, y: MARKER_OVERLAP_OFFSET_RADIUS_PX },
-      { x: -MARKER_OVERLAP_OFFSET_RADIUS_PX, y: 0 },
-    ]
-  }
-
-  return null
-}
-
-function compareMapPointsForOverlap(left: TripMapPoint, right: TripMapPoint) {
   const kindOrder = {
     origin: 0,
     destination: 1,
@@ -542,12 +525,18 @@ function compareMapPointsForOverlap(left: TripMapPoint, right: TripMapPoint) {
     return kindDifference
   }
 
-  if (left.sequence !== right.sequence) {
-    return (left.sequence ?? Number.MAX_SAFE_INTEGER) -
-      (right.sequence ?? Number.MAX_SAFE_INTEGER)
+  if (left.kind === "activity" && right.kind === "activity") {
+    return Number(left.markerLabel) - Number(right.markerLabel)
   }
 
   return left.id.localeCompare(right.id)
+}
+
+function getPixelDistance(
+  left: Pick<TripMarkerScreenPosition, "x" | "y">,
+  right: Pick<TripMarkerScreenPosition, "x" | "y">
+) {
+  return Math.hypot(left.x - right.x, left.y - right.y)
 }
 
 function hasValidLocation(point: TripMapPoint) {

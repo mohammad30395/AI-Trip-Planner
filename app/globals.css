@@ -156,21 +156,12 @@
     @apply focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50;
   }
 
-  .trip-map-marker-shell {
-    pointer-events: none;
-  }
-
   .trip-map-marker {
-    position: absolute;
-    top: calc(50% + var(--trip-map-marker-offset-y, 0));
-    left: calc(50% + var(--trip-map-marker-offset-x, 0));
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transform: translate(-50%, -50%);
     width: 1.75rem;
     height: 1.75rem;
-    pointer-events: auto;
     border: 2px solid white;
     border-radius: 9999px;
     background: var(--primary);
