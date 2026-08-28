@@ -433,6 +433,56 @@ describe("map normalization and Leaflet-facing config", () => {
       "Ratargul Swamp Forest",
     ])
   })
+
+  test("keeps destination and nearby itinerary marker individually addressable", () => {
+    const points: TripMapPoint[] = [
+      {
+        id: "destination-sylhet",
+        kind: "destination",
+        label: "Sylhet",
+        providerPlaceId: "sylhet",
+        lat: 24.8949,
+        lng: 91.8687,
+        address: "Sylhet, Bangladesh",
+      },
+      {
+        id: "activity-1-keane-bridge",
+        kind: "activity",
+        label: "Keane Bridge",
+        sequence: 1,
+        providerPlaceId: "keane-bridge",
+        lat: 24.895,
+        lng: 91.8688,
+        address: "Keane Bridge, Sylhet, Bangladesh",
+      },
+    ]
+    const markers = buildTripMarkerData(points)
+    const destinationMarker = markers.find(
+      (marker) => marker.id === "destination-sylhet"
+    )
+    const itineraryMarker = markers.find(
+      (marker) => marker.id === "activity-1-keane-bridge"
+    )
+
+    expect(destinationMarker?.markerLabel).toBe("D")
+    expect(itineraryMarker?.markerLabel).toBe("1")
+    expect(destinationMarker?.position).toEqual({
+      lat: 24.8949,
+      lng: 91.8687,
+    })
+    expect(itineraryMarker?.position).toEqual({
+      lat: 24.895,
+      lng: 91.8688,
+    })
+    expect(destinationMarker?.popup.title).toBe("Sylhet")
+    expect(itineraryMarker?.popup.title).toBe("Keane Bridge")
+    expect(
+      getPixelDistance(
+        destinationMarker?.visualOffset ?? { x: 0, y: 0 },
+        itineraryMarker?.visualOffset ?? { x: 0, y: 0 }
+      )
+    ).toBeGreaterThanOrEqual(80)
+  })
 })
 
 function enrichedLookup(
@@ -542,6 +592,13 @@ function placeFixture(overrides: Partial<PlaceEnrichment>): PlaceEnrichment {
     matchedQuery: "Place",
     ...overrides,
   }
+}
+
+function getPixelDistance(
+  left: { x: number; y: number },
+  right: { x: number; y: number }
+) {
+  return Math.hypot(left.x - right.x, left.y - right.y)
 }
 
 const baseTrip = {

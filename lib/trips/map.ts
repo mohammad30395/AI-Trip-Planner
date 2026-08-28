@@ -91,7 +91,7 @@ export const CANONICAL_PLACE_ZOOM = 13
 export const GLOBAL_FALLBACK_ZOOM = 2
 export const MAP_OUTLIER_MAX_DISTANCE_METERS = 300_000
 export const MARKER_OVERLAP_DISTANCE_METERS = 25_000
-const MARKER_OVERLAP_OFFSET_RADIUS_PX = 20
+const MARKER_OVERLAP_OFFSET_RADIUS_PX = 42
 
 export function buildTripMapLookups(
   trip: TripPresentationData
