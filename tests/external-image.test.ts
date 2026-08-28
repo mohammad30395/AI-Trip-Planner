@@ -139,6 +139,12 @@ describe("external image validation and lookup policy", () => {
     expect(getSpecificPlaceNameFromActivityTitle("Visit Ratargul Swamp Forest")).toBe(
       "Ratargul Swamp Forest"
     )
+    expect(getSpecificPlaceNameFromActivityTitle("Explore Zindabazar and shopping")).toBeNull()
+    expect(getSpecificPlaceNameFromActivityTitle("Visit Jaflong and Dawki River")).toBeNull()
+    expect(
+      getSpecificPlaceNameFromActivityTitle("Visit Lalakhal (optional) or tea gardens")
+    ).toBeNull()
+    expect(getSpecificPlaceNameFromActivityTitle("Return to Sylhet city")).toBeNull()
     expect(
       buildActivityPlaceEnrichmentRequest({
         address: null,

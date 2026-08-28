@@ -77,13 +77,26 @@ export function getSpecificPlaceNameFromActivityTitle(title: string) {
     return null
   }
 
+  if (hasNonPlaceActivityIntent(normalizedTitle)) {
+    return null
+  }
+
   const withoutPrefix = normalizedTitle
     .replace(/^visit\s+/i, "")
     .replace(/^explore\s+/i, "")
     .replace(/^(?:morning|afternoon|evening|night)\s+walk\s+at\s+/i, "")
     .replace(/^walk\s+at\s+/i, "")
 
-  return withoutPrefix.length > 0 ? withoutPrefix : null
+  if (
+    withoutPrefix.length === 0 ||
+    /\b(?:and|or)\b/i.test(withoutPrefix) ||
+    /\([^)]*\)/.test(withoutPrefix) ||
+    !hasSpecificPlaceCue(withoutPrefix)
+  ) {
+    return null
+  }
+
+  return withoutPrefix
 }
 
 export function isGenericActivityPlaceQuery(query: string) {
@@ -105,5 +118,35 @@ export function isGenericActivityPlaceQuery(query: string) {
     "breakfast",
     "travel from",
     "transfer",
-  ].some((genericText) => normalized.includes(genericText))
+  ].some((genericText) => hasNormalizedPhrase(normalized, genericText))
+}
+
+function hasNonPlaceActivityIntent(title: string) {
+  const normalized = title
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+
+  return [
+    "departure",
+    "return to",
+    "pick up luggage",
+    "shopping",
+    "leisure",
+    "rest",
+    "optional",
+  ].some((genericText) => hasNormalizedPhrase(normalized, genericText))
+}
+
+function hasSpecificPlaceCue(placeName: string) {
+  return /\b(?:bridge|eidgah|forest|fort|garden|gardens|lake|mazar|monument|mosque|museum|palace|park|river|shrine|temple|waterfall|falls)\b/i.test(
+    placeName
+  )
+}
+
+function hasNormalizedPhrase(normalizedText: string, normalizedPhrase: string) {
+  return new RegExp(
+    `(?:^| )${normalizedPhrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?: |$)`
+  ).test(normalizedText)
 }
