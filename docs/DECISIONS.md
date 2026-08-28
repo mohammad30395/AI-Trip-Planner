@@ -28,8 +28,11 @@
 - Geoapify Place Details may be used after lookup for optional additional details or images, and Place Details failures must fall back to the base geocoding result.
 - Request a small Geoapify candidate set and rank candidates server-side before accepting any result as canonical.
 - Treat only `verified` and `probable` provider matches as canonical. Return a no-confident-match lookup instead of silently accepting an unrelated candidate.
+- Never treat `results[0]` as canonical without passing deterministic name, context, category/type, country, and local-distance checks.
+- Skip canonical lookup for generic activities such as local meals, check-in/freshen-up, free time, and transport transfer text.
 - Use supported Geoapify geocoding parameters such as `type`, `filter`, `bias`, and `limit`; do not invent provider parameters.
 - Reject geographically inconsistent place candidates when trusted destination country or city context is available.
+- Use `LOCAL_POI_MAX_DISTANCE_METERS` as the named destination-local POI distance gate when provider distance is available; the current 120 km limit covers common destination-region attractions while excluding obviously distant candidates.
 - Treat provider-enriched `providerPlaceId`, formatted address, and coordinates as canonical for maps only after conservative match acceptance.
 - Do not trust model-generated coordinates as canonical.
 - Keep place images optional and provide placeholder fallbacks when provider images are absent.

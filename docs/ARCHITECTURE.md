@@ -138,10 +138,23 @@ Geoapify geocoding results are requested as a small candidate set and ranked by
 the server adapter before becoming canonical. Candidate acceptance is
 conservative: requested name/address, destination city/country context, result
 type, category, rank confidence, and geographic consistency are considered.
+The first provider result is never automatically canonical. Saved AI place
+names, addresses, and areas are lookup input only, not truth.
 Only `verified` and `probable` matches become canonical; no-confident-match
-results are returned as empty lookups. Provider-enriched place IDs, addresses,
-and coordinates are canonical for maps only after this match gate. AI/model-
-generated coordinates remain non-authoritative hints only.
+results are valid lookup outcomes and are returned as empty lookups. Generic
+activities such as local meals, check-in/freshen-up, free time, and travel
+transfers are not canonicalized into arbitrary POIs. Provider-enriched place
+IDs, addresses, and coordinates are canonical for maps only after this match
+gate. AI/model-generated coordinates remain non-authoritative hints only.
+
+Destination context is resolved first for destination-local hotel and POI
+lookups. Trusted country code is used as a Geoapify country filter and as a
+server-side rejection gate. Trusted destination coordinates are used as a
+provider proximity bias; if Geoapify reports candidate distance, local POI
+candidates beyond `LOCAL_POI_MAX_DISTANCE_METERS` are rejected. The current
+120 km threshold allows destination-region attractions around a city such as
+Sylhet while rejecting obviously distant cross-region or cross-continent
+candidates before map construction.
 
 ## Map Boundary
 

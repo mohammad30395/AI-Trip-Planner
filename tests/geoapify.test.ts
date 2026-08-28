@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest"
 
 import {
   GeoapifyProviderError,
+  LOCAL_POI_MAX_DISTANCE_METERS,
   enrichPlaceWithGeoapify,
   rankGeoapifyCandidates,
   type GeoapifyCandidate,
@@ -111,6 +112,85 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
       },
     })
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  test("derives destination context before validating hotel candidates", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "test-key")
+    const fetchMock = vi.fn(async (input: FetchInput) => {
+      const url = toUrl(input)
+
+      expect(url.searchParams.get("apiKey")).toBe("test-key")
+
+      if (url.pathname === "/v1/geocode/search") {
+        if (url.searchParams.get("type") === "city") {
+          expect(url.searchParams.get("text")).toBe("Sylhet")
+          return jsonResponse({
+            results: [
+              {
+                place_id: "sylhet-city",
+                name: "Sylhet",
+                formatted: "Sylhet, Bangladesh",
+                result_type: "city",
+                country: "Bangladesh",
+                country_code: "bd",
+                city: "Sylhet",
+                lat: 24.8949,
+                lon: 91.8687,
+                rank: {
+                  confidence: 1,
+                  match_type: "full_match",
+                },
+              },
+            ],
+          })
+        }
+
+        expect(url.searchParams.get("text")).toBe(
+          "Hotel Supreme, Zindabazar, Sylhet"
+        )
+        expect(url.searchParams.get("type")).toBe("amenity")
+        expect(url.searchParams.get("filter")).toBe("countrycode:bd")
+        expect(url.searchParams.get("bias")).toBe("proximity:91.8687,24.8949")
+        return jsonResponse({
+          results: [
+            {
+              place_id: "north-america-hotel",
+              name: "Hotel Supreme",
+              formatted: "Hotel Supreme, Toronto, Canada",
+              result_type: "amenity",
+              category: "accommodation.hotel",
+              country: "Canada",
+              country_code: "ca",
+              city: "Toronto",
+              lat: 43.6532,
+              lon: -79.3832,
+              rank: {
+                confidence: 1,
+                match_type: "full_match",
+              },
+            },
+          ],
+        })
+      }
+
+      throw new Error(`Unexpected provider call to ${url.pathname}`)
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(
+      enrichPlaceWithGeoapify(
+        {
+          query: "Hotel Supreme",
+          lookupKind: "hotel",
+          area: "Zindabazar",
+          destination: "Sylhet",
+        },
+        AbortSignal.timeout(1_000)
+      )
+    ).rejects.toMatchObject({
+      code: "provider_no_confident_match",
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   test("returns base geocoding when details fail", async () => {
@@ -293,8 +373,8 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
       ],
     })
 
-    expect(attraction.status).not.toBe("no_confident_match")
-    expect(city.status).not.toBe("no_confident_match")
+    expect(attraction.status).toBe("verified")
+    expect(city.status).toBe("verified")
   })
 
   test("rejects unrelated hotel candidates even with matching area text", () => {
@@ -347,6 +427,33 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
     expect(bridge.status).toBe("no_confident_match")
   })
 
+  test("rejects unrelated hotels sharing only a generic lodging word", () => {
+    const result = rankGeoapifyCandidates({
+      request: {
+        query: "Hotel Supreme",
+        lookupKind: "hotel",
+        area: "Zindabazar",
+        destination: "Sylhet",
+        country: "Bangladesh",
+      },
+      candidates: [
+        candidate({
+          providerPlaceId: "hotel-anurag",
+          displayName: "Hotel Anurag",
+          formattedAddress: "Hotel Anurag, Zindabazar, Sylhet, Bangladesh",
+          countryCode: "bd",
+          country: "Bangladesh",
+          city: "Sylhet",
+          district: "Zindabazar",
+          resultType: "amenity",
+          category: "accommodation.hotel",
+        }),
+      ],
+    })
+
+    expect(result.status).toBe("no_confident_match")
+  })
+
   test("rejects North American candidates for Bangladesh destination context", () => {
     const result = rankGeoapifyCandidates({
       request: {
@@ -386,29 +493,211 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
     expect(result.status).toBe("no_confident_match")
   })
 
-  test("rejects generic activity text before canonicalization", () => {
+  test("rejects incompatible hotel result types and categories", () => {
+    const request = {
+      query: "Hotel Supreme",
+      lookupKind: "hotel" as const,
+      area: "Zindabazar",
+      destination: "Sylhet",
+      country: "Bangladesh",
+    }
+    const rejectedCandidates: GeoapifyCandidate[] = [
+      candidate({
+        providerPlaceId: "bridge",
+        displayName: "Hotel Supreme Bridge",
+        resultType: "amenity",
+        category: "transport.bridge",
+      }),
+      candidate({
+        providerPlaceId: "street",
+        displayName: "Hotel Supreme Road",
+        resultType: "street",
+        category: "highway.residential",
+      }),
+      candidate({
+        providerPlaceId: "admin",
+        displayName: "Hotel Supreme",
+        resultType: "city",
+        category: "administrative",
+      }),
+      candidate({
+        providerPlaceId: "office",
+        displayName: "Hotel Supreme Business Office",
+        resultType: "amenity",
+        category: "office.company",
+      }),
+      candidate({
+        providerPlaceId: "locality",
+        displayName: "Hotel Supreme Locality",
+        resultType: "locality",
+        category: "populated_place.locality",
+      }),
+    ]
+
+    for (const rejectedCandidate of rejectedCandidates) {
+      expect(
+        rankGeoapifyCandidates({
+          request,
+          candidates: [rejectedCandidate],
+        }).status
+      ).toBe("no_confident_match")
+    }
+  })
+
+  test("uses separate city semantics for destination lookups", () => {
+    const amenityResult = rankGeoapifyCandidates({
+      request: {
+        query: "Sylhet",
+        lookupKind: "city",
+        country: "Bangladesh",
+      },
+      candidates: [
+        candidate({
+          providerPlaceId: "sylhet-hotel",
+          displayName: "Sylhet Hotel",
+          formattedAddress: "Sylhet Hotel, Bangladesh",
+          countryCode: "bd",
+          country: "Bangladesh",
+          city: "Sylhet",
+          resultType: "amenity",
+          category: "accommodation.hotel",
+        }),
+      ],
+    })
+    const cityResult = rankGeoapifyCandidates({
+      request: {
+        query: "Sylhet",
+        lookupKind: "city",
+        country: "Bangladesh",
+      },
+      candidates: [
+        candidate({
+          providerPlaceId: "sylhet-city",
+          displayName: "Sylhet",
+          formattedAddress: "Sylhet, Bangladesh",
+          countryCode: "bd",
+          country: "Bangladesh",
+          city: "Sylhet",
+          resultType: "city",
+        }),
+      ],
+    })
+
+    expect(amenityResult.status).toBe("no_confident_match")
+    expect(cityResult.status).toBe("verified")
+  })
+
+  test("requires named attraction candidates to match name or context", () => {
     const result = rankGeoapifyCandidates({
       request: {
-        query: "Lunch at local eatery",
+        query: "Ratargul Swamp Forest",
         lookupKind: "specific_place",
         destination: "Sylhet",
         country: "Bangladesh",
       },
       candidates: [
         candidate({
-          providerPlaceId: "restaurant",
-          displayName: "Random Restaurant",
+          providerPlaceId: "unrelated-attraction",
+          displayName: "Sylhet Tourist Office",
           formattedAddress: "Sylhet, Bangladesh",
           countryCode: "bd",
           country: "Bangladesh",
           city: "Sylhet",
           resultType: "amenity",
-          category: "catering.restaurant",
+          category: "tourism.sights",
         }),
       ],
     })
 
     expect(result.status).toBe("no_confident_match")
+  })
+
+  test("applies the named local POI distance boundary", () => {
+    const request = {
+      query: "Ratargul Swamp Forest",
+      lookupKind: "specific_place" as const,
+      destination: "Sylhet",
+      country: "Bangladesh",
+    }
+    const destinationContext = {
+      query: "Sylhet",
+      country: "Bangladesh",
+      countryCode: "bd",
+      location: {
+        lat: 24.8949,
+        lng: 91.8687,
+      },
+    }
+
+    expect(
+      rankGeoapifyCandidates({
+        request,
+        destinationContext,
+        candidates: [
+          candidate({
+            providerPlaceId: "inside-boundary",
+            displayName: "Ratargul Swamp Forest",
+            formattedAddress: "Ratargul Swamp Forest, Sylhet, Bangladesh",
+            countryCode: "bd",
+            country: "Bangladesh",
+            city: "Sylhet",
+            resultType: "amenity",
+            category: "tourism.sights",
+            distance: LOCAL_POI_MAX_DISTANCE_METERS,
+          }),
+        ],
+      }).status
+    ).toBe("verified")
+    expect(
+      rankGeoapifyCandidates({
+        request,
+        destinationContext,
+        candidates: [
+          candidate({
+            providerPlaceId: "outside-boundary",
+            displayName: "Ratargul Swamp Forest",
+            formattedAddress: "Ratargul Swamp Forest, Bangladesh",
+            countryCode: "bd",
+            country: "Bangladesh",
+            resultType: "amenity",
+            category: "tourism.sights",
+            distance: LOCAL_POI_MAX_DISTANCE_METERS + 1,
+          }),
+        ],
+      }).status
+    ).toBe("no_confident_match")
+  })
+
+  test("rejects generic activity text before canonicalization", () => {
+    for (const query of [
+      "Lunch at local eatery",
+      "Check-in and freshen up",
+      "Free time",
+      "Travel from Dhaka to Sylhet",
+    ]) {
+      const result = rankGeoapifyCandidates({
+        request: {
+          query,
+          lookupKind: "specific_place",
+          destination: "Sylhet",
+          country: "Bangladesh",
+        },
+        candidates: [
+          candidate({
+            providerPlaceId: "restaurant",
+            displayName: "Random Restaurant",
+            formattedAddress: "Sylhet, Bangladesh",
+            countryCode: "bd",
+            country: "Bangladesh",
+            city: "Sylhet",
+            resultType: "amenity",
+            category: "catering.restaurant",
+          }),
+        ],
+      })
+
+      expect(result.status).toBe("no_confident_match")
+    }
   })
 })
 

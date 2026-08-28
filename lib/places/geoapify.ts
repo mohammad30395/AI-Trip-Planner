@@ -16,7 +16,7 @@ const GEOAPIFY_RESULT_LIMIT = "8"
 export const GEOAPIFY_TIMEOUT_MS = 8_000
 
 const BANGLADESH_COUNTRY_CODE = "bd"
-const LOCAL_POI_MAX_DISTANCE_METERS = 120_000
+export const LOCAL_POI_MAX_DISTANCE_METERS = 120_000
 const SPECIFIC_PLACE_PROBABLE_SCORE = 72
 const SPECIFIC_PLACE_VERIFIED_SCORE = 90
 const CITY_PROBABLE_SCORE = 65
@@ -784,11 +784,16 @@ const GENERIC_CONTEXT_TOKENS = new Set([
   "bazar",
   "city",
   "country",
+  "guest",
+  "house",
+  "hotel",
+  "hotels",
   "in",
   "local",
   "near",
   "of",
   "restaurant",
+  "resort",
   "road",
   "the",
   "to",

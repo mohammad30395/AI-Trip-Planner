@@ -115,24 +115,52 @@ describe("map normalization and Leaflet-facing config", () => {
           dayNumber: 1,
           title: "Arrival",
           activities: [
-            {
-              id: "activity-1",
-              title: "Lunch",
-              description: "Eat near the hotel.",
-              timeLabel: "12:00",
-              timeOfDayLabel: "Afternoon",
-              duration: "1 hour",
-              estimatedPriceText: "Generated estimate",
-              placeName: "Lunch at local eatery",
-              address: null,
-              approximateArea: "Sylhet",
-            },
-          ],
+            "Lunch at local eatery",
+            "Check-in and freshen up",
+            "Free time",
+            "Travel from Dhaka to Sylhet",
+          ].map((placeName, index) => ({
+            id: `activity-${index}`,
+            title: placeName,
+            description: "Generic activity text.",
+            timeLabel: "12:00",
+            timeOfDayLabel: "Afternoon",
+            duration: "1 hour",
+            estimatedPriceText: "Generated estimate",
+            placeName,
+            address: null,
+            approximateArea: "Sylhet",
+          })),
         },
       ],
     })
 
     expect(lookups).toHaveLength(0)
+  })
+
+  test("requires accepted match status before creating mappable places", () => {
+    const verified = enrichedLookup("verified", "place-verified", 35, 139)
+    const probable = {
+      ...enrichedLookup("probable", "place-probable", 36, 140),
+      place: {
+        ...enrichedLookup("probable", "place-probable", 36, 140).place,
+        matchStatus: "probable" as const,
+      },
+    } satisfies TripMapEnrichedLookup
+    const rejected = {
+      ...enrichedLookup("rejected", "place-rejected", 37, 141),
+      place: {
+        ...enrichedLookup("rejected", "place-rejected", 37, 141).place,
+        matchStatus: "no_confident_match",
+      },
+    } as unknown as TripMapEnrichedLookup
+
+    const places = buildMappablePlaces([verified, probable, rejected])
+
+    expect(places.map((place) => place.providerPlaceId)).toEqual([
+      "place-verified",
+      "place-probable",
+    ])
   })
 
   test("Dhaka to Sylhet smoke keeps local markers inside destination geography", () => {

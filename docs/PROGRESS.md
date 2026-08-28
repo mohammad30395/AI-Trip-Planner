@@ -39,6 +39,23 @@
 
 ## Post-build Fix - Canonical Place Matching
 
+Completion pass:
+- Exported and documented `LOCAL_POI_MAX_DISTANCE_METERS` as the named
+  destination-local POI distance gate.
+- Tightened hotel name matching so generic lodging words such as "hotel" do
+  not allow unrelated hotel candidates to become canonical.
+- Added automated coverage for the required Ratargul, Sylhet city, Hotel
+  Supreme, Hotel Palash, wrong-country, generic activity, category/type, local
+  distance-boundary, destination-context propagation, and map-status filtering
+  cases.
+- Added a skipped-by-default live Geoapify smoke test for Dhaka to Sylhet that
+  runs only when `GEOAPIFY_LIVE_SMOKE=1`.
+- Ran the live smoke test with the server-only Geoapify key loaded from local
+  environment. Safe observed outcomes: Sylhet resolved in Bangladesh as
+  `verified`; Ratargul Swamp Forest resolved in Sylhet, Bangladesh as
+  `verified`; Hotel Supreme and Hotel Palash returned
+  `no_confident_match`.
+
 Changed:
 - Added safe match metadata to the normalized place-enrichment contract:
   `matchStatus`, `matchScore`, and `matchedQuery`.
@@ -64,11 +81,17 @@ Commands run:
 - `npx tsc --noEmit`
 - `npm test`
 - `npm run lint`
+- `npm run build`
+- `GEOAPIFY_LIVE_SMOKE=1 node --env-file=.env.local ./node_modules/vitest/vitest.mjs run tests/live-geoapify-smoke.test.ts --reporter=verbose`
 
 Results:
-- `npx tsc --noEmit` passed.
-- `npm test` passed with 4 test files and 34 tests.
+- `npm test` passed with 5 test files, 42 tests passed, and 1 skipped live
+  smoke guard.
 - `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
+- Live Geoapify Dhaka to Sylhet smoke passed with safe provider diagnostics
+  only and no key or provider URL output.
 
 Open issues:
 - Geoapify images and `/my-trips` cover images remain intentionally unchanged.
