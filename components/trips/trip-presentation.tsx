@@ -233,8 +233,8 @@ function DayByDayItinerary({
           Day-by-Day Itinerary
         </h2>
         <p className="app-muted mt-2 text-sm">
-          Activities use stored model content only. Place photos are placeholders
-          until enrichment is added.
+          Activities use stored model text with provider-enriched place details
+          when a safe canonical match is available.
         </p>
       </div>
 

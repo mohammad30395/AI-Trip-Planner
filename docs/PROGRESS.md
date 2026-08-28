@@ -35,10 +35,31 @@
 - [x] Milestone 28 - Security and privacy audit
 - [x] Milestone 29 - Automated tests
 - [x] Post-build Fix - Canonical place matching
-- [x] Post-build Fix - External image URL enrichment
+- [ ] Post-build Fix - External image URL enrichment (Prompt-02 UI smoke blocked)
 - [ ] Milestone 30 - Production readiness and Vercel deployment
 
 ## Post-build Fix - External Image URL Enrichment
+
+Completion pass:
+- Added a provider-neutral image resolver boundary with `resolvePlaceImage`,
+  `resolveDestinationImage`, and `resolveRepresentativeImage`.
+- Added Wikimedia Commons as the approved secondary URL-only image provider
+  using the MediaWiki Action API and `imageinfo` metadata.
+- Preserved Geoapify as the canonical place identity/coordinate source and
+  kept Geoapify Place Details image data first priority when valid.
+- Kept secondary exact-place images restricted to accepted non-hotel canonical
+  places with strong Wikimedia title/object-name association.
+- Kept hotels out of secondary exact-image lookup; canonical hotels use valid
+  Geoapify exact images or fallback UI.
+- Narrowed renderable external image hosts to `upload.wikimedia.org`.
+- Preserved Wikimedia source page and license metadata when supplied.
+- Added live Wikimedia and full adapter smoke tests. Safe live outcomes:
+  Sylhet resolved to a representative Wikimedia image; Ratargul Swamp Forest
+  resolved to an exact-place Wikimedia image; Hotel Supreme had no secondary
+  image result.
+- Real browser UI smoke remains blocked in this session because the in-app
+  browser execution tool is unavailable, no local browser automation dependency
+  is installed, and protected routes redirect as signed out.
 
 Changed:
 - Added an app-level `ExternalImage` contract with explicit `exact_place` and
@@ -58,8 +79,8 @@ Changed:
   fallback visuals for them.
 - Kept Convex unchanged; no image URLs, image files, base64, blobs, or bytes are
   stored in the database.
-- Added narrow Next Image remote patterns for Wikimedia upload, Commons, and
-  language Wikipedia subdomains to match the application URL validator.
+- Added a narrow Next Image remote pattern for Wikimedia upload URLs to match
+  the application URL validator.
 - Added image-policy and Geoapify image regression tests for valid destination,
   missing destination media, valid hotel exact images, invalid HTTP URLs,
   unsupported hosts, broken-load fallback mode, generic activities, and repeated
@@ -69,8 +90,11 @@ Verification:
 - Live Geoapify media probe used safe diagnostics only. Sylhet destination and
   Ratargul returned no image; Eiffel Tower returned a language Wikipedia host;
   Louvre Museum returned `upload.wikimedia.org`.
-- `npm test` passed with 6 test files, 51 tests passed, and 1 skipped live
-  smoke guard.
+- Live Wikimedia smoke passed with safe diagnostics only.
+- Live Geoapify adapter smoke passed with secondary Wikimedia image fallback
+  for Sylhet and Ratargul.
+- `npm test` passed with 8 test files, 59 tests passed, and 2 skipped live
+  smoke guards.
 - `npm run lint` passed.
 - `npx tsc --noEmit` passed.
 - `npm run build` passed.

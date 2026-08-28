@@ -17,9 +17,7 @@ export type PlaceLookupKind = "city" | "hotel" | "specific_place"
 
 export type PlaceMatchStatus = "verified" | "probable" | "no_confident_match"
 
-export type PlaceEnrichmentImage = ExternalImage & {
-  source: "geoapify"
-}
+export type PlaceEnrichmentImage = ExternalImage
 
 export type PlaceEnrichmentAttribution = {
   provider: "Geoapify"

@@ -68,6 +68,9 @@ function ExternalImageFrame({
             setFailedImageUrl(safeImage.url)
           }}
         />
+        <span className="absolute right-2 bottom-2 max-w-[calc(100%-1rem)] rounded bg-background/85 px-2 py-1 text-[0.65rem] font-medium text-muted-foreground shadow-sm">
+          {formatImageCredit(safeImage)}
+        </span>
       </div>
     )
   }
@@ -124,6 +127,12 @@ function ImageFallback({
       </svg>
     </div>
   )
+}
+
+function formatImageCredit(image: ExternalImage) {
+  const source = image.source === "wikimedia" ? "Wikimedia" : "Geoapify"
+
+  return image.license === undefined ? source : `${source} - ${image.license}`
 }
 
 export { ExternalImageFrame, type ExternalImageFrameState }

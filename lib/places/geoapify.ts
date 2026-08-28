@@ -4,6 +4,7 @@ import {
   normalizeGeoapifyExternalImage,
   type ExternalImageKind,
 } from "@/lib/images/external-image"
+import { resolvePlaceImage } from "@/lib/images/image-resolver"
 import {
   buildGeoapifySearchText,
   getGeoapifyAttribution,
@@ -143,10 +144,12 @@ export async function enrichPlaceWithGeoapify(
     apiKey,
     signal
   )
+  const resolvedImage =
+    image ?? (await getOptionalResolvedImage(basePlace, request, signal))
 
   return {
     ...basePlace,
-    ...(image !== undefined ? { image } : {}),
+    ...(resolvedImage !== undefined ? { image: resolvedImage } : {}),
   }
 }
 
@@ -888,6 +891,20 @@ async function getOptionalDetailsImage(
 
     return undefined
   }
+}
+
+async function getOptionalResolvedImage(
+  place: PlaceEnrichment,
+  request: PlaceEnrichmentRequest,
+  signal: AbortSignal
+) {
+  const result = await resolvePlaceImage({
+    place,
+    request,
+    signal,
+  })
+
+  return result.status === "found" ? result.image : undefined
 }
 
 function extractWikiAndMediaImage(

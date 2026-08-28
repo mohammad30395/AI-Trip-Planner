@@ -11,6 +11,12 @@ type LiveSmokeObservation = {
   displayName?: string
   formattedAddress?: string
   countryOrCityHint?: string
+  image?: {
+    source: string
+    kind: string
+    host: string
+    license?: string
+  }
   matchStatus: "verified" | "probable" | "no_confident_match"
 }
 
@@ -33,6 +39,10 @@ describe("live Geoapify Dhaka to Sylhet smoke", () => {
       expect(destination.place.location.lat).toBeLessThan(26)
       expect(destination.place.location.lng).toBeGreaterThan(91)
       expect(destination.place.location.lng).toBeLessThan(93)
+      expect(destination.place.image).toMatchObject({
+        source: "wikimedia",
+        kind: "representative",
+      })
 
       const attraction = await lookupLivePlace("Ratargul Swamp Forest", {
         query: "Ratargul Swamp Forest",
@@ -47,6 +57,10 @@ describe("live Geoapify Dhaka to Sylhet smoke", () => {
       expect(attraction.place.location.lat).toBeLessThan(26)
       expect(attraction.place.location.lng).toBeGreaterThan(91)
       expect(attraction.place.location.lng).toBeLessThan(93)
+      expect(attraction.place.image).toMatchObject({
+        source: "wikimedia",
+        kind: "exact_place",
+      })
 
       observations.push(
         await lookupHotelSafely("Hotel Supreme", "Zindabazar"),
@@ -104,6 +118,18 @@ async function lookupLivePlace(
       displayName: place.displayName,
       formattedAddress: place.formattedAddress,
       countryOrCityHint: summarizeAddress(place.formattedAddress),
+      ...(place.image !== undefined
+        ? {
+            image: {
+              source: place.image.source,
+              kind: place.image.kind,
+              host: new URL(place.image.url).hostname,
+              ...(place.image.license !== undefined
+                ? { license: place.image.license }
+                : {}),
+            },
+          }
+        : {}),
       matchStatus: place.matchStatus,
     } satisfies LiveSmokeObservation,
   }

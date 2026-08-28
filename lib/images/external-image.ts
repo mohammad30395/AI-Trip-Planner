@@ -1,6 +1,6 @@
 export type ExternalImageKind = "exact_place" | "representative"
 
-export type ExternalImageSource = "geoapify"
+export type ExternalImageSource = "geoapify" | "wikimedia"
 
 export type ExternalImage = {
   url: string
@@ -8,13 +8,15 @@ export type ExternalImage = {
   kind: ExternalImageKind
   alt: string
   attribution?: string
+  sourcePageUrl?: string
+  license?: string
+  licenseUrl?: string
 }
 
 export const SUPPORTED_EXTERNAL_IMAGE_HOSTS = [
   "upload.wikimedia.org",
-  "commons.wikimedia.org",
 ] as const
-const SUPPORTED_WIKIPEDIA_HOST_PATTERN = /^[a-z0-9-]+\.wikipedia\.org$/
+const SUPPORTED_SOURCE_PAGE_HOSTS = ["commons.wikimedia.org"] as const
 
 export type ExternalImageRenderMode = "loading" | "image" | "fallback"
 
@@ -24,6 +26,9 @@ type ExternalImageInput = {
   kind: unknown
   alt: unknown
   attribution?: unknown
+  sourcePageUrl?: unknown
+  license?: unknown
+  licenseUrl?: unknown
 }
 
 export function normalizeExternalImage(
@@ -31,7 +36,10 @@ export function normalizeExternalImage(
 ): ExternalImage | null {
   const url = normalizeExternalImageUrl(value.url)
 
-  if (url === null || value.source !== "geoapify") {
+  if (
+    url === null ||
+    (value.source !== "geoapify" && value.source !== "wikimedia")
+  ) {
     return null
   }
 
@@ -47,13 +55,25 @@ export function normalizeExternalImage(
     typeof value.attribution === "string" && value.attribution.trim().length > 0
       ? value.attribution.trim()
       : undefined
+  const sourcePageUrl = normalizeExternalMetadataUrl(
+    value.sourcePageUrl,
+    SUPPORTED_SOURCE_PAGE_HOSTS
+  )
+  const license =
+    typeof value.license === "string" && value.license.trim().length > 0
+      ? value.license.trim()
+      : undefined
+  const licenseUrl = normalizeExternalMetadataUrl(value.licenseUrl)
 
   return {
     url,
-    source: "geoapify",
+    source: value.source,
     kind: value.kind,
     alt: value.alt.trim(),
     ...(attribution !== undefined ? { attribution } : {}),
+    ...(sourcePageUrl !== null ? { sourcePageUrl } : {}),
+    ...(license !== undefined ? { license } : {}),
+    ...(licenseUrl !== null ? { licenseUrl } : {}),
   }
 }
 
@@ -72,6 +92,35 @@ export function normalizeGeoapifyExternalImage({
     kind,
     alt,
     attribution: "Geoapify / Wikimedia",
+  })
+}
+
+export function normalizeWikimediaExternalImage({
+  alt,
+  attribution,
+  license,
+  licenseUrl,
+  kind,
+  sourcePageUrl,
+  url,
+}: {
+  alt: string
+  attribution?: string
+  license?: string
+  licenseUrl?: string
+  kind: ExternalImageKind
+  sourcePageUrl?: string
+  url: unknown
+}) {
+  return normalizeExternalImage({
+    url,
+    source: "wikimedia",
+    kind,
+    alt,
+    attribution,
+    sourcePageUrl,
+    license,
+    licenseUrl,
   })
 }
 
@@ -108,8 +157,8 @@ export function isSupportedExternalImageHostname(hostname: string) {
   const normalizedHostname = hostname.toLocaleLowerCase()
 
   return SUPPORTED_EXTERNAL_IMAGE_HOSTS.some(
-    (supportedHost) => hostname.toLocaleLowerCase() === supportedHost
-  ) || SUPPORTED_WIKIPEDIA_HOST_PATTERN.test(normalizedHostname)
+    (supportedHost) => normalizedHostname === supportedHost
+  )
 }
 
 export function getExternalImageRenderMode({
@@ -130,4 +179,36 @@ export function getExternalImageRenderMode({
   }
 
   return "fallback"
+}
+
+function normalizeExternalMetadataUrl(
+  value: unknown,
+  allowedHosts?: readonly string[]
+) {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  try {
+    const url = new URL(value.trim())
+
+    if (
+      url.protocol !== "https:" ||
+      url.username.length > 0 ||
+      url.password.length > 0
+    ) {
+      return null
+    }
+
+    if (
+      allowedHosts !== undefined &&
+      !allowedHosts.includes(url.hostname.toLocaleLowerCase())
+    ) {
+      return null
+    }
+
+    return url.toString()
+  } catch {
+    return null
+  }
 }

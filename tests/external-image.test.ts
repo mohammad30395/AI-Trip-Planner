@@ -29,17 +29,43 @@ describe("external image validation and lookup policy", () => {
       attribution: "Geoapify / Wikimedia",
     })
 
-    expect(normalizeExternalImageUrl("https://fr.wikipedia.org/wiki/Tour_Eiffel")).toBe(
-      "https://fr.wikipedia.org/wiki/Tour_Eiffel"
-    )
+    expect(
+      normalizeExternalImage({
+        url: "https://upload.wikimedia.org/wikipedia/commons/sylhet.jpg",
+        source: "wikimedia",
+        kind: "representative",
+        alt: "Sylhet destination",
+        attribution: "Example photographer",
+        sourcePageUrl: "https://commons.wikimedia.org/wiki/File:Sylhet.jpg",
+        license: "CC BY-SA 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+      })
+    ).toMatchObject({
+      source: "wikimedia",
+      kind: "representative",
+      sourcePageUrl: "https://commons.wikimedia.org/wiki/File:Sylhet.jpg",
+      license: "CC BY-SA 4.0",
+    })
   })
 
   test("rejects unsafe or unsupported external image URLs", () => {
     expect(normalizeExternalImageUrl("http://upload.wikimedia.org/file.jpg")).toBeNull()
+    expect(normalizeExternalImageUrl("https://fr.wikipedia.org/wiki/Tour_Eiffel")).toBeNull()
     expect(normalizeExternalImageUrl("javascript:alert(1)")).toBeNull()
     expect(normalizeExternalImageUrl("data:image/png;base64,abc")).toBeNull()
     expect(normalizeExternalImageUrl("file:///tmp/file.jpg")).toBeNull()
+    expect(normalizeExternalImageUrl("https://localhost/file.jpg")).toBeNull()
+    expect(normalizeExternalImageUrl("https://127.0.0.1/file.jpg")).toBeNull()
     expect(normalizeExternalImageUrl("https://images.example/file.jpg")).toBeNull()
+    expect(normalizeExternalImageUrl("not a url")).toBeNull()
+    expect(
+      normalizeExternalImage({
+        url: "https://upload.wikimedia.org/wikipedia/commons/example.jpg",
+        source: "wikimedia",
+        kind: "representative",
+        alt: " ",
+      })
+    ).toBeNull()
   })
 
   test("models loading, successful, missing, and broken image render states", () => {
