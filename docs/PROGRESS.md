@@ -35,7 +35,7 @@
 - [x] Milestone 28 - Security and privacy audit
 - [x] Milestone 29 - Automated tests
 - [x] Post-build Fix - Canonical place matching
-- [ ] Post-build Fix - External image URL enrichment (Prompt-02 UI smoke blocked)
+- [x] Post-build Fix - External image URL enrichment
 - [ ] Milestone 30 - Production readiness and Vercel deployment
 
 ## Post-build Fix - External Image URL Enrichment
@@ -57,9 +57,14 @@ Completion pass:
   Sylhet resolved to a representative Wikimedia image; Ratargul Swamp Forest
   resolved to an exact-place Wikimedia image; Hotel Supreme had no secondary
   image result.
-- Real browser UI smoke remains blocked in this session because the in-app
-  browser execution tool is unavailable, no local browser automation dependency
-  is installed, and protected routes redirect as signed out.
+- Authenticated UI smoke was performed manually by the user because browser
+  automation was unavailable.
+- My Trips Sylhet representative Wikimedia cover was manually verified.
+- View Trip Ratargul exact-place image was manually verified.
+- Unmatched hotel image safety was manually verified for Hotel Supreme and
+  Hotel Palash.
+- Generic activity fallback safety was manually verified.
+- Browser console and network/request stability were manually verified.
 
 Changed:
 - Added an app-level `ExternalImage` contract with explicit `exact_place` and
@@ -77,6 +82,15 @@ Changed:
   specific accepted place supplies media, otherwise the shared fallback.
 - Kept generic activities out of canonical POI image lookup and retained
   fallback visuals for them.
+- Fixed the Strict Mode shared-cache abort issue so a component remount cannot
+  poison a cached destination-cover enrichment request with a cancelled promise.
+- Added a narrow title-derived lookup path for specific place activities such
+  as `Visit Ratargul Swamp Forest`, while keeping transport, meal, rest,
+  shopping, multi-place, and optional activity titles out of exact-place
+  enrichment.
+- Returned expected no-confident-match place lookups as typed successful
+  no-match responses instead of HTTP 404 errors, so unmatched hotels and
+  activities render fallback UI without red console noise.
 - Kept Convex unchanged; no image URLs, image files, base64, blobs, or bytes are
   stored in the database.
 - Added a narrow Next Image remote pattern for Wikimedia upload URLs to match
@@ -93,7 +107,10 @@ Verification:
 - Live Wikimedia smoke passed with safe diagnostics only.
 - Live Geoapify adapter smoke passed with secondary Wikimedia image fallback
   for Sylhet and Ratargul.
-- `npm test` passed with 8 test files, 59 tests passed, and 2 skipped live
+- Manual authenticated UI verification passed for My Trips Sylhet cover,
+  Ratargul exact-place image, unmatched hotel safety, generic activity fallback
+  safety, browser console, and network/request stability.
+- `npm test` passed with 9 test files, 62 tests passed, and 2 skipped live
   smoke guards.
 - `npm run lint` passed.
 - `npx tsc --noEmit` passed.
