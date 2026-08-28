@@ -183,12 +183,14 @@ function ActivityPlaceEnrichment({
   destination,
   mapControls,
   placeName,
+  title,
 }: {
   address: string | null
   approximateArea: string | null
   destination: string
   mapControls?: PlaceMapControls
   placeName: string | null
+  title: string
 }) {
   const request = useMemo(
     () =>
@@ -197,8 +199,9 @@ function ActivityPlaceEnrichment({
         approximateArea,
         destination,
         placeName,
+        title,
       }),
-    [address, approximateArea, destination, placeName]
+    [address, approximateArea, destination, placeName, title]
   )
 
   return (

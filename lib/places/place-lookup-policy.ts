@@ -34,17 +34,24 @@ export function buildActivityPlaceEnrichmentRequest({
   approximateArea,
   destination,
   placeName,
+  title,
 }: {
   address: string | null
   approximateArea: string | null
   destination: string
   placeName: string | null
+  title?: string
 }): PlaceEnrichmentRequest | null {
-  if (placeName === null && address === null) {
+  const titlePlaceName =
+    placeName === null && address === null && title !== undefined
+      ? getSpecificPlaceNameFromActivityTitle(title)
+      : null
+
+  if (placeName === null && address === null && titlePlaceName === null) {
     return null
   }
 
-  const query = placeName ?? address ?? ""
+  const query = placeName ?? address ?? titlePlaceName ?? ""
 
   if (isGenericActivityPlaceQuery(query)) {
     return null
@@ -57,6 +64,26 @@ export function buildActivityPlaceEnrichmentRequest({
     ...(address !== null ? { address } : {}),
     ...(approximateArea !== null ? { area: approximateArea } : {}),
   }
+}
+
+export function getSpecificPlaceNameFromActivityTitle(title: string) {
+  if (isGenericActivityPlaceQuery(title)) {
+    return null
+  }
+
+  const normalizedTitle = title.trim().replace(/\s+/g, " ")
+
+  if (normalizedTitle.length === 0) {
+    return null
+  }
+
+  const withoutPrefix = normalizedTitle
+    .replace(/^visit\s+/i, "")
+    .replace(/^explore\s+/i, "")
+    .replace(/^(?:morning|afternoon|evening|night)\s+walk\s+at\s+/i, "")
+    .replace(/^walk\s+at\s+/i, "")
+
+  return withoutPrefix.length > 0 ? withoutPrefix : null
 }
 
 export function isGenericActivityPlaceQuery(query: string) {

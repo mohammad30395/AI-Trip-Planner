@@ -286,8 +286,15 @@ function ActivityPlaceCard({
         approximateArea: activity.approximateArea,
         destination,
         placeName: activity.placeName,
+        title: activity.title,
       }),
-    [activity.address, activity.approximateArea, activity.placeName, destination]
+    [
+      activity.address,
+      activity.approximateArea,
+      activity.placeName,
+      activity.title,
+      destination,
+    ]
   )
   const placeImageState = usePlaceEnrichment(placeImageRequest)
   const placeImage =
@@ -349,6 +356,7 @@ function ActivityPlaceCard({
               destination={destination}
               mapControls={mapControls}
               placeName={activity.placeName}
+              title={activity.title}
             />
           </CardContent>
         </div>

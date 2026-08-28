@@ -8,6 +8,7 @@ import {
 import {
   buildActivityPlaceEnrichmentRequest,
   buildDestinationCoverEnrichmentRequest,
+  getSpecificPlaceNameFromActivityTitle,
 } from "@/lib/places/place-lookup-policy"
 import { buildPlaceEnrichmentCacheKey } from "@/components/trips/place-enrichment"
 
@@ -122,6 +123,35 @@ describe("external image validation and lookup policy", () => {
         placeName: "Lunch at local eatery",
       })
     ).toBeNull()
+
+    expect(
+      buildActivityPlaceEnrichmentRequest({
+        address: null,
+        approximateArea: null,
+        destination: "Sylhet",
+        placeName: null,
+        title: "Travel from Dhaka to Sylhet",
+      })
+    ).toBeNull()
+  })
+
+  test("derives specific place lookup from specific activity titles only", () => {
+    expect(getSpecificPlaceNameFromActivityTitle("Visit Ratargul Swamp Forest")).toBe(
+      "Ratargul Swamp Forest"
+    )
+    expect(
+      buildActivityPlaceEnrichmentRequest({
+        address: null,
+        approximateArea: null,
+        destination: "Sylhet",
+        placeName: null,
+        title: "Visit Ratargul Swamp Forest",
+      })
+    ).toEqual({
+      query: "Ratargul Swamp Forest",
+      lookupKind: "specific_place",
+      destination: "Sylhet",
+    })
   })
 
   test("deduplicates repeated My Trips destination cover lookup keys", () => {

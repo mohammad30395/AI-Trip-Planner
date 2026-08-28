@@ -85,17 +85,12 @@ export function buildTripMapLookups(
 
   const activityLookups = trip.days.flatMap((day) =>
     day.activities.flatMap((activity, index) => {
-      const query = activity.placeName ?? activity.address
-
-      if (query === null) {
-        return []
-      }
-
       const request = buildActivityPlaceEnrichmentRequest({
         address: activity.address,
         approximateArea: activity.approximateArea,
         destination: trip.destination,
         placeName: activity.placeName,
+        title: activity.title,
       })
 
       if (request === null) {
@@ -107,9 +102,9 @@ export function buildTripMapLookups(
           "activity",
           String(day.dayNumber),
           String(index),
-          query,
+          request.query,
         ]),
-        label: activity.placeName ?? activity.title,
+        label: request.query,
         dayLabel: `Day ${day.dayNumber}`,
         request,
       }
