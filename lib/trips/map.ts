@@ -95,6 +95,7 @@ export const GLOBAL_FALLBACK_CENTER = {
 export const CANONICAL_PLACE_ZOOM = 13
 export const GLOBAL_FALLBACK_ZOOM = 2
 export const MAP_OUTLIER_MAX_DISTANCE_METERS = 300_000
+export const MAP_UNANCHORED_LOCAL_POINT_MAX_DISTANCE_METERS = 500_000
 export const MARKER_COLLISION_DISTANCE_PX = 32
 
 export function buildTripMapLookups(
@@ -236,16 +237,20 @@ export function buildTripMapPoints({
   const destinationPoint = accepted.find(
     (entry) => entry.point.kind === "destination"
   )?.point
+  const routeAnchorPoints = accepted
+    .filter(
+      (entry) =>
+        entry.point.kind === "origin" || entry.point.kind === "destination"
+    )
+    .map((entry) => entry.point)
   const pointsByKey = new Map<string, TripMapPoint>()
   let acceptedActivitySequence = 0
 
   for (const entry of accepted) {
-    if (
-      destinationPoint !== undefined &&
-      isDestinationLocalPoint(entry.point) &&
-      getDistanceMeters(destinationPoint, entry.point) >
-        MAP_OUTLIER_MAX_DISTANCE_METERS
-    ) {
+    if (isDestinationLocalOutlier(entry.point, {
+      destinationPoint,
+      routeAnchorPoints,
+    })) {
       onDiagnostic?.("map-point-outlier-skipped", {
         id: entry.point.id,
         kind: entry.point.kind,
@@ -484,6 +489,42 @@ function toTripMapPoint({ lookup, place }: TripMapEnrichedLookup): TripMapPoint 
 
 function isDestinationLocalPoint(point: TripMapPoint) {
   return point.kind === "activity" || point.kind === "hotel"
+}
+
+function isDestinationLocalOutlier(
+  point: TripMapPoint,
+  {
+    destinationPoint,
+    routeAnchorPoints,
+  }: {
+    destinationPoint: TripMapPoint | undefined
+    routeAnchorPoints: readonly TripMapPoint[]
+  }
+) {
+  if (!isDestinationLocalPoint(point)) {
+    return false
+  }
+
+  if (destinationPoint !== undefined) {
+    return (
+      getDistanceMeters(destinationPoint, point) > MAP_OUTLIER_MAX_DISTANCE_METERS
+    )
+  }
+
+  if (routeAnchorPoints.length === 0) {
+    return false
+  }
+
+  const nearestAnchorDistanceMeters = Math.min(
+    ...routeAnchorPoints.map((anchorPoint) =>
+      getDistanceMeters(anchorPoint, point)
+    )
+  )
+
+  return (
+    nearestAnchorDistanceMeters >
+    MAP_UNANCHORED_LOCAL_POINT_MAX_DISTANCE_METERS
+  )
 }
 
 function getMapPointDedupeKey(point: TripMapPoint) {

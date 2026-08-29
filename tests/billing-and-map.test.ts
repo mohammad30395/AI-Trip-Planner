@@ -331,6 +331,45 @@ describe("map normalization and Leaflet-facing config", () => {
     expect(diagnostics).toEqual(["map-point-outlier-skipped"])
   })
 
+  test("skips gross destination-local outliers when destination marker is unavailable", () => {
+    const diagnostics: string[] = []
+    const points = buildTripMapPoints({
+      enrichedLookups: [
+        enrichedLookup("origin-sylhet", "sylhet", 24.8949, 91.8687, "origin"),
+        enrichedLookup(
+          "hotel-chittagong",
+          "chittagong-hotel",
+          22.3569,
+          91.7832,
+          "hotel"
+        ),
+        enrichedLookup(
+          "hotel-europe-outlier",
+          "unrelated-europe-hotel",
+          48.7164,
+          21.2611,
+          "hotel"
+        ),
+      ],
+      onDiagnostic: (diagnostic) => {
+        diagnostics.push(diagnostic)
+      },
+    })
+    const bounds = getTripMapBounds(points)
+
+    expect(points.map((point) => point.providerPlaceId)).toEqual([
+      "sylhet",
+      "chittagong-hotel",
+    ])
+    expect(points.some((point) => point.providerPlaceId === "unrelated-europe-hotel"))
+      .toBe(false)
+    expect(bounds?.southWest.lat).toBeGreaterThan(22)
+    expect(bounds?.northEast.lat).toBeLessThan(25)
+    expect(bounds?.southWest.lng).toBeGreaterThan(91)
+    expect(bounds?.northEast.lng).toBeLessThan(92)
+    expect(diagnostics).toEqual(["map-point-outlier-skipped"])
+  })
+
   test("handles one and twenty-plus points with stable bounds", () => {
     const onePoint = [mapPoint("only", 24.9, 91.9)]
     const manyPoints = Array.from({ length: 24 }, (_, index) =>
