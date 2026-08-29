@@ -9,11 +9,11 @@ import {
   parseFinalItineraryResponse,
   type ConversationalStepResponse,
   type FinalItineraryResponse,
-  type ValidationResult,
 } from "./contract"
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 const OPENROUTER_TIMEOUT_MS = 30_000
+const OPENROUTER_FINAL_ITINERARY_TIMEOUT_MS = 90_000
 const APP_TITLE = "AI Trip Planner"
 
 type OpenRouterConfig = {
@@ -30,6 +30,25 @@ type OpenRouterFinalItineraryResult = {
   response: FinalItineraryResponse
   model: string
 }
+
+type OpenRouterFailureCode =
+  | "provider_timeout"
+  | "provider_error"
+  | "empty_response"
+  | "invalid_json"
+  | "schema_validation"
+  | "output_truncated"
+
+type OpenRouterCallResult<T> =
+  | {
+      ok: true
+      data: T
+    }
+  | {
+      ok: false
+      error: string
+      code: OpenRouterFailureCode
+    }
 
 type OpenRouterConversationMessage = {
   role: "system" | "assistant" | "user"
@@ -49,6 +68,8 @@ type OpenRouterFinalItineraryRequest = {
 type OpenRouterChatCompletionResponse = {
   model?: string
   choices?: Array<{
+    finish_reason?: string | null
+    native_finish_reason?: string | null
     message?: {
       content?: string | null
     }
@@ -66,10 +87,10 @@ class OpenRouterConfigurationError extends Error {
 }
 
 class OpenRouterProviderError extends Error {
-  readonly reason: "timeout" | "empty_response" | "invalid_json" | "validation" | "provider"
+  readonly reason: OpenRouterFailureCode
 
   constructor(reason: OpenRouterProviderError["reason"]) {
-    super(`OpenRouter smoke call failed: ${reason}`)
+    super(`OpenRouter call failed: ${reason}`)
     this.name = "OpenRouterProviderError"
     this.reason = reason
   }
@@ -102,11 +123,14 @@ function getOpenRouterConfig(): OpenRouterConfig {
   }
 }
 
-function createOpenRouterClient(config: OpenRouterConfig) {
+function createOpenRouterClient(
+  config: OpenRouterConfig,
+  timeout = OPENROUTER_TIMEOUT_MS
+) {
   return new OpenAI({
     apiKey: config.apiKey,
     baseURL: OPENROUTER_BASE_URL,
-    timeout: OPENROUTER_TIMEOUT_MS,
+    timeout,
     maxRetries: 0,
     defaultHeaders: {
       "X-OpenRouter-Title": APP_TITLE,
@@ -116,7 +140,7 @@ function createOpenRouterClient(config: OpenRouterConfig) {
 
 async function runOpenRouterSmokeCall(
   signal?: AbortSignal
-): Promise<ValidationResult<OpenRouterSmokeResult>> {
+): Promise<OpenRouterCallResult<OpenRouterSmokeResult>> {
   return runOpenRouterConversationStep(
     {
       messages: [
@@ -140,7 +164,7 @@ async function runOpenRouterSmokeCall(
 async function runOpenRouterConversationStep(
   request: OpenRouterConversationRequest,
   signal?: AbortSignal
-): Promise<ValidationResult<OpenRouterSmokeResult>> {
+): Promise<OpenRouterCallResult<OpenRouterSmokeResult>> {
   const config = getOpenRouterConfig()
   const client = createOpenRouterClient(config)
 
@@ -170,7 +194,12 @@ async function runOpenRouterConversationStep(
       }
     )
 
-    const content = completion.choices?.[0]?.message?.content
+    const choice = completion.choices?.[0]
+    const content = choice?.message?.content
+
+    if (choice?.finish_reason === "length") {
+      throw new OpenRouterProviderError("output_truncated")
+    }
 
     if (!content) {
       throw new OpenRouterProviderError("empty_response")
@@ -179,13 +208,13 @@ async function runOpenRouterConversationStep(
     const parsedJson = parseJson(content)
 
     if (!parsedJson.ok) {
-      return parsedJson
+      return openRouterFailure("invalid_json", parsedJson.error)
     }
 
     const parsedResponse = parseConversationalStepResponse(parsedJson.data)
 
     if (!parsedResponse.ok) {
-      return parsedResponse
+      return openRouterFailure("schema_validation", parsedResponse.error)
     }
 
     return {
@@ -197,34 +226,25 @@ async function runOpenRouterConversationStep(
     }
   } catch (error) {
     if (error instanceof OpenRouterProviderError) {
-      return {
-        ok: false,
-        error: error.message,
-      }
+      return openRouterFailure(error.reason, error.message)
     }
 
     if (isAbortError(error)) {
-      return {
-        ok: false,
-        error: "OpenRouter smoke call timed out",
-      }
+      return openRouterFailure("provider_timeout", "OpenRouter smoke call timed out")
     }
 
     logSafeOpenRouterError(error)
 
-    return {
-      ok: false,
-      error: "OpenRouter provider call failed",
-    }
+    return openRouterFailure("provider_error", "OpenRouter provider call failed")
   }
 }
 
 async function runOpenRouterFinalItinerary(
   request: OpenRouterFinalItineraryRequest,
   signal?: AbortSignal
-): Promise<ValidationResult<OpenRouterFinalItineraryResult>> {
+): Promise<OpenRouterCallResult<OpenRouterFinalItineraryResult>> {
   const config = getOpenRouterConfig()
-  const client = createOpenRouterClient(config)
+  const client = createOpenRouterClient(config, OPENROUTER_FINAL_ITINERARY_TIMEOUT_MS)
 
   try {
     const completion = await client.post<OpenRouterChatCompletionResponse>(
@@ -252,11 +272,16 @@ async function runOpenRouterFinalItinerary(
           },
         },
         signal,
-        timeout: OPENROUTER_TIMEOUT_MS,
+        timeout: OPENROUTER_FINAL_ITINERARY_TIMEOUT_MS,
       }
     )
 
-    const content = completion.choices?.[0]?.message?.content
+    const choice = completion.choices?.[0]
+    const content = choice?.message?.content
+
+    if (choice?.finish_reason === "length") {
+      throw new OpenRouterProviderError("output_truncated")
+    }
 
     if (!content) {
       throw new OpenRouterProviderError("empty_response")
@@ -265,13 +290,13 @@ async function runOpenRouterFinalItinerary(
     const parsedJson = parseJson(content)
 
     if (!parsedJson.ok) {
-      return parsedJson
+      return openRouterFailure("invalid_json", parsedJson.error)
     }
 
     const parsedResponse = parseFinalItineraryResponse(parsedJson.data)
 
     if (!parsedResponse.ok) {
-      return parsedResponse
+      return openRouterFailure("schema_validation", parsedResponse.error)
     }
 
     return {
@@ -283,39 +308,44 @@ async function runOpenRouterFinalItinerary(
     }
   } catch (error) {
     if (error instanceof OpenRouterProviderError) {
-      return {
-        ok: false,
-        error: error.message,
-      }
+      return openRouterFailure(error.reason, error.message)
     }
 
     if (isAbortError(error)) {
-      return {
-        ok: false,
-        error: "OpenRouter final itinerary call timed out",
-      }
+      return openRouterFailure(
+        "provider_timeout",
+        "OpenRouter final itinerary call timed out"
+      )
     }
 
     logSafeOpenRouterError(error)
 
-    return {
-      ok: false,
-      error: "OpenRouter provider call failed",
-    }
+    return openRouterFailure("provider_error", "OpenRouter provider call failed")
   }
 }
 
-function parseJson(value: string): ValidationResult<unknown> {
+function parseJson(value: string): OpenRouterCallResult<unknown> {
   try {
     return {
       ok: true,
       data: JSON.parse(value),
     }
   } catch {
-    return {
-      ok: false,
-      error: "OpenRouter response was not valid JSON",
-    }
+    return openRouterFailure(
+      "invalid_json",
+      "OpenRouter response was not valid JSON"
+    )
+  }
+}
+
+function openRouterFailure(
+  code: OpenRouterFailureCode,
+  error: string
+): OpenRouterCallResult<never> {
+  return {
+    ok: false,
+    code,
+    error,
   }
 }
 
@@ -351,5 +381,7 @@ export {
   runOpenRouterFinalItinerary,
   runOpenRouterSmokeCall,
   OPENROUTER_TIMEOUT_MS,
+  OPENROUTER_FINAL_ITINERARY_TIMEOUT_MS,
+  type OpenRouterFailureCode,
   type OpenRouterConversationMessage,
 }

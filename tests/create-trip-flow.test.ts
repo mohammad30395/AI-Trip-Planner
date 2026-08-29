@@ -108,6 +108,141 @@ describe("create-trip pure state helpers", () => {
     )
   })
 
+  test("failed final generation preserves the confirmed brief", () => {
+    const readyState = {
+      ...initialCreateTripState,
+      requirements: completeRequirements,
+      currentStep: "readyForFinal",
+    } as const
+    const generatingState = createTripReducer(readyState, {
+      type: "finalGenerationStarted",
+    })
+    const failedState = createTripReducer(generatingState, {
+      type: "finalGenerationFailed",
+      error: "Itinerary generation unavailable.",
+    })
+
+    expect(failedState.currentStep).toBe("readyForFinal")
+    expect(failedState.requirements).toEqual(completeRequirements)
+    expect(failedState.finalItinerary).toBeNull()
+    expect(failedState.finalError).toBe("Itinerary generation unavailable.")
+  })
+
+  test("retrying final generation does not rerun interview state", () => {
+    const failedState = createTripReducer(
+      {
+        ...initialCreateTripState,
+        requirements: completeRequirements,
+        currentStep: "readyForFinal",
+        finalError: "Itinerary generation unavailable.",
+      },
+      {
+        type: "finalGenerationStarted",
+      }
+    )
+
+    expect(failedState.currentStep).toBe("readyForFinal")
+    expect(failedState.requirements).toEqual(completeRequirements)
+    expect(failedState.messages).toEqual(initialCreateTripState.messages)
+    expect(failedState.finalError).toBeNull()
+    expect(failedState.isGeneratingFinal).toBe(true)
+  })
+
+  test("successful final generation remains available to the save flow", () => {
+    const succeededState = createTripReducer(
+      {
+        ...initialCreateTripState,
+        requirements: completeRequirements,
+        currentStep: "readyForFinal",
+      },
+      {
+        type: "finalGenerationSucceeded",
+        itinerary: {
+          travelPlan: {
+            source: "Dhaka",
+            destination: "Tokyo",
+            durationDays: 3,
+            budgetTier: "mid-range",
+            groupSize: 2,
+            groupType: "couple",
+          },
+          summary: "Generated summary.",
+          hotels: [],
+          itinerary: [
+            {
+              dayNumber: 1,
+              title: "Arrival",
+              activities: [
+                {
+                  title: "Free time",
+                  description: "Rest after arrival.",
+                  timeWindow: "Evening",
+                  estimatedPriceText: "Generated estimate.",
+                  place: {
+                    kind: "generic_activity",
+                    name: null,
+                    addressHint: null,
+                    areaHint: null,
+                    originHint: null,
+                    destinationHint: null,
+                  },
+                },
+              ],
+            },
+            {
+              dayNumber: 2,
+              title: "Explore",
+              activities: [
+                {
+                  title: "Visit Tokyo Tower",
+                  description: "Visit Tokyo Tower.",
+                  timeWindow: "Morning",
+                  estimatedPriceText: "Generated estimate.",
+                  place: {
+                    kind: "specific_place",
+                    name: "Tokyo Tower",
+                    addressHint: null,
+                    areaHint: "Minato City",
+                    originHint: null,
+                    destinationHint: null,
+                  },
+                },
+              ],
+            },
+            {
+              dayNumber: 3,
+              title: "Departure",
+              activities: [
+                {
+                  title: "Train to airport",
+                  description: "Travel to the airport.",
+                  timeWindow: "Morning",
+                  estimatedPriceText: "Generated estimate.",
+                  place: {
+                    kind: "transport",
+                    name: null,
+                    addressHint: null,
+                    areaHint: null,
+                    originHint: "Tokyo",
+                    destinationHint: "Airport",
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        access: {
+          tier: "free",
+          quotaEnforced: true,
+        },
+      }
+    )
+
+    expect(succeededState.finalItinerary?.travelPlan.destination).toBe("Tokyo")
+    expect(succeededState.saveError).toBeNull()
+    expect(succeededState.savedTripId).toBeNull()
+  })
+
   test("builds deterministic conversation fallback selectors", () => {
     expect(buildFallbackConversationResponse({ source: "Dhaka" })).toMatchObject({
       nextUISelector: "destination",

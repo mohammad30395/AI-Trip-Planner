@@ -38,6 +38,11 @@ type FinalItineraryResponseEnvelope =
 type FinalItineraryErrorCode =
   | "configuration_error"
   | "provider_error"
+  | "provider_timeout"
+  | "empty_response"
+  | "invalid_json"
+  | "schema_validation"
+  | "output_truncated"
   | "quota_exceeded"
   | "validation_error"
 
@@ -69,6 +74,11 @@ const groupTypes = ["solo", "couple", "family", "friends", "business"] as const
 const finalItineraryErrorCodes = [
   "configuration_error",
   "provider_error",
+  "provider_timeout",
+  "empty_response",
+  "invalid_json",
+  "schema_validation",
+  "output_truncated",
   "quota_exceeded",
   "validation_error",
 ] as const
@@ -215,6 +225,10 @@ function validateItineraryDuration(
   }
 
   return { ok: true, data: itinerary }
+}
+
+function getFinalItineraryMaxTokensForDuration(durationDays: number) {
+  return Math.min(8_000, 5_200 + durationDays * 900)
 }
 
 function parseFinalItineraryRequirements(
@@ -523,8 +537,10 @@ function envelopeValidationError(error: string): FinalItineraryEnvelopeParseResu
 export {
   parseFinalItineraryRequest,
   parseFinalItineraryResponseEnvelope,
+  getFinalItineraryMaxTokensForDuration,
   validateItineraryDuration,
   type FinalItineraryRequest,
+  type FinalItineraryErrorCode,
   type FinalItineraryRequirements,
   type FinalItineraryQuota,
   type FinalItineraryResponseEnvelope,

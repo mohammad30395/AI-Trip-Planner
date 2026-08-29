@@ -203,14 +203,7 @@ export const finalItineraryResponseSchema = {
                 place: {
                   type: "object",
                   additionalProperties: false,
-                  required: [
-                    "kind",
-                    "name",
-                    "addressHint",
-                    "areaHint",
-                    "originHint",
-                    "destinationHint",
-                  ],
+                  required: ["kind"],
                   properties: {
                     kind: {
                       type: "string",
@@ -220,11 +213,11 @@ export const finalItineraryResponseSchema = {
                         "transport",
                       ],
                     },
-                    name: { type: ["string", "null"], minLength: 1 },
-                    addressHint: { type: ["string", "null"], minLength: 1 },
-                    areaHint: { type: ["string", "null"], minLength: 1 },
-                    originHint: { type: ["string", "null"], minLength: 1 },
-                    destinationHint: { type: ["string", "null"], minLength: 1 },
+                    name: { type: "string", minLength: 1 },
+                    addressHint: { type: "string", minLength: 1 },
+                    areaHint: { type: "string", minLength: 1 },
+                    originHint: { type: "string", minLength: 1 },
+                    destinationHint: { type: "string", minLength: 1 },
                   },
                 },
               },
@@ -825,11 +818,11 @@ function parsePlaceTextHint(
   }
 
   const kind = readEnum(object.data, "kind", itineraryPlaceKinds, path)
-  const name = readNullableString(object.data, "name", path)
-  const addressHint = readNullableString(object.data, "addressHint", path)
-  const areaHint = readNullableString(object.data, "areaHint", path)
-  const originHint = readNullableString(object.data, "originHint", path)
-  const destinationHint = readNullableString(
+  const name = readOptionalNullableString(object.data, "name", path)
+  const addressHint = readOptionalNullableString(object.data, "addressHint", path)
+  const areaHint = readOptionalNullableString(object.data, "areaHint", path)
+  const originHint = readOptionalNullableString(object.data, "originHint", path)
+  const destinationHint = readOptionalNullableString(
     object.data,
     "destinationHint",
     path
@@ -1004,6 +997,18 @@ function readNullableString(
   }
 
   return { ok: true, data: trimmed }
+}
+
+function readOptionalNullableString(
+  object: JsonObject,
+  key: string,
+  parentPath?: string
+): ValidationResult<string | null> {
+  if (!(key in object)) {
+    return { ok: true, data: null }
+  }
+
+  return readNullableString(object, key, parentPath)
 }
 
 function readIntegerInRange(

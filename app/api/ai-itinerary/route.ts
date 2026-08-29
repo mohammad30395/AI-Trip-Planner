@@ -3,8 +3,10 @@ import { NextResponse } from "next/server"
 
 import {
   parseFinalItineraryRequest,
+  getFinalItineraryMaxTokensForDuration,
   type TripGenerationAccessStatus,
   validateItineraryDuration,
+  type FinalItineraryErrorCode,
   type FinalItineraryRequirements,
   type FinalItineraryResponseEnvelope,
 } from "@/lib/ai/itinerary"
@@ -14,7 +16,7 @@ import {
 } from "@/lib/billing/trip-generation-access"
 import {
   OpenRouterConfigurationError,
-  OPENROUTER_TIMEOUT_MS,
+  OPENROUTER_FINAL_ITINERARY_TIMEOUT_MS,
   runOpenRouterFinalItinerary,
   type OpenRouterConversationMessage,
 } from "@/lib/ai/openrouter"
@@ -75,13 +77,27 @@ export async function POST(request: Request) {
     const result = await runOpenRouterFinalItinerary(
       {
         messages: buildFinalItineraryMessages(requirements),
-        maxTokens: getMaxTokensForDuration(requirements.durationDays),
+        maxTokens: getFinalItineraryMaxTokensForDuration(
+          requirements.durationDays
+        ),
       },
-      AbortSignal.timeout(OPENROUTER_TIMEOUT_MS)
+      AbortSignal.timeout(OPENROUTER_FINAL_ITINERARY_TIMEOUT_MS)
     )
 
     if (!result.ok) {
-      return itineraryError("Final itinerary generation failed.", 502, access)
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Final itinerary generation diagnostic", {
+          stage: "openrouter",
+          code: result.code,
+        })
+      }
+
+      return itineraryError(
+        "Final itinerary generation failed.",
+        result.code === "provider_timeout" ? 504 : 502,
+        access,
+        result.code
+      )
     }
 
     const validatedItinerary = validateItineraryDuration(
@@ -90,7 +106,14 @@ export async function POST(request: Request) {
     )
 
     if (!validatedItinerary.ok) {
-      return itineraryError(validatedItinerary.error, 502, access)
+      if (process.env.NODE_ENV === "development") {
+        console.warn("Final itinerary generation diagnostic", {
+          stage: "duration_validation",
+          code: "validation_error",
+        })
+      }
+
+      return itineraryError(validatedItinerary.error, 502, access, "validation_error")
     }
 
     return NextResponse.json({
@@ -167,27 +190,25 @@ function buildFinalSystemInstruction() {
     "Each day must include useful activities with timeWindow, timeOfDay when helpful, duration, semantic descriptions, and explicit place semantics.",
     "For every activity, set place.kind to specific_place, generic_activity, or transport.",
     "Use specific_place only for a real named attraction, venue, restaurant, hotel, station, terminal, or other place that can be searched by an external place provider. Put the exact proper place name in place.name and useful area/address hints in areaHint or addressHint when known.",
-    "Use generic_activity for actions such as check-in, freshen up, free time, rest, shopping without a named venue, or meals at an unspecified local eatery. For generic_activity set place.name to null.",
-    "Use transport for intercity transfers or route movements. Put origin and destination text in originHint and destinationHint when useful, but do not pretend the transfer itself is a point of interest. For transport set place.name to null.",
+    "Use generic_activity for actions such as check-in, freshen up, free time, rest, shopping without a named venue, or meals at an unspecified local eatery. For generic_activity, return place with kind only.",
+    "Use transport for intercity transfers or route movements. Put origin and destination text in originHint and destinationHint when useful, but do not pretend the transfer itself is a point of interest. For transport, do not include place.name.",
     "Include 2 to 4 hotel recommendations with areas, addresses when available, priceTier, and estimatedPriceText.",
     "Use estimatedPriceText for generated cost guidance only; do not claim exact prices, ratings, business availability, opening hours, or verified coordinates.",
     "Never invent precise coordinates, provider place IDs, image URLs, photos, ratings, or availability. Never turn a generic action into a fake business. Provider enrichment will verify canonical place data later.",
   ].join(" ")
 }
 
-function getMaxTokensForDuration(durationDays: number) {
-  return Math.min(8_000, 5_200 + durationDays * 900)
-}
-
 function itineraryError(
   error: string,
   status: number,
-  access: TripGenerationAccessStatus
+  access: TripGenerationAccessStatus,
+  code?: FinalItineraryErrorCode
 ) {
   return NextResponse.json(
     {
       ok: false,
       error,
+      ...(code !== undefined ? { code } : {}),
       access,
     } satisfies FinalItineraryResponseEnvelope,
     { status }

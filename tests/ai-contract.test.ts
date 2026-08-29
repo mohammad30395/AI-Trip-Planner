@@ -12,7 +12,11 @@ import {
   type FinalItineraryResponse,
   type ItineraryActivity,
 } from "@/lib/ai/contract"
-import { validateItineraryDuration } from "@/lib/ai/itinerary"
+import {
+  getFinalItineraryMaxTokensForDuration,
+  parseFinalItineraryResponseEnvelope,
+  validateItineraryDuration,
+} from "@/lib/ai/itinerary"
 import { toStoredFinalItineraryPayload } from "@/lib/ai/itinerary-storage"
 import { buildTripPresentation } from "@/lib/trips/presentation"
 
@@ -189,6 +193,41 @@ describe("AI runtime validators", () => {
     ])
   })
 
+  test("malformed AI output never becomes a Convex save payload", () => {
+    const parsed = parseFinalItineraryResponse(
+      itineraryWithMalformedActivityPlace({
+        kind: "specific_place",
+        addressHint: "Sylhet",
+      })
+    )
+
+    expect(parsed.ok).toBe(false)
+  })
+
+  test("distinguishes provider and schema-validation failure envelope codes", () => {
+    expect(
+      parseFinalItineraryResponseEnvelope({
+        ok: false,
+        error: "Final itinerary generation failed.",
+        code: "provider_timeout",
+      })
+    ).toMatchObject({
+      ok: false,
+      code: "provider_timeout",
+    })
+
+    expect(
+      parseFinalItineraryResponseEnvelope({
+        ok: false,
+        error: "Final itinerary generation failed.",
+        code: "schema_validation",
+      })
+    ).toMatchObject({
+      ok: false,
+      code: "schema_validation",
+    })
+  })
+
   test("normalizes legacy saved place hints into readable presentation semantics", () => {
     const result = buildTripPresentation({
       _id: "trip-1",
@@ -263,6 +302,24 @@ describe("AI runtime validators", () => {
 
     expect(validateItineraryDuration(itinerary, 1).ok).toBe(true)
   })
+
+  test("validates 1-day, 3-day, and 7-day itinerary durations", () => {
+    expect(
+      validateItineraryDuration(itineraryWithDayCount(1), 1).ok
+    ).toBe(true)
+    expect(
+      validateItineraryDuration(itineraryWithDayCount(3), 3).ok
+    ).toBe(true)
+    expect(
+      validateItineraryDuration(itineraryWithDayCount(7), 7).ok
+    ).toBe(true)
+  })
+
+  test("keeps 7-day output within the supported final-generation token budget", () => {
+    expect(getFinalItineraryMaxTokensForDuration(1)).toBe(6_100)
+    expect(getFinalItineraryMaxTokensForDuration(3)).toBe(7_900)
+    expect(getFinalItineraryMaxTokensForDuration(7)).toBe(8_000)
+  })
 })
 
 function itineraryWithActivities(
@@ -282,6 +339,23 @@ function itineraryWithActivities(
         activities,
       },
     ],
+  }
+}
+
+function itineraryWithDayCount(dayCount: number): FinalItineraryResponse {
+  return {
+    ...validFinalItineraryFixture,
+    travelPlan: {
+      ...validFinalItineraryFixture.travelPlan,
+      durationDays: dayCount,
+    },
+    itinerary: Array.from({ length: dayCount }, (_, index) => ({
+      dayNumber: index + 1,
+      title: `Day ${index + 1}`,
+      activities: [
+        genericActivity(`Free time day ${index + 1}`),
+      ],
+    })),
   }
 }
 
