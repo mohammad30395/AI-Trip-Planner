@@ -39,7 +39,41 @@
 - [x] Prompt-03 - Map UX and route comprehension
 - [x] UI Prompt-01 - Target design system foundation
 - [x] UI Prompt-02 - App shell, header, navigation, and auth UI
+- [x] UI Prompt-03 - Landing page hero, composer, suggestions, and preview
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## UI Prompt-03 - Landing Page Hero, Composer, Suggestions, and Preview
+
+Completion pass:
+- Rebuilt the public `/` landing composition around the target hierarchy:
+  shared header, centered hero, concise factual copy, large trip prompt
+  composer, quick suggestion chips, see-how-it-works affordance, static product
+  preview, supporting how-it-works section, and footer.
+- Added `TripPromptComposer` as a small client component for local textarea and
+  suggestion-chip state only.
+- Composer submission navigates to `/create-trip` and relies on existing Clerk
+  route protection; it does not call AI routes, consume quota, save trips, or
+  pass an invented prefill query contract.
+- Suggestion chips populate the local composer text without calling APIs.
+- Rebuilt `ProductPreview` as a static/presentational workspace preview using
+  app tokens, lucide icons, and an existing local landing image asset.
+- Simplified `HowItWorks` into factual product steps and moved it below the
+  product preview.
+- Removed `PopularDestinations` from the rendered home page without deleting
+  its reusable component file.
+- Added reusable landing guidance to `docs/UI_REDESIGN.md`.
+
+Verification:
+- `npm test` passed with 9 test files, 85 tests passed, and 2 skipped live
+  smoke guards.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
+- Rendered browser automation was unavailable in this Codex environment after
+  browser-tool discovery and local Playwright/Puppeteer checks.
+
+Next:
+- UI Prompt-04 can continue with the next scoped redesign milestone.
 
 ## UI Prompt-02 - App Shell, Header, Navigation, and Auth UI
 

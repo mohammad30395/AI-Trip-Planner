@@ -1,87 +1,38 @@
-import Link from "next/link"
+import { ArrowDown } from "lucide-react"
 
 import { AppContainer } from "@/components/app-container"
-import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
+import { TripPromptComposer } from "@/components/landing/trip-prompt-composer"
 
 function HeroSection() {
   return (
-    <section className="overflow-hidden border-b">
-      <AppContainer className="grid min-w-0 gap-10 py-14 sm:py-18 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.86fr)] lg:items-center lg:py-24">
-        <div className="min-w-0 max-w-3xl">
-          <Badge variant="outline" className="mb-5">
-            Public trip planning shell
-          </Badge>
-          <h1 className="font-heading text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-            Plan the shape of a trip before the details get messy.
+    <section className="overflow-hidden bg-background">
+      <AppContainer className="grid min-w-0 justify-items-center pt-20 pb-10 text-center sm:pt-24 sm:pb-12 lg:pt-28">
+        <div className="max-w-6xl">
+          <h1 className="font-heading text-4xl leading-tight font-bold text-foreground text-balance sm:text-5xl lg:text-6xl">
+            Hey, I&apos;m your personal{" "}
+            <span className="text-primary">Trip Planner</span>
           </h1>
-          <p className="app-muted mt-5 max-w-2xl text-lg leading-8">
-            Give the planner a source, destination, duration, budget, and group
-            size. The product milestones ahead will turn those inputs into a
-            conversational itinerary with places, hotels, and saved trips.
+          <p className="mx-auto mt-7 max-w-4xl text-base leading-7 font-medium text-muted-foreground sm:text-lg">
+            Tell us your source, destination, duration, budget, and group size.
+            The authenticated planner turns those details into a day-by-day trip
+            with hotels, activities, maps, and saved itineraries.
           </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/create-trip"
-              className={cn(buttonVariants({ size: "lg" }), "w-full sm:w-auto")}
-            >
-              Create Trip
-            </Link>
-            <Link
-              href="#how-it-works"
-              className={cn(
-                buttonVariants({ variant: "outline", size: "lg" }),
-                "w-full sm:w-auto"
-              )}
-            >
-              See how it works
-            </Link>
-          </div>
         </div>
 
-        <Card className="app-card relative min-h-[360px] min-w-0 p-5">
-          <div className="grid h-full gap-3">
-            <div className="rounded-lg border bg-muted/50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Trip brief
-              </p>
-              <div className="mt-4 grid gap-3 text-sm">
-                <PreviewRow label="From" value="Dhaka" />
-                <PreviewRow label="To" value="Coastal escape" />
-                <PreviewRow label="Duration" value="5 days" />
-                <PreviewRow label="Budget" value="Comfort focused" />
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border bg-background p-4">
-                <p className="text-sm font-medium">Day-by-day plan</p>
-                <p className="app-muted mt-2 text-sm leading-6">
-                  Balanced mornings, flexible afternoons, and practical travel
-                  notes.
-                </p>
-              </div>
-              <div className="rounded-lg border bg-background p-4">
-                <p className="text-sm font-medium">Place context</p>
-                <p className="app-muted mt-2 text-sm leading-6">
-                  Hotels and activities prepared for future Places enrichment.
-                </p>
-              </div>
-            </div>
-          </div>
-        </Card>
+        <div className="mt-8 w-full sm:mt-9">
+          <TripPromptComposer />
+        </div>
+
+        <a
+          href="#product-preview"
+          className="app-focus-ring mt-16 inline-flex items-center gap-2 rounded-[var(--app-pill-radius)] px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-soft-surface sm:mt-20 sm:text-base"
+        >
+          <span className="text-muted-foreground">Not sure where to start?</span>
+          <span>See how it works</span>
+          <ArrowDown aria-hidden="true" className="size-5" />
+        </a>
       </AppContainer>
     </section>
-  )
-}
-
-function PreviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex min-w-0 items-center justify-between gap-4 rounded-md bg-background px-3 py-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="min-w-0 text-right font-medium break-words">{value}</span>
-    </div>
   )
 }
 

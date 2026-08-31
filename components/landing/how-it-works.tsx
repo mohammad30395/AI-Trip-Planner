@@ -1,45 +1,45 @@
 import { AppContainer } from "@/components/app-container"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 
 const steps = [
   {
-    title: "Share the basics",
+    title: "Tell us about your trip",
     description:
-      "Start with where you are leaving from, where you want to go, how long you have, your budget, and group size.",
+      "Share the source, destination, trip length, budget, and who is traveling.",
   },
   {
-    title: "Shape the plan",
+    title: "AI builds your itinerary",
     description:
-      "The future conversational flow can clarify preferences before producing a structured itinerary.",
+      "The authenticated planner clarifies details and generates a structured day-by-day plan.",
   },
   {
-    title: "Review and save",
+    title: "Explore and save",
     description:
-      "Upcoming milestones will support enriched places, hotel/activity details, maps, and saved trips.",
+      "Review hotels, activities, practical place details, maps, and save trips to your account.",
   },
 ]
 
 function HowItWorks() {
   return (
-    <section id="how-it-works" className="app-section">
-      <AppContainer>
-        <div className="max-w-2xl">
-          <p className="app-muted text-sm font-medium uppercase tracking-wider">
-            How it works
-          </p>
-          <h2 className="mt-3 font-heading text-3xl font-semibold tracking-tight">
-            A simple path from rough idea to structured trip.
+    <section id="how-it-works" className="border-t bg-soft-surface/55 py-12 sm:py-16">
+      <AppContainer className="grid gap-8 lg:grid-cols-[minmax(0,0.62fr)_minmax(0,1fr)] lg:items-start">
+        <div className="max-w-xl">
+          <p className="text-sm font-semibold text-primary">How it works</p>
+          <h2 className="mt-3 font-heading text-2xl leading-tight font-bold text-foreground sm:text-3xl">
+            From rough idea to structured trip.
           </h2>
+          <p className="mt-4 text-sm leading-7 text-muted-foreground sm:text-base">
+            The public page starts the flow. The real AI planning experience
+            remains protected under your account.
+          </p>
         </div>
-        <div className="mt-8 grid min-w-0 gap-4 md:grid-cols-3">
+        <div className="grid min-w-0 gap-4 md:grid-cols-3">
           {steps.map((step, index) => (
-            <Card key={step.title} className="app-card min-w-0">
-              <CardHeader>
-                <div className="flex size-8 items-center justify-center rounded-lg bg-secondary text-sm font-semibold">
+            <Card key={step.title} className="min-w-0">
+              <CardContent>
+                <div className="mb-5 flex size-9 items-center justify-center rounded-full bg-accent text-sm font-bold text-accent-foreground">
                   {index + 1}
                 </div>
-              </CardHeader>
-              <CardContent>
                 <h3 className="font-heading text-lg font-semibold">
                   {step.title}
                 </h3>

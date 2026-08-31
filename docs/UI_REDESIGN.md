@@ -40,3 +40,12 @@
   implemented by an approved milestone.
 - Keep Clerk `Show` and `UserButton` behavior intact; style around them rather
   than replacing authentication behavior.
+
+## Landing Guidance
+
+- The public landing hero should center the primary trip-planning action:
+  heading, concise factual copy, large prompt composer, quick suggestion chips,
+  see-how-it-works affordance, then a static product/workspace preview.
+- Public landing interactions must route into `/create-trip`; they must not
+  call AI routes, consume quota, save trips, or invent a Create Trip prefill
+  contract.
