@@ -15,11 +15,13 @@ type ExternalImageFrameState = "loading" | "ready" | "missing" | "error"
 
 function ExternalImageFrame({
   className,
+  fallbackDescription,
   fallbackLabel,
   image,
   state,
 }: {
   className?: string
+  fallbackDescription?: string
   fallbackLabel: string
   image: ExternalImage | null | undefined
   state: ExternalImageFrameState
@@ -76,14 +78,22 @@ function ExternalImageFrame({
     )
   }
 
-  return <ImageFallback className={className} label={fallbackLabel} />
+  return (
+    <ImageFallback
+      className={className}
+      description={fallbackDescription}
+      label={fallbackLabel}
+    />
+  )
 }
 
 function ImageFallback({
   className,
+  description,
   label,
 }: {
   className?: string
+  description?: string
   label: string
 }) {
   return (
@@ -106,6 +116,11 @@ function ImageFallback({
         <span className="text-xs font-medium text-muted-foreground">
           Photo unavailable
         </span>
+        {description !== undefined ? (
+          <span className="max-w-48 break-words text-xs font-semibold text-foreground">
+            {description}
+          </span>
+        ) : null}
       </div>
     </div>
   )

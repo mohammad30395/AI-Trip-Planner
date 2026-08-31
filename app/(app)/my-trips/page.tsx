@@ -1,23 +1,21 @@
 import { auth } from "@clerk/nextjs/server"
 
-import { Badge } from "@/components/ui/badge"
 import { MyTripsDashboard } from "@/components/trips/my-trips-dashboard"
 
 async function MyTripsPage() {
   await auth.protect()
 
   return (
-    <section className="grid min-w-0 gap-6">
-      <div className="max-w-2xl">
-        <Badge variant="outline">Authenticated route</Badge>
-        <h1 className="mt-4 font-heading text-3xl font-semibold tracking-tight">
+    <section className="grid min-w-0 gap-8">
+      <header className="max-w-3xl">
+        <h1 className="font-heading text-4xl leading-tight font-bold tracking-normal sm:text-5xl">
           My Trips
         </h1>
-        <p className="app-muted mt-3 leading-7">
-          Review the itineraries saved to your account. Trip ownership is
-          resolved from your authenticated session.
+        <p className="app-muted mt-3 max-w-2xl text-base leading-7">
+          Saved itineraries from your account, ready to reopen whenever you are
+          planning the next step.
         </p>
-      </div>
+      </header>
 
       <MyTripsDashboard />
     </section>

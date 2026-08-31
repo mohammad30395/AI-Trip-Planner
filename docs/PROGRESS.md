@@ -2249,3 +2249,39 @@ Verification:
 
 Next milestone:
 - UI Prompt-11: My Trips page redesign.
+
+## UI Prompt-11 My Trips Dashboard
+
+Changed:
+- Redesigned `/my-trips` into a cleaner dashboard with a simple page heading,
+  broad shared app-container spacing, and no duplicate in-page primary Create
+  Trip CTA when saved trips exist.
+- Rebuilt saved trip cards as whole-card links with large 16:10 destination
+  imagery, strong `source -> destination` route titles, restrained card shadow,
+  subtle hover/focus treatment, and concise duration/budget metadata.
+- Preserved the existing owner-scoped Convex query, newest-first server order,
+  persisted trip ids, and `/view-trip/${tripId}` route construction.
+- Kept the existing destination-cover enrichment request pattern at one request
+  per rendered trip card and reused the safe `ExternalImageFrame` renderer.
+- Added a backwards-compatible optional image fallback description so cards can
+  show the destination name without fabricating photography or widening image
+  hosts.
+- Updated loading, empty, account-sync, and route error states to use polished
+  app panels and matching card-shaped skeletons.
+- Added focused unit coverage for dashboard card href, duration grammar, and
+  established budget label formatting.
+
+Verification:
+- Target My Trips screenshot inspected from `UI's ss`, especially
+  `Screenshot 2026-08-31 at 1.27.30 PM.png`, plus surrounding card/detail
+  references for image scale and route hierarchy.
+- `npm test` passed: 10 test files, 89 passed, 2 skipped.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Rendered browser verification was unavailable in this Codex environment: the
+  browser skill is present, but its required Node REPL execution tool was not
+  exposed, and local Playwright/Puppeteer packages are not installed.
+
+Next milestone:
+- UI Prompt-12.

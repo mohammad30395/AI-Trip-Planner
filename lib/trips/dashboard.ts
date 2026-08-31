@@ -23,6 +23,7 @@ export type TripCardData = {
   source: string
   destination: string
   durationLabel: string
+  budgetLabel: string
   budgetGroupLabel: string
   createdLabel: string
   statusLabel: string
@@ -36,6 +37,7 @@ export function buildTripCardData(trip: StoredTripListItem): TripCardData {
     source: safeText(trip.source, "Unknown source"),
     destination: safeText(trip.destination, "Untitled trip"),
     durationLabel: formatDuration(trip.durationDays),
+    budgetLabel: formatBudgetLabel(trip.budget),
     budgetGroupLabel: formatBudgetGroup(trip),
     createdLabel: formatDate(trip.createdAt),
     statusLabel: formatStatusLabel(trip.status),
@@ -48,7 +50,7 @@ function formatDuration(durationDays: number) {
     return "Unknown duration"
   }
 
-  return `${durationDays} day${durationDays === 1 ? "" : "s"}`
+  return `${durationDays} Day${durationDays === 1 ? "" : "s"}`
 }
 
 function formatBudgetGroup(trip: StoredTripListItem) {

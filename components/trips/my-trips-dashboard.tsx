@@ -3,9 +3,15 @@
 import Link from "next/link"
 import { useMemo } from "react"
 import { useConvexAuth, useQuery } from "convex/react"
+import {
+  AlertCircle,
+  ArrowRight,
+  ArrowUpRight,
+  MapPin,
+  Plane,
+} from "lucide-react"
 
 import { ExternalImageFrame } from "@/components/images/external-image-frame"
-import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { usePlaceEnrichment } from "@/components/trips/place-enrichment"
 import {
@@ -18,7 +24,6 @@ import {
 import { api } from "@/convex/_generated/api"
 import { buildDestinationCoverEnrichmentRequest } from "@/lib/places/place-lookup-policy"
 import { buildTripCardData, type TripCardData } from "@/lib/trips/dashboard"
-import { cn } from "@/lib/utils"
 
 function MyTripsDashboard() {
   const { isAuthenticated, isLoading } = useConvexAuth()
@@ -44,25 +49,11 @@ function MyTripsDashboard() {
   const cards = trips.map(buildTripCardData)
 
   return (
-    <section aria-labelledby="saved-trips" className="grid gap-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 id="saved-trips" className="font-heading text-xl font-semibold">
-            Saved Trips
-          </h2>
-          <p className="app-muted mt-1 text-sm">
-            Newest trips appear first.
-          </p>
-        </div>
-        <Link href="/create-trip" className={buttonVariants()}>
-          Create Trip
-        </Link>
-      </div>
-
-      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <section aria-label="Saved trips" className="grid gap-5">
+      <ul className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {cards.map((trip) => (
           <li key={trip.id}>
-            <TripCard trip={trip} />
+            <SavedTripCard trip={trip} />
           </li>
         ))}
       </ul>
@@ -72,25 +63,37 @@ function MyTripsDashboard() {
 
 function TripsAuthState() {
   return (
-    <Card className="app-card max-w-2xl">
-      <CardHeader>
-        <CardTitle>Trips are waiting for account sync</CardTitle>
+    <Card className="app-panel max-w-2xl p-0">
+      <CardHeader className="px-5 py-5">
+        <div className="flex items-start gap-3">
+          <span
+            className="grid size-10 shrink-0 place-items-center rounded-[var(--app-control-radius)] bg-accent text-primary"
+            aria-hidden="true"
+          >
+            <AlertCircle className="size-5" />
+          </span>
+          <div className="min-w-0">
+            <CardTitle>Trips are waiting for account sync</CardTitle>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-4 px-5 pb-5">
         <CardDescription>
           Clerk is signed in, but Convex has not verified the account token yet.
           Refresh this page after signing in, or sign out and sign in again if it
           stays here.
         </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Link href="/sign-in" className={buttonVariants({ variant: "outline" })}>
-          Sign In Again
-        </Link>
+        <div>
+          <Link href="/sign-in" className={buttonVariants({ variant: "outline" })}>
+            Sign In Again
+          </Link>
+        </div>
       </CardContent>
     </Card>
   )
 }
 
-function TripCard({ trip }: { trip: TripCardData }) {
+function SavedTripCard({ trip }: { trip: TripCardData }) {
   const coverRequest = useMemo(
     () => buildDestinationCoverEnrichmentRequest(trip.destination),
     [trip.destination]
@@ -100,63 +103,71 @@ function TripCard({ trip }: { trip: TripCardData }) {
     coverState.status === "success" ? coverState.place.image : undefined
 
   return (
-    <Card className="app-card h-full">
+    <Link
+      aria-label={`View trip from ${trip.source} to ${trip.destination}`}
+      className="app-focus-ring group block h-full overflow-hidden rounded-[var(--app-card-radius)] border bg-background shadow-[var(--app-shadow-card)] transition-[border-color,box-shadow,transform] hover:border-primary/30 hover:shadow-[var(--app-shadow-elevated)] active:translate-y-px"
+      href={trip.href}
+    >
       <ExternalImageFrame
+        className="aspect-[16/10] w-full transition-transform duration-300 group-hover:scale-[1.02]"
+        fallbackDescription={trip.destination}
         fallbackLabel={`${trip.destination} destination`}
         image={coverImage}
-        state={coverState.status === "loading" ? "loading" : "ready"}
+        state={
+          coverState.status === "loading"
+            ? "loading"
+            : coverImage === undefined
+              ? "missing"
+              : "ready"
+        }
       />
-      <CardHeader>
+      <div className="grid gap-3 p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="break-words">{trip.destination}</CardTitle>
-            <CardDescription className="mt-1 break-words">
-              From {trip.source}
-            </CardDescription>
-          </div>
-          <Badge variant="outline">{trip.statusLabel}</Badge>
+          <h2
+            className="min-w-0 break-words font-heading text-xl leading-snug font-bold tracking-normal text-foreground"
+            title={`${trip.source} to ${trip.destination}`}
+          >
+            <span>{trip.source}</span>
+            <ArrowRight
+              className="mx-1.5 inline size-5 align-[-0.15em] text-foreground/80"
+              aria-hidden="true"
+            />
+            <span>{trip.destination}</span>
+          </h2>
+          <span
+            className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border bg-soft-surface text-primary transition-transform group-hover:translate-x-0.5"
+            aria-hidden="true"
+          >
+            <ArrowUpRight className="size-4" />
+          </span>
         </div>
-      </CardHeader>
-      <CardContent className="grid gap-4">
-        <dl className="grid gap-2 text-sm">
-          <CardFact label="Duration" value={trip.durationLabel} />
-          <CardFact label="Budget / group" value={trip.budgetGroupLabel} />
-          <CardFact label="Created" value={trip.createdLabel} />
-          <CardFact label="Enrichment" value={trip.enrichmentLabel} />
-        </dl>
-        <Link
-          href={trip.href}
-          className={cn(buttonVariants({ variant: "outline" }), "w-full")}
-        >
-          View Trip
-        </Link>
-      </CardContent>
-    </Card>
-  )
-}
-
-function CardFact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-medium uppercase text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="mt-1 break-words font-medium">{value}</dd>
-    </div>
+        <p className="app-muted text-base font-medium leading-6">
+          {formatTripSummary(trip)}
+        </p>
+        <p className="app-muted text-xs font-medium">Saved {trip.createdLabel}</p>
+      </div>
+    </Link>
   )
 }
 
 function EmptyTripsState() {
   return (
-    <Card className="app-card max-w-2xl">
-      <CardHeader>
-        <CardTitle>No saved trips yet</CardTitle>
+    <Card className="app-panel mx-auto max-w-xl p-0 text-center">
+      <CardHeader className="items-center px-6 pt-8">
+        <span
+          className="grid size-14 place-items-center rounded-full bg-accent text-primary"
+          aria-hidden="true"
+        >
+          <Plane className="size-6" />
+        </span>
+        <CardTitle className="mt-4 text-2xl">No trips yet</CardTitle>
         <CardDescription>
-          Generate and save an itinerary to build your trip dashboard.
+          Generate and save an itinerary to start building your trip dashboard.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-6 pb-8">
         <Link href="/create-trip" className={buttonVariants()}>
+          <MapPin aria-hidden="true" />
           Create Trip
         </Link>
       </CardContent>
@@ -166,26 +177,37 @@ function EmptyTripsState() {
 
 function TripGridSkeleton() {
   return (
-    <section aria-label="Loading saved trips" className="grid gap-4">
-      <div className="h-5 w-32 animate-pulse rounded-md bg-muted" />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <section aria-label="Loading saved trips" aria-busy="true">
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 3 }, (_, index) => (
-          <Card key={index} className="app-card">
-            <div className="aspect-[16/9] animate-pulse border-b bg-muted" />
-            <CardHeader>
-              <div className="h-5 w-3/4 animate-pulse rounded-md bg-muted" />
-              <div className="h-4 w-1/2 animate-pulse rounded-md bg-muted" />
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              <div className="h-4 w-full animate-pulse rounded-md bg-muted" />
-              <div className="h-4 w-5/6 animate-pulse rounded-md bg-muted" />
-              <div className="h-8 w-full animate-pulse rounded-md bg-muted" />
-            </CardContent>
-          </Card>
+          <div
+            key={index}
+            className="overflow-hidden rounded-[var(--app-card-radius)] border bg-background shadow-[var(--app-shadow-card)]"
+          >
+            <div className="aspect-[16/10] animate-pulse border-b bg-muted" />
+            <div className="grid gap-3 p-4 sm:p-5">
+              <div className="h-6 w-4/5 animate-pulse rounded-md bg-muted" />
+              <div className="h-5 w-3/5 animate-pulse rounded-md bg-muted" />
+              <div className="h-3 w-24 animate-pulse rounded-md bg-muted" />
+            </div>
+          </div>
         ))}
       </div>
     </section>
   )
+}
+
+function formatTripSummary(trip: TripCardData) {
+  const durationText =
+    trip.durationLabel === "Unknown duration"
+      ? trip.durationLabel
+      : `${trip.durationLabel} Trip`
+  const budgetText =
+    trip.budgetLabel === "Budget"
+      ? trip.budgetLabel
+      : `${trip.budgetLabel} Budget`
+
+  return `${durationText} with ${budgetText}`
 }
 
 export { MyTripsDashboard }

@@ -126,3 +126,17 @@
 - `View on Map` should avoid disruptive page scrolling when the sticky desktop
   map is already visible, while still scrolling to the normal-flow map on
   stacked layouts.
+
+## My Trips Guidance
+
+- My Trips uses image-forward saved-trip cards with a compact route title and
+  duration/budget summary.
+- The dashboard grid should progress from 3 columns on desktop to 2 columns on
+  tablet and 1 column on mobile when card readability requires it.
+- Dashboard cards must navigate with the persisted trip id at
+  `/view-trip/[tripId]`.
+- Budget display may use only the established presentation formatter; stored
+  canonical budget values must remain unchanged.
+- Empty My Trips states may link to the real `/create-trip` route, but the
+  populated dashboard should avoid duplicating the authenticated header's
+  primary create action.
