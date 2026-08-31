@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import { useMemo, useState } from "react"
+import { ImageIcon } from "lucide-react"
 
 import {
   getExternalImageRenderMode,
@@ -89,42 +90,23 @@ function ImageFallback({
     <div
       aria-label={`No image available for ${label}`}
       className={cn(
-        "relative flex aspect-[16/9] items-center justify-center overflow-hidden border-b bg-[linear-gradient(135deg,var(--muted),var(--background)_48%,var(--accent))]",
+        "relative flex aspect-[16/9] items-center justify-center overflow-hidden border-b bg-soft-surface",
         className
       )}
       role="img"
     >
       <div
         aria-hidden="true"
-        className={cn(
-          "absolute inset-0",
-          "bg-[radial-gradient(circle_at_30%_25%,color-mix(in_oklch,var(--primary)_16%,transparent),transparent_32%),radial-gradient(circle_at_78%_72%,color-mix(in_oklch,var(--accent-foreground)_14%,transparent),transparent_34%)]"
-        )}
+        className="absolute inset-x-0 bottom-0 h-1 bg-primary/50"
       />
-      <svg
-        aria-hidden="true"
-        className="relative h-12 w-12 text-muted-foreground/60"
-        fill="none"
-        viewBox="0 0 64 64"
-      >
-        <path
-          d="M10 47 24 31l10 11 7-8 13 13"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="4"
-        />
-        <circle cx="43" cy="22" r="5" stroke="currentColor" strokeWidth="4" />
-        <rect
-          height="42"
-          rx="7"
-          stroke="currentColor"
-          strokeWidth="4"
-          width="48"
-          x="8"
-          y="11"
-        />
-      </svg>
+      <div className="relative grid justify-items-center gap-2 px-4 text-center">
+        <span className="grid size-12 place-items-center rounded-full bg-background text-primary ring-1 ring-border">
+          <ImageIcon className="size-5" aria-hidden="true" />
+        </span>
+        <span className="text-xs font-medium text-muted-foreground">
+          Photo unavailable
+        </span>
+      </div>
     </div>
   )
 }

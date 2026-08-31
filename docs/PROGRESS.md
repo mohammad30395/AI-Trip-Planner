@@ -2148,3 +2148,26 @@ Verification:
 
 Next milestone:
 - UI Prompt-08: itinerary card/detail presentation, while keeping saved-trip enrichment and map contracts intact.
+
+## UI Prompt-08 Generated Itinerary Content Redesign
+
+Changed:
+- Reworked saved trip content so `TripPresentation` renders the primary target-like trip heading with source/destination emphasis and a compact metadata row.
+- Redesigned hotel cards into image-forward two-column responsive cards using the existing safe place-enrichment image pipeline and stable fallbacks.
+- Redesigned day sections with a subtle timeline rail, orange day markers, stronger day headings, and responsive activity card grids.
+- Redesigned activity cards with image-first layout, time labels, estimated-cost metadata, best-time metadata when the schema exposes it, place details, enrichment state, and explicit map actions.
+- Replaced whole-card activity map activation with a real `View on Map` button while preserving `data-map-point-id` and existing focus callbacks.
+- Kept map internals, Leaflet lifecycle, marker IDs, Geoapify normalization, AI schemas, Convex functions/schema, auth, quota, and billing unchanged.
+- Updated image fallbacks to remain stable, light, and non-fabricated when no safe provider image is available.
+
+Verification:
+- Target itinerary screenshots inspected from `UI's ss`, including the hotel/day card references at `Screenshot 2026-08-31 at 1.26.15 PM.png` and `Screenshot 2026-08-31 at 1.26.54 PM.png`, plus map-action references at `1.27.02 PM` and `1.27.06 PM`.
+- `npm test` passed: 9 test files, 86 passed, 2 skipped.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `git diff --check` passed.
+- Rendered authenticated browser verification was unavailable in this Codex environment because no browser automation/session tool was exposed and Playwright/Puppeteer are not installed. A local Chrome executable exists, but it cannot safely drive an authenticated Clerk `/view-trip/[tripId]` session from the CLI.
+
+Next milestone:
+- UI Prompt-09: Leaflet map presentation and map interaction styling, without changing provider contracts.

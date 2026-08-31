@@ -85,3 +85,15 @@
   implied to be lost after a save failure.
 - Preserve automatic post-save navigation to `/view-trip/${tripId}`. Do not add
   artificial delays or replace it with a required manual View Trip action.
+- Trip content cards should use an image-first hierarchy: media, title,
+  generated description, estimate/detail pills, place capability, then the map
+  action.
+- Hotel and activity prices from AI output must remain labeled as estimates.
+  Do not present them as live rates, bookable availability, or provider-verified
+  pricing.
+- Ratings should be omitted unless a real verified rating field exists in the
+  current data contract.
+- `View on Map` belongs on an explicit button and should be enabled only after
+  existing enrichment provides a canonical mappable place.
+- Image fallbacks should keep card dimensions stable, stay neutral/light, and
+  never fabricate place photography.
