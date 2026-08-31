@@ -29,3 +29,14 @@
   feature-page redesigns into shared primitives.
 - Future UI prompts should apply these tokens to pages incrementally and keep
   functional behavior unchanged unless that prompt explicitly says otherwise.
+
+## Header Guidance
+
+- Public and authenticated headers share the same `BrandLogo` and
+  `HeaderShell` treatment: white sticky bar, compact orange mark, bold Poppins
+  wordmark, centered real-route navigation, and right-aligned Clerk-aware
+  controls.
+- Do not add placeholder destinations such as Contact unless a real route is
+  implemented by an approved milestone.
+- Keep Clerk `Show` and `UserButton` behavior intact; style around them rather
+  than replacing authentication behavior.

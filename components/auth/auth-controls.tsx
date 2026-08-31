@@ -1,31 +1,70 @@
+"use client"
+
 import { Show, UserButton } from "@clerk/nextjs"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-function AuthControls() {
+type AuthControlsProps = {
+  layout?: "desktop" | "mobile"
+}
+
+function closeMobileNav() {
+  window.dispatchEvent(new CustomEvent("ai-trip-planner:close-mobile-nav"))
+}
+
+function AuthControls({ layout = "desktop" }: AuthControlsProps) {
+  const pathname = usePathname()
+  const signedInAction = pathname.startsWith("/create-trip")
+    ? { href: "/my-trips", label: "My Trips" }
+    : { href: "/create-trip", label: "Create New trip" }
+  const isMobile = layout === "mobile"
+
   return (
-    <div className="flex shrink-0 items-center gap-2">
+    <div
+      className={cn(
+        "shrink-0 gap-2",
+        isMobile ? "grid" : "flex items-center"
+      )}
+    >
       <Show when="signed-out">
         <Link
           href="/sign-in"
-          className={cn(buttonVariants({ variant: "ghost" }), "hidden sm:inline-flex")}
+          onClick={isMobile ? closeMobileNav : undefined}
+          className={cn(
+            buttonVariants({ variant: isMobile ? "outline" : "ghost" }),
+            isMobile && "w-full justify-center"
+          )}
         >
-          Sign in
+          Sign In
         </Link>
-        <Link href="/sign-up" className={buttonVariants({ size: "lg" })}>
-          Create Trip
+        <Link
+          href="/sign-up"
+          onClick={isMobile ? closeMobileNav : undefined}
+          className={cn(
+            buttonVariants({ size: "lg" }),
+            isMobile && "w-full justify-center"
+          )}
+        >
+          Get Started
         </Link>
       </Show>
       <Show when="signed-in">
         <Link
-          href="/create-trip"
-          className={cn(buttonVariants({ size: "lg" }), "hidden sm:inline-flex")}
+          href={signedInAction.href}
+          onClick={isMobile ? closeMobileNav : undefined}
+          className={cn(
+            buttonVariants({ size: "lg" }),
+            isMobile && "w-full justify-center"
+          )}
         >
-          Create Trip
+          {signedInAction.label}
         </Link>
-        <UserButton />
+        <div className={cn(isMobile && "flex justify-center pt-1")}>
+          <UserButton />
+        </div>
       </Show>
     </div>
   )

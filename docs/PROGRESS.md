@@ -38,7 +38,38 @@
 - [x] Post-build Fix - External image URL enrichment
 - [x] Prompt-03 - Map UX and route comprehension
 - [x] UI Prompt-01 - Target design system foundation
+- [x] UI Prompt-02 - App shell, header, navigation, and auth UI
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## UI Prompt-02 - App Shell, Header, Navigation, and Auth UI
+
+Completion pass:
+- Added a reusable `BrandLogo` with a project-owned orange travel mark and
+  accessible home link.
+- Added a shared `HeaderShell` used by both public and authenticated layouts so
+  the product header keeps one visual language.
+- Reworked public navigation to use real routes only: Home and Pricing.
+- Reworked authenticated navigation to share the same shell, with Clerk-aware
+  contextual actions for My Trips or Create New trip.
+- Preserved Clerk `Show` and `UserButton` behavior; no custom auth system,
+  auth protection, or user-data exposure changes were introduced.
+- Added keyboard-accessible mobile navigation with explicit open/close state,
+  `aria-expanded`, a bounded panel, route links, and mobile auth controls.
+- Added `lucide-react` intentionally for the mobile menu and close icons.
+- Documented the reusable header/navigation rule in `docs/UI_REDESIGN.md`.
+
+Verification:
+- `npm test` passed with 9 test files, 85 tests passed, and 2 skipped live
+  smoke guards.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
+- Rendered browser automation was unavailable in this Codex environment after
+  browser-tool discovery and local Playwright/Puppeteer checks.
+
+Next:
+- UI Prompt-03 can begin the next scoped page-level redesign using the shared
+  header and UI-01 token foundation.
 
 ## UI Prompt-01 - Target Design System Foundation
 
