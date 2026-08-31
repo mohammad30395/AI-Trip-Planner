@@ -40,7 +40,45 @@
 - [x] UI Prompt-01 - Target design system foundation
 - [x] UI Prompt-02 - App shell, header, navigation, and auth UI
 - [x] UI Prompt-03 - Landing page hero, composer, suggestions, and preview
+- [x] UI Prompt-04 - Create Trip controller extraction
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## UI Prompt-04 - Create Trip Controller Extraction
+
+Completion pass:
+- Extracted Create Trip orchestration into `useCreateTripController()` so
+  `CreateTripShell` primarily composes the current layout and presentation
+  components.
+- Preserved the existing pure reducer, requirement normalization, validation,
+  selector progression, message shaping, and final-requirements helpers in
+  `create-trip-flow.ts`.
+- Preserved the conversational AI client contract exactly:
+  `POST /api/ai-model` with `{ messages, requirements }`.
+- Preserved the final itinerary client contract exactly:
+  `POST /api/ai-itinerary` with `{ requirements }`.
+- Preserved AbortController refs, request sequence guards, final-generation
+  duplicate guards, unmount cleanup, reset abort behavior, save request-key
+  idempotency, Convex save args, and `/view-trip/${tripId}` navigation after
+  successful save.
+- Did not change Create Trip visual layout, selectors, API routes, Convex
+  functions, auth/proxy behavior, quota, billing, Geoapify, Leaflet, or trip
+  schemas.
+- Documented the Create Trip controller boundary in `docs/UI_REDESIGN.md`.
+
+Verification:
+- `npm test` passed with 9 test files, 85 tests passed, and 2 skipped live
+  smoke guards.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
+- Unauthenticated `/create-trip` route smoke still returned Clerk signed-out
+  redirect status.
+- Rendered browser automation was unavailable in this Codex environment after
+  browser-tool discovery and local Playwright/Puppeteer checks.
+
+Next:
+- UI Prompt-05 can visually recompose the Create Trip workspace through the
+  controller boundary without editing AI/save orchestration.
 
 ## UI Prompt-03 - Landing Page Hero, Composer, Suggestions, and Preview
 

@@ -49,3 +49,9 @@
 - Public landing interactions must route into `/create-trip`; they must not
   call AI routes, consume quota, save trips, or invent a Create Trip prefill
   contract.
+
+## Create Trip Guidance
+
+- Create Trip presentation should consume `useCreateTripController()` instead
+  of embedding AI, quota, save, abort, or navigation orchestration in layout
+  components.
