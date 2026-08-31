@@ -6,7 +6,9 @@ import type {
   Map as LeafletMap,
   Marker,
 } from "leaflet"
+import { MapPinned, Route } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import {
   Card,
   CardContent,
@@ -97,31 +99,49 @@ function TripMapSection({
   const statusText = getMapStatusText(lookups.length, points.length)
 
   return (
-    <section aria-labelledby="trip-map" className="grid gap-4">
-      <div>
-        <h2 id="trip-map" className="font-heading text-xl font-semibold">
-          Trip Map
-        </h2>
-        <p className="app-muted mt-2 text-sm">
-          {source} {"->"} {destination}
-        </p>
+    <section aria-labelledby="trip-map" className="grid scroll-mt-28 gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-[var(--app-control-radius)] bg-accent text-primary">
+            <MapPinned className="size-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 id="trip-map" className="font-heading text-xl font-semibold">
+              Trip Map
+            </h2>
+            <p className="app-muted mt-1 text-sm">
+              Canonical map points for {source} {"->"} {destination}
+            </p>
+          </div>
+        </div>
+        <Badge variant="outline" className="bg-background">
+          {points.length} mapped {points.length === 1 ? "place" : "places"}
+        </Badge>
       </div>
 
-      <Card className="app-card overflow-hidden">
-        <CardHeader>
+      <Card
+        id="trip-map-panel"
+        className="app-panel gap-0 overflow-hidden p-0 [--card-spacing:--spacing(0)]"
+      >
+        <CardHeader className="border-b bg-background px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <CardTitle>{source} {"->"} {destination}</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Route className="size-4 text-primary" aria-hidden="true" />
+                {source} {"->"} {destination}
+              </CardTitle>
               <CardDescription>
-                {durationLabel} trip - {points.length} mapped{" "}
-                {points.length === 1 ? "place" : "places"}
+                {durationLabel} trip using verified place coordinates when
+                available.
               </CardDescription>
             </div>
             <MapLegend points={points} />
           </div>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <p className="app-muted text-sm">{statusText}</p>
+        <CardContent className="grid gap-0 p-0">
+          <div className="border-b bg-soft-surface/70 px-4 py-3 sm:px-5">
+            <p className="app-muted text-sm">{statusText}</p>
+          </div>
           <LeafletTripMap
             focusedMapPointId={focusedMapPointId}
             label={
@@ -308,7 +328,7 @@ function LeafletTripMap({
           {
             color: "var(--foreground)",
             dashArray: "6 8",
-            opacity: 0.55,
+            opacity: 0.38,
             weight: 3,
           }
         )
@@ -322,11 +342,15 @@ function LeafletTripMap({
       const leafletMarker = leafletModule
         .marker([markerInfo.position.lat, markerInfo.position.lng], {
           icon: leafletModule.divIcon({
-            className: "",
-            html: buildMarkerHtml(markerInfo.kind, markerInfo.markerLabel),
-            iconAnchor: [14, 28],
-            iconSize: [28, 28],
-            popupAnchor: [0, -28],
+            className: "trip-map-div-icon",
+            html: buildMarkerHtml(
+              markerInfo.kind,
+              markerInfo.markerLabel,
+              markerInfo.id === focusedMapPointIdRef.current
+            ),
+            iconAnchor: [17, 34],
+            iconSize: [34, 34],
+            popupAnchor: [0, -32],
           }),
           title: markerInfo.title,
         })
@@ -359,7 +383,7 @@ function LeafletTripMap({
       map.fitBounds(bounds, {
         animate: !prefersReducedMotion(),
         maxZoom: CANONICAL_PLACE_ZOOM,
-        padding: [28, 28],
+        padding: [56, 56],
       })
     }
 
@@ -435,15 +459,17 @@ function LeafletTripMap({
       <div
         ref={containerRef}
         aria-label={label}
-        className="h-64 w-full overflow-hidden rounded-lg border bg-muted/30 sm:h-80 lg:h-[28rem]"
+        className="trip-leaflet-map relative z-0 h-[min(58vh,40rem)] min-h-[22rem] w-full overflow-hidden bg-muted/30 sm:min-h-[28rem] lg:min-h-[34rem]"
         role="img"
       />
-      <p className="app-muted text-xs">
-        Map tiles use the application-controlled OpenStreetMap standard HTTPS
-        tile layer.
-      </p>
+      <div className="border-t bg-background px-4 py-2 sm:px-5">
+        <p className="app-muted text-xs">
+          Map tiles use the application-controlled OpenStreetMap standard HTTPS
+          tile layer.
+        </p>
+      </div>
       {mapError !== null ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+        <div className="mx-4 mb-4 rounded-[var(--app-control-radius)] border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 sm:mx-5">
           <p className="font-medium">{mapError.title}</p>
           <p className="mt-1 leading-6">{mapError.message}</p>
         </div>
@@ -464,7 +490,7 @@ function MapLegend({ points }: { points: TripMapPoint[] }) {
       {visibleKinds.map((kind) => (
         <li
           key={kind}
-          className="inline-flex items-center gap-1.5 rounded-md border bg-background px-2 py-1"
+          className="inline-flex items-center gap-1.5 rounded-full border bg-soft-surface px-2.5 py-1"
         >
           <span className={`trip-map-legend-dot trip-map-legend-dot-${kind}`} />
           <span>{getPointTypeLabel(kind)}</span>
@@ -487,7 +513,7 @@ function StopSummary({
 
   if (summaryPoints.length === 0) {
     return (
-      <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="border-t bg-background px-4 py-4 sm:px-5">
         <p className="app-muted text-sm">
           No verified map points are available yet. The written itinerary remains
           available below.
@@ -497,9 +523,9 @@ function StopSummary({
   }
 
   return (
-    <div className="grid gap-2 rounded-lg border bg-muted/20 p-3">
+    <div className="grid gap-3 border-t bg-background px-4 py-4 sm:px-5">
       <h3 className="text-sm font-medium">Mapped Journey</h3>
-      <ol className="grid gap-2 sm:grid-cols-2">
+      <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {summaryPoints.map((point) => {
           const selected = focusedMapPointId === point.id
 
@@ -507,8 +533,10 @@ function StopSummary({
             <li key={point.id}>
               <button
                 type="button"
-                className={`app-focus-ring flex w-full min-w-0 items-start gap-2 rounded-md border bg-background p-2 text-left transition-colors ${
-                  selected ? "border-foreground ring-2 ring-ring/35" : ""
+                className={`app-focus-ring flex h-full w-full min-w-0 items-start gap-2 rounded-[var(--app-control-radius)] border bg-soft-surface/70 p-2.5 text-left transition-[background-color,border-color,box-shadow] ${
+                  selected
+                    ? "border-primary bg-accent shadow-sm ring-3 ring-brand-orange/20"
+                    : "hover:border-primary/30"
                 }`}
                 data-map-point-id={point.id}
                 onClick={() => {
@@ -544,12 +572,12 @@ function StopSummary({
 
 function buildSafePopupContent(popup: TripMarkerPopupText) {
   const container = document.createElement("div")
-  container.className = "grid gap-1 text-sm"
+  container.className = "trip-map-popup-content"
 
   if (popup.imageUrl !== undefined) {
     const image = document.createElement("img")
     image.alt = popup.title
-    image.className = "mb-1 aspect-video w-full rounded object-cover"
+    image.className = "trip-map-popup-image"
     image.loading = "lazy"
     image.referrerPolicy = "no-referrer"
     image.src = popup.imageUrl
@@ -557,12 +585,12 @@ function buildSafePopupContent(popup: TripMarkerPopupText) {
   }
 
   const title = document.createElement("p")
-  title.className = "font-medium"
+  title.className = "trip-map-popup-title"
   title.textContent = popup.title
   container.append(title)
 
   const type = document.createElement("p")
-  type.className = "text-xs text-muted-foreground"
+  type.className = "trip-map-popup-meta"
   type.textContent = popup.sequenceLabel
     ? `${popup.typeLabel} - ${popup.sequenceLabel}`
     : popup.typeLabel
@@ -570,7 +598,7 @@ function buildSafePopupContent(popup: TripMarkerPopupText) {
 
   if (popup.formattedAddress !== undefined) {
     const address = document.createElement("p")
-    address.className = "text-xs text-muted-foreground"
+    address.className = "trip-map-popup-address"
     address.textContent = popup.formattedAddress
     container.append(address)
   }
@@ -624,16 +652,25 @@ function updateMarkerCollisionVisibility({
     const element = marker.getElement()
 
     if (element !== undefined) {
+      const selected = focusedMapPointId === markerInfo.id
+      const markerElement = element.querySelector<HTMLElement>(".trip-map-marker")
+
       element.style.pointerEvents = visible ? "" : "none"
       element.setAttribute("aria-hidden", visible ? "false" : "true")
+      element.classList.toggle("trip-map-div-icon-selected", selected)
+      markerElement?.classList.toggle("trip-map-marker-selected", selected)
     }
   }
 }
 
-function buildMarkerHtml(kind: TripMapPointKind, markerLabel: string) {
-  return `<span class="trip-map-marker trip-map-marker-${kind}">${escapeHtml(
-    markerLabel
-  )}</span>`
+function buildMarkerHtml(
+  kind: TripMapPointKind,
+  markerLabel: string,
+  selected: boolean
+) {
+  return `<span class="trip-map-marker trip-map-marker-${kind}${
+    selected ? " trip-map-marker-selected" : ""
+  }">${escapeHtml(markerLabel)}</span>`
 }
 
 function escapeHtml(value: string) {
@@ -668,18 +705,18 @@ function prefersReducedMotion() {
 
 function getMapStatusText(lookupCount: number, placeCount: number) {
   if (lookupCount === 0) {
-    return "No saved place query is available yet, so the map uses a documented global fallback."
+    return "No saved place query is available yet, so the map uses a documented global fallback center."
   }
 
   if (placeCount === 0) {
-    return "Looking up canonical Geoapify coordinates. Places without verified coordinates are skipped."
+    return "Looking up canonical Geoapify coordinates. Places without verified coordinates, outliers, or duplicates are skipped."
   }
 
   if (placeCount === 1) {
-    return "Showing 1 verified map point. Select a mapped item to focus it."
+    return "Showing 1 verified map point centered on its canonical coordinate."
   }
 
-  return `Showing ${placeCount} verified map points. Select a mapped item to focus it.`
+  return `Showing ${placeCount} verified map points framed together with app-controlled OpenStreetMap tiles.`
 }
 
 function getVisibleKinds(points: TripMapPoint[]) {

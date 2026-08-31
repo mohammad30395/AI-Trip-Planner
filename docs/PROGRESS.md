@@ -2171,3 +2171,42 @@ Verification:
 
 Next milestone:
 - UI Prompt-09: Leaflet map presentation and map interaction styling, without changing provider contracts.
+
+## UI Prompt-09 Leaflet Map Experience
+
+Changed:
+- Redesigned the saved-trip Leaflet panel into a larger rounded map surface with
+  target-like framing, route header, status strip, legend, and stable map height
+  across desktop, tablet, and mobile breakpoints.
+- Reworked project-owned `L.divIcon` markers toward compact brand-orange visual
+  treatment, with origin/destination/hotel variants and an obvious selected
+  marker ring, scale, and shadow.
+- Restyled marker popups through DOM-created content and scoped Leaflet CSS,
+  keeping textContent-based title, metadata, address, and optional safe image
+  rendering.
+- Preserved canonical Geoapify coordinate use, invalid/outlier/dedupe filtering,
+  one-point centering, multi-point `fitBounds`, global fallback state, OSM tile
+  URL, and OSM attribution.
+- Preserved card/map synchronization: hotel and activity `View on Map` selects
+  the stable map-point id, opens/focuses the marker, and marker clicks select
+  and scroll the matching card.
+- Added scroll-margin compatibility for selected trip cards and documented
+  durable map rules in `docs/UI_REDESIGN.md`.
+
+Verification:
+- Target map screenshots inspected from `UI's ss`, especially
+  `Screenshot 2026-08-31 at 1.27.02 PM.png`,
+  `Screenshot 2026-08-31 at 1.27.06 PM.png`,
+  `Screenshot 2026-08-31 at 1.27.30 PM.png`, and
+  `Screenshot 2026-08-31 at 1.27.35 PM.png`.
+- `npm test` passed: 9 test files, 86 passed, 2 skipped.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Rendered browser verification was unavailable in this Codex environment: the
+  browser skill is present, but its required Node REPL execution tool was not
+  exposed, and local Playwright/Puppeteer packages are not installed.
+
+Next milestone:
+- UI Prompt-10: saved-trip page composition/layout after the map polish is
+  committed.

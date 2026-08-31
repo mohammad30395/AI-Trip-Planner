@@ -224,7 +224,7 @@ function HotelCard({
   return (
     <article
       className={cn(
-        "group h-full overflow-hidden rounded-[var(--app-card-radius)] border bg-background shadow-[var(--app-shadow-card)] transition-[box-shadow,border-color,background-color]",
+        "group h-full scroll-mt-28 overflow-hidden rounded-[var(--app-card-radius)] border bg-background shadow-[var(--app-shadow-card)] transition-[box-shadow,border-color,background-color]",
         "hover:border-primary/30 hover:shadow-[var(--app-shadow-elevated)]",
         isFocused && "border-primary/45 bg-primary/[0.025] ring-3 ring-brand-orange/20"
       )}
@@ -414,7 +414,7 @@ function ActivityPlaceCard({
   return (
     <article
       className={cn(
-        "group h-full overflow-hidden rounded-[var(--app-card-radius)] border bg-background shadow-[var(--app-shadow-card)] transition-[box-shadow,border-color,background-color]",
+        "group h-full scroll-mt-28 overflow-hidden rounded-[var(--app-card-radius)] border bg-background shadow-[var(--app-shadow-card)] transition-[box-shadow,border-color,background-color]",
         "hover:border-primary/30 hover:shadow-[var(--app-shadow-elevated)]",
         isFocused &&
           "border-primary/45 bg-primary/[0.025] ring-3 ring-brand-orange/20"
@@ -788,6 +788,7 @@ function MapFocusButton({
         variant="outline"
         onClick={() => {
           mapControls.onFocusMapPoint(mapPointId)
+          scrollTripMapIntoView()
         }}
       >
         <MapPin aria-hidden="true" />
@@ -808,6 +809,17 @@ function MapFocusButton({
       Map location unavailable
     </Button>
   )
+}
+
+function scrollTripMapIntoView() {
+  document.getElementById("trip-map-panel")?.scrollIntoView({
+    behavior: prefersReducedMotion() ? "auto" : "smooth",
+    block: "center",
+  })
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
 }
 
 function useRetriablePlaceEnrichment(request: PlaceEnrichmentRequest | null) {

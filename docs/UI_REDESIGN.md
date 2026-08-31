@@ -97,3 +97,18 @@
   existing enrichment provides a canonical mappable place.
 - Image fallbacks should keep card dimensions stable, stay neutral/light, and
   never fabricate place photography.
+
+## Map Guidance
+
+- Saved-trip maps use canonical Geoapify-enriched coordinates only; AI output
+  must not be used as latitude/longitude.
+- Keep Leaflet with the application-controlled OpenStreetMap tile URL. Do not
+  substitute Mapbox, Google Maps, screenshots, or another map runtime for visual
+  parity.
+- OSM attribution must remain visible and unobstructed.
+- Default map markers should follow the brand-orange direction, with compact
+  labels and clear selected-marker treatment.
+- Cards and markers must share the same stable map-point identity so selected
+  card and selected marker states stay synchronized.
+- Desktop map panels may be sticky-compatible below the global header; mobile
+  maps must remain in normal document flow.

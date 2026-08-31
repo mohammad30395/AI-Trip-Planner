@@ -205,32 +205,51 @@
   }
 
   .trip-map-marker {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.75rem;
-    height: 1.75rem;
-    border: 2px solid white;
+    width: 2.125rem;
+    height: 2.125rem;
+    border: 3px solid white;
     border-radius: 9999px;
-    background: var(--primary);
+    background: var(--brand-orange);
     color: var(--primary-foreground);
-    box-shadow: 0 10px 24px oklch(0 0 0 / 20%);
-    font-size: 0.7rem;
+    box-shadow: 0 12px 24px rgb(15 23 42 / 0.18), 0 4px 12px rgb(255 79 10 / 0.22);
+    font-size: 0.72rem;
     font-weight: 700;
     line-height: 1;
+    transform: translateZ(0);
+    transition:
+      box-shadow 160ms ease,
+      transform 160ms ease,
+      background-color 160ms ease;
+  }
+
+  .trip-map-marker::after {
+    position: absolute;
+    inset: -0.46rem;
+    border: 2px solid color-mix(in srgb, var(--brand-orange) 58%, transparent);
+    border-radius: inherit;
+    content: "";
+    opacity: 0;
+    transform: scale(0.88);
+    transition:
+      opacity 160ms ease,
+      transform 160ms ease;
   }
 
   .trip-map-marker-origin,
   .trip-map-summary-marker-origin,
   .trip-map-legend-dot-origin {
-    background: oklch(0.52 0.14 150);
+    background: var(--success);
     color: white;
   }
 
   .trip-map-marker-destination,
   .trip-map-summary-marker-destination,
   .trip-map-legend-dot-destination {
-    background: oklch(0.48 0.18 260);
+    background: var(--info);
     color: white;
   }
 
@@ -244,8 +263,29 @@
   .trip-map-marker-hotel,
   .trip-map-summary-marker-hotel,
   .trip-map-legend-dot-hotel {
-    background: oklch(0.66 0.16 75);
-    color: oklch(0.16 0.02 75);
+    background: color-mix(in srgb, var(--brand-orange) 84%, var(--rating));
+    color: var(--primary-foreground);
+  }
+
+  .trip-map-marker-selected {
+    background: var(--brand-orange);
+    box-shadow:
+      0 0 0 2px rgb(255 255 255 / 0.95),
+      0 0 0 7px color-mix(in srgb, var(--brand-orange) 22%, transparent),
+      0 18px 34px rgb(15 23 42 / 0.28),
+      0 8px 18px rgb(255 79 10 / 0.3);
+    transform: scale(1.16) translateZ(0);
+  }
+
+  .trip-map-marker-selected::after {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .trip-map-div-icon,
+  .trip-map-div-icon-selected {
+    background: transparent;
+    border: 0;
   }
 
   .trip-map-summary-marker {
@@ -266,6 +306,73 @@
     width: 0.65rem;
     height: 0.65rem;
     border-radius: 9999px;
+  }
+
+  .trip-leaflet-map .leaflet-control-zoom {
+    border: 0;
+    border-radius: var(--app-control-radius);
+    box-shadow: 0 12px 28px rgb(15 23 42 / 0.12);
+    overflow: hidden;
+  }
+
+  .trip-leaflet-map .leaflet-control-zoom a {
+    border-color: var(--border);
+    color: var(--foreground);
+    font-family: var(--font-poppins);
+    font-weight: 600;
+  }
+
+  .trip-leaflet-map .leaflet-control-attribution {
+    background: rgb(255 255 255 / 0.84);
+    color: var(--muted-foreground);
+    font-family: var(--font-poppins);
+    font-size: 0.625rem;
+    line-height: 1.2;
+  }
+
+  .trip-leaflet-map .leaflet-popup-content-wrapper {
+    border: 1px solid var(--border);
+    border-radius: var(--app-card-radius);
+    box-shadow: var(--app-shadow-elevated);
+  }
+
+  .trip-leaflet-map .leaflet-popup-content {
+    margin: 0;
+    min-width: 12rem;
+    max-width: 16rem;
+    font-family: var(--font-poppins);
+  }
+
+  .trip-leaflet-map .leaflet-popup-tip {
+    box-shadow: 0 8px 18px rgb(15 23 42 / 0.1);
+  }
+
+  .trip-map-popup-content {
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.7rem;
+    border-left: 3px solid var(--brand-orange);
+  }
+
+  .trip-map-popup-image {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    border-radius: calc(var(--app-image-radius) * 0.75);
+    object-fit: cover;
+  }
+
+  .trip-map-popup-title {
+    color: var(--foreground);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .trip-map-popup-meta,
+  .trip-map-popup-address {
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    line-height: 1.45;
   }
 }
 
