@@ -20,19 +20,19 @@ function HeaderShell({
 }: HeaderShellProps) {
   return (
     <header className="sticky top-0 z-[1100] border-b border-border/70 bg-background/95">
-      <AppContainer className="grid h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+      <AppContainer className="grid h-20 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         <div className="min-w-0 justify-self-start">
           <BrandLogo />
         </div>
 
         <nav
-          className="hidden items-center justify-center gap-2 md:flex"
+          className="hidden items-center justify-center gap-2 lg:flex"
           aria-label={navLabel}
         >
           <NavLinks items={navItems} />
         </nav>
 
-        <div className="hidden justify-self-end md:flex">{actions}</div>
+        <div className="hidden justify-self-end lg:flex">{actions}</div>
 
         <MobileNav
           items={navItems}

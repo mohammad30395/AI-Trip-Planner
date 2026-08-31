@@ -78,13 +78,13 @@ function TripPromptComposer() {
             }
           }}
           rows={4}
-          className="app-focus-ring min-h-[9.75rem] w-full resize-none rounded-[var(--app-panel-radius)] border border-border bg-background px-6 py-6 pr-24 text-base leading-7 text-foreground shadow-[var(--app-shadow-card)] outline-none transition-colors placeholder:text-muted-foreground sm:min-h-[11rem] sm:px-8 sm:py-7 sm:text-lg"
+          className="app-focus-ring min-h-[9rem] w-full resize-none rounded-[var(--app-panel-radius)] border border-border bg-background px-5 py-5 pr-20 text-base leading-7 text-foreground shadow-[var(--app-shadow-card)] outline-none transition-colors placeholder:text-muted-foreground sm:min-h-[11rem] sm:px-8 sm:py-7 sm:pr-24 sm:text-lg"
           placeholder="Create a trip for Paris from New York"
         />
         <Button
           type="submit"
           size="icon-lg"
-          className="absolute bottom-5 right-5 size-12 rounded-[1rem] sm:bottom-6 sm:right-6"
+          className="absolute right-4 bottom-4 size-11 rounded-[1rem] sm:right-6 sm:bottom-6 sm:size-12"
           aria-label="Start planning this trip"
         >
           <Send aria-hidden="true" className="size-5" />
@@ -102,14 +102,14 @@ function TripPromptComposer() {
             <button
               key={suggestion.label}
               type="button"
-              className="app-focus-ring inline-flex min-h-11 items-center gap-2.5 rounded-[var(--app-pill-radius)] border bg-background px-4 py-2.5 text-sm font-medium text-foreground shadow-[0_8px_22px_rgb(15_23_42_/_0.04)] transition-colors hover:bg-soft-surface"
+              className="app-focus-ring inline-flex min-h-11 min-w-0 items-center gap-2.5 rounded-[var(--app-pill-radius)] border bg-background px-4 py-2.5 text-sm font-medium text-foreground shadow-[0_8px_22px_rgb(15_23_42_/_0.04)] transition-colors hover:bg-soft-surface"
               onClick={() => setPrompt(suggestion.prompt)}
             >
               <Icon
                 aria-hidden="true"
                 className={cn("size-4.5", suggestion.iconClassName)}
               />
-              <span>{suggestion.label}</span>
+              <span className="min-w-0 break-words">{suggestion.label}</span>
             </button>
           )
         })}

@@ -71,7 +71,7 @@ function TripPreviewPanel({
 
   return (
     <aside
-      className="app-panel flex min-h-[30rem] min-w-0 flex-col overflow-hidden lg:h-full lg:min-h-0"
+      className="app-panel flex min-h-[28rem] min-w-0 flex-col overflow-hidden sm:min-h-[30rem] xl:h-full xl:min-h-0"
       aria-labelledby="trip-context-title"
     >
       <header className="flex flex-none flex-col gap-3 border-b px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
@@ -94,7 +94,7 @@ function TripPreviewPanel({
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
-        <div className="relative flex min-h-[23rem] flex-1 flex-col overflow-hidden rounded-[calc(var(--app-panel-radius)-0.35rem)] border bg-soft-surface p-4 sm:p-5 lg:min-h-0">
+        <div className="relative flex min-h-[18rem] flex-1 flex-col overflow-hidden rounded-[calc(var(--app-panel-radius)-0.35rem)] border bg-soft-surface p-4 sm:min-h-[21rem] sm:p-5 xl:min-h-0">
           <div
             aria-hidden="true"
             className="absolute inset-0 opacity-70"

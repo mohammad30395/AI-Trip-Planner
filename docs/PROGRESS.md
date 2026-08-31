@@ -44,7 +44,55 @@
 - [x] UI Prompt-05 - Create Trip workspace shell, split layout, and panel architecture
 - [x] UI Prompt-06 - Create Trip conversation controls and interaction polish
 - [x] UI Prompt-12 - Pricing, auth surfaces, and secondary app states
+- [x] UI Prompt-13 - Responsive, overflow, sticky, and breakpoint hardening
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## UI Prompt-13 - Responsive, Overflow, Sticky, and Breakpoint Hardening
+
+Completion pass:
+- Audited the implemented UI routes and secondary states for responsive risks:
+  `/`, `/pricing`, `/sign-in`, `/sign-up`, root not-found, `/create-trip`,
+  `/my-trips`, `/view-trip/[tripId]`, loading, error, unavailable,
+  account-sync, empty, generation, quota, and retry states.
+- Moved the shared desktop header navigation from `md` to `lg` so tablet widths
+  use the mobile menu before centered links and Clerk-aware actions collide.
+- Tightened the landing hero, composer, suggestion chips, and product preview
+  at narrow mobile widths while preserving the existing `/create-trip`
+  navigation-only landing contract.
+- Moved the Create Trip split workspace to `xl` and reduced desktop bounded
+  heights so 1024px and 1180px widths stay stacked and short desktop windows
+  such as 1280x650 avoid oversized panel minimums.
+- Preserved Create Trip controller orchestration, AI request contracts,
+  quota/access states, save idempotency, post-save navigation, and generated
+  itinerary state transitions.
+- Added long-content wrapping and `min-w-0` guards to generated itinerary,
+  map, and saved-trip presentation surfaces for long locations, hotel names,
+  activity titles, and route labels.
+- Reduced sticky saved-trip map heights and stop-summary bounds so the map fits
+  better below the sticky app header on intermediate and short desktop
+  viewports.
+- Kept the saved-trip CSS split and `View on Map` JavaScript behavior aligned
+  at 1280px / `xl`; mobile and tablet maps remain in normal document flow.
+- Improved shared default and large button touch targets without changing
+  compact explicit button sizes or component APIs.
+- Did not change Clerk auth, Clerk Billing, Convex data access, ownership
+  rules, OpenRouter contracts, Arcjet quota logic, Geoapify enrichment,
+  Leaflet provider/lifecycle, OpenStreetMap tiles, routes, schemas,
+  dependencies, or environment handling.
+
+Verification:
+- Source-level responsive QA used the UI-13 viewport matrix:
+  360x800, 390x844, 430x932, 768x1024, 900x800, 1024x768, 1180x820,
+  1280x650, 1280x800, 1440x900, and 1600x1000.
+- Rendered browser automation was unavailable in this Codex environment after
+  the browser skill setup path, tool discovery for the required browser runner,
+  and local Playwright/Puppeteer checks.
+- Automated checks for this milestone are recorded in the implementation
+  report.
+
+Next:
+- UI Prompt-14 can continue from the hardened responsive breakpoints without
+  changing the functional architecture established by earlier milestones.
 
 ## UI Prompt-06 - Create Trip Conversation Controls and Interaction Polish
 

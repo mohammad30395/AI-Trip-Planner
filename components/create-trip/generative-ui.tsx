@@ -1027,9 +1027,9 @@ function GeneratedItinerary({
           {itinerary.hotels.map((hotel) => (
             <div
               key={`${hotel.name}-${hotel.area ?? hotel.address ?? "hotel"}`}
-              className="rounded-lg bg-background p-4 ring-1 ring-border"
+              className="min-w-0 rounded-lg bg-background p-4 ring-1 ring-border"
             >
-              <p className="text-sm font-medium">{hotel.name}</p>
+              <p className="break-words text-sm font-medium">{hotel.name}</p>
               <p className="app-muted mt-1 text-sm leading-6">
                 {hotel.description}
               </p>
@@ -1055,10 +1055,10 @@ function GeneratedItinerary({
         {itinerary.itinerary.map((day) => (
           <div
             key={day.dayNumber}
-            className="grid gap-3 rounded-lg bg-background p-4 ring-1 ring-border"
+            className="grid min-w-0 gap-3 rounded-lg bg-background p-4 ring-1 ring-border"
           >
             <div>
-              <p className="text-sm font-medium">
+              <p className="break-words text-sm font-medium">
                 Day {day.dayNumber}: {day.title}
               </p>
             </div>
@@ -1066,9 +1066,11 @@ function GeneratedItinerary({
               {day.activities.map((activity) => (
                 <div
                   key={`${day.dayNumber}-${activity.title}-${activity.timeWindow}`}
-                  className="rounded-lg border bg-muted/20 p-3"
+                  className="min-w-0 rounded-lg border bg-muted/20 p-3"
                 >
-                  <p className="text-sm font-medium">{activity.title}</p>
+                  <p className="break-words text-sm font-medium">
+                    {activity.title}
+                  </p>
                   <p className="app-muted mt-1 text-sm leading-6">
                     {activity.description}
                   </p>

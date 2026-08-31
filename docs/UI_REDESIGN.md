@@ -40,6 +40,9 @@
   implemented by an approved milestone.
 - Keep Clerk `Show` and `UserButton` behavior intact; style around them rather
   than replacing authentication behavior.
+- Keep the desktop header navigation at the `lg` breakpoint and above. Tablet
+  widths should use the mobile menu until the centered navigation and
+  Clerk-aware actions can fit without collision.
 
 ## Landing Guidance
 
@@ -49,6 +52,9 @@
 - Public landing interactions must route into `/create-trip`; they must not
   call AI routes, consume quota, save trips, or invent a Create Trip prefill
   contract.
+- Landing composer controls, suggestion chips, and preview header chrome should
+  wrap or simplify before they force horizontal overflow on 360px to 430px
+  mobile widths.
 
 ## Create Trip Guidance
 
@@ -61,6 +67,11 @@
 - Keep the conversation surface stable as messages grow by using a flex panel
   with internal scrolling on desktop; allow natural stacked document flow on
   mobile.
+- Keep the Create Trip split layout at the `xl` breakpoint and above. Below
+  `xl`, stacked panels are preferred over a cramped side-by-side workspace.
+- Desktop Create Trip panel heights must remain viewport bounded and usable on
+  short desktop windows such as 1280x650; avoid large fixed minimum heights that
+  create a second-page workspace before content requires it.
 - Before saved-trip provider enrichment supplies canonical place coordinates,
   Create Trip context visuals may be map-inspired only. They must not fabricate
   coordinates, initialize Leaflet, or imply verified geography.
@@ -126,6 +137,14 @@
 - `View on Map` should avoid disruptive page scrolling when the sticky desktop
   map is already visible, while still scrolling to the normal-flow map on
   stacked layouts.
+- The saved-trip CSS split breakpoint and `View on Map` interaction breakpoint
+  must stay aligned at 1280px / `xl`.
+- Sticky saved-trip maps should use viewport-bounded heights and compact stop
+  summaries so the map remains readable below the sticky app header on shorter
+  desktop viewports.
+- Saved-trip pages should tolerate long source, destination, hotel, and
+  activity names by using `min-w-0` containers and word wrapping where content
+  is user- or AI-provided.
 
 ## My Trips Guidance
 
@@ -154,3 +173,6 @@
 - Secondary loading, empty, error, not-found, and account-sync states should use
   product typography, app radius tokens, restrained icons, safe explanations,
   and real-route recovery actions only.
+- Default and large shared buttons should remain close to 44px touch targets.
+  Smaller sizes are reserved for compact, deliberate UI contexts where the
+  surrounding control group already provides clear affordance.

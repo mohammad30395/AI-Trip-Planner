@@ -44,7 +44,7 @@ function ConversationPanel({
   const statusLabel = getStatusLabel(state, isComplete)
 
   return (
-    <section className="app-panel flex min-h-[34rem] min-w-0 flex-col overflow-hidden lg:h-full lg:min-h-0">
+    <section className="app-panel flex min-h-[30rem] min-w-0 flex-col overflow-hidden sm:min-h-[34rem] xl:h-full xl:min-h-0">
       <header className="flex-none border-b px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -77,7 +77,7 @@ function ConversationPanel({
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
         <div
-          className="min-h-[14rem] flex-1 overflow-y-auto rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-3 sm:min-h-[16rem] sm:p-4 lg:min-h-0"
+          className="min-h-[12rem] flex-1 overflow-y-auto rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-3 sm:min-h-[16rem] sm:p-4 xl:min-h-0"
           aria-live="polite"
         >
           <div className="grid gap-3">
@@ -104,7 +104,7 @@ function ConversationPanel({
           </p>
         ) : null}
 
-        <div className="flex-none overflow-y-auto rounded-[var(--app-card-radius)] border bg-background p-4 lg:max-h-[min(24rem,42dvh)]">
+        <div className="flex-none overflow-y-auto rounded-[var(--app-card-radius)] border bg-background p-4 xl:max-h-[min(22rem,38dvh)]">
           {renderGenerativeUI({
             disabled: isBusy,
             selector,

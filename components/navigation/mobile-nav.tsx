@@ -29,7 +29,7 @@ function MobileNav({ items, actions, navLabel, className }: MobileNavProps) {
   }, [])
 
   return (
-    <div className={cn("relative md:hidden", className)}>
+    <div className={cn("relative lg:hidden", className)}>
       <Button
         type="button"
         variant="outline"

@@ -9,7 +9,7 @@ function CreateTripShell() {
 
   return (
     <section className="min-w-0" aria-labelledby="create-trip-title">
-      <div className="grid min-w-0 gap-5 lg:h-[calc(100dvh-12rem)] lg:min-h-[40rem] lg:max-h-[56rem] lg:grid-cols-[minmax(22rem,4fr)_minmax(0,6fr)] lg:items-stretch xl:gap-6">
+      <div className="grid min-w-0 gap-5 xl:h-[calc(100dvh-14rem)] xl:min-h-[28rem] xl:max-h-[52rem] xl:grid-cols-[minmax(22rem,4fr)_minmax(0,6fr)] xl:items-stretch xl:gap-6 2xl:max-h-[56rem]">
         <ConversationPanel
           onConfirm={controller.submitCurrentRequirements}
           onGenerateFinal={controller.generateFinalItinerary}

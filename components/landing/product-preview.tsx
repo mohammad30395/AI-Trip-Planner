@@ -19,13 +19,13 @@ function ProductPreview() {
         <Card className="app-card w-full max-w-5xl overflow-hidden p-0">
           <div className="border-b px-5 py-4 sm:px-7">
             <div className="flex min-w-0 items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <Sparkles aria-hidden="true" className="size-5 text-primary" />
-                <p className="font-heading text-base font-semibold">
+                <p className="min-w-0 break-words font-heading text-base font-semibold">
                   Where to today?
                 </p>
               </div>
-              <div className="flex items-center gap-2" aria-hidden="true">
+              <div className="hidden shrink-0 items-center gap-2 sm:flex" aria-hidden="true">
                 <span className="h-2 w-14 rounded-full bg-muted" />
                 <span className="h-2 w-10 rounded-full bg-muted" />
                 <span className="size-7 rounded-full border bg-background" />
@@ -76,7 +76,7 @@ function ProductPreview() {
                 </div>
               </div>
 
-              <div className="relative min-h-[17rem] overflow-hidden rounded-[var(--app-image-radius)] border bg-soft-surface sm:min-h-[21rem]">
+              <div className="relative min-h-[15rem] overflow-hidden rounded-[var(--app-image-radius)] border bg-soft-surface sm:min-h-[21rem]">
                 <Image
                   src="/landing/destination-coastal-v2.png"
                   alt="Sunny coastal destination preview"

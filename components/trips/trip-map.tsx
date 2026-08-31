@@ -106,15 +106,15 @@ function TripMapSection({
   return (
     <section aria-labelledby="trip-map" className="grid scroll-mt-28 gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex items-start gap-3">
+        <div className="flex min-w-0 items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-[var(--app-control-radius)] bg-accent text-primary">
             <MapPinned className="size-5" aria-hidden="true" />
           </span>
-          <div>
+          <div className="min-w-0">
             <h2 id="trip-map" className="font-heading text-xl font-semibold">
               Trip Map
             </h2>
-            <p className="app-muted mt-1 text-sm">
+            <p className="app-muted mt-1 break-words text-sm">
               Canonical map points for {source} {"->"} {destination}
             </p>
           </div>
@@ -130,8 +130,8 @@ function TripMapSection({
       >
         <CardHeader className="border-b bg-background px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
+            <div className="min-w-0">
+              <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 break-words text-lg">
                 <Route className="size-4 text-primary" aria-hidden="true" />
                 {source} {"->"} {destination}
               </CardTitle>
@@ -469,9 +469,9 @@ function LeafletTripMap({
         ref={containerRef}
         aria-label={label}
         className={cn(
-          "trip-leaflet-map relative z-0 h-[min(58vh,40rem)] min-h-[22rem] w-full overflow-hidden bg-muted/30 sm:min-h-[28rem] lg:min-h-[34rem]",
+          "trip-leaflet-map relative z-0 h-[min(58vh,40rem)] min-h-[20rem] w-full overflow-hidden bg-muted/30 sm:min-h-[24rem] lg:min-h-[28rem]",
           layout === "sticky" &&
-            "xl:h-[min(52dvh,34rem)] xl:min-h-[22rem] 2xl:min-h-[26rem]"
+            "xl:h-[clamp(15rem,38dvh,30rem)] xl:min-h-0 2xl:h-[clamp(18rem,42dvh,34rem)]"
         )}
         role="img"
       />
@@ -541,7 +541,7 @@ function StopSummary({
     <div
       className={cn(
         "grid gap-3 border-t bg-background px-4 py-4 sm:px-5",
-        layout === "sticky" && "xl:max-h-[13rem] xl:overflow-y-auto"
+        layout === "sticky" && "xl:max-h-[min(9rem,22dvh)] xl:overflow-y-auto"
       )}
     >
       <h3 className="text-sm font-medium">Mapped Journey</h3>

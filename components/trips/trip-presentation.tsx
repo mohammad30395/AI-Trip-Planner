@@ -58,12 +58,12 @@ function TripPresentation({ trip }: { trip: TripPresentationData }) {
   }
 
   return (
-    <article className="grid w-full gap-8 xl:grid-cols-[minmax(0,3fr)_minmax(24rem,2fr)] xl:items-start xl:gap-x-8 2xl:grid-cols-[minmax(0,3fr)_minmax(28rem,2fr)] 2xl:gap-x-10">
+    <article className="grid w-full min-w-0 gap-8 xl:grid-cols-[minmax(0,3fr)_minmax(24rem,2fr)] xl:items-start xl:gap-x-8 2xl:grid-cols-[minmax(0,3fr)_minmax(28rem,2fr)] 2xl:gap-x-10">
       <div className="min-w-0 xl:col-start-1 xl:row-start-1">
         <TripSummaryHeader trip={trip} />
       </div>
 
-      <aside className="min-w-0 xl:sticky xl:top-28 xl:z-10 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:self-start">
+      <aside className="min-w-0 xl:sticky xl:top-24 xl:z-10 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:self-start">
         <TripMapSection
           destination={trip.destination}
           durationLabel={trip.durationLabel}
@@ -98,7 +98,7 @@ function TripSummaryHeader({ trip }: { trip: TripPresentationData }) {
     <header className="grid gap-5">
       <div>
         <Badge variant="outline">Saved itinerary</Badge>
-        <h1 className="mt-4 font-heading text-4xl leading-tight font-bold tracking-normal text-foreground sm:text-5xl xl:text-[3.3rem]">
+        <h1 className="mt-4 break-words font-heading text-3xl leading-tight font-bold tracking-normal text-foreground sm:text-5xl xl:text-[3.3rem]">
           Your trip from{" "}
           <span className="text-foreground">{trip.source}</span> to{" "}
           <span className="text-primary">{trip.destination}</span> is ready
@@ -232,6 +232,7 @@ function HotelCard({
 
   return (
     <article
+      tabIndex={-1}
       className={cn(
         "group h-full scroll-mt-28 overflow-hidden rounded-[var(--app-card-radius)] border bg-background shadow-[var(--app-shadow-card)] transition-[box-shadow,border-color,background-color]",
         "hover:border-primary/30 hover:shadow-[var(--app-shadow-elevated)]",
@@ -422,6 +423,7 @@ function ActivityPlaceCard({
 
   return (
     <article
+      tabIndex={-1}
       className={cn(
         "group h-full scroll-mt-28 overflow-hidden rounded-[var(--app-card-radius)] border bg-background shadow-[var(--app-shadow-card)] transition-[box-shadow,border-color,background-color]",
         "hover:border-primary/30 hover:shadow-[var(--app-shadow-elevated)]",
@@ -758,7 +760,7 @@ function PlaceCapability({
         <p className="app-muted leading-6">{state.message}</p>
         {canRetry ? (
           <div>
-            <Button size="sm" type="button" variant="outline" onClick={onRetry}>
+            <Button type="button" variant="outline" onClick={onRetry}>
               Retry Place Lookup
             </Button>
           </div>
