@@ -40,11 +40,15 @@ import {
   createUserSafeError,
   type UserSafeError,
 } from "@/lib/errors/user-safe-error"
+import { cn } from "@/lib/utils"
+
+type TripMapLayout = "default" | "sticky"
 
 function TripMapSection({
   destination,
   durationLabel,
   focusedMapPointId,
+  layout = "default",
   lookups,
   onMarkerFocus,
   source,
@@ -52,6 +56,7 @@ function TripMapSection({
   destination: string
   durationLabel: string
   focusedMapPointId: string | null
+  layout?: TripMapLayout
   lookups: TripMapLookup[]
   onMarkerFocus: (mapPointId: string) => void
   source: string
@@ -149,11 +154,13 @@ function TripMapSection({
                 ? `${source} to ${destination} trip map with start, destination, and numbered itinerary markers`
                 : "Leaflet trip map using global fallback center"
             }
+            layout={layout}
             onMarkerFocus={onMarkerFocus}
             points={points}
           />
           <StopSummary
             focusedMapPointId={focusedMapPointId}
+            layout={layout}
             onMarkerFocus={onMarkerFocus}
             points={points}
           />
@@ -166,11 +173,13 @@ function TripMapSection({
 function LeafletTripMap({
   focusedMapPointId,
   label,
+  layout,
   onMarkerFocus,
   points,
 }: {
   focusedMapPointId: string | null
   label: string
+  layout: TripMapLayout
   onMarkerFocus: (mapPointId: string) => void
   points: TripMapPoint[]
 }) {
@@ -459,7 +468,11 @@ function LeafletTripMap({
       <div
         ref={containerRef}
         aria-label={label}
-        className="trip-leaflet-map relative z-0 h-[min(58vh,40rem)] min-h-[22rem] w-full overflow-hidden bg-muted/30 sm:min-h-[28rem] lg:min-h-[34rem]"
+        className={cn(
+          "trip-leaflet-map relative z-0 h-[min(58vh,40rem)] min-h-[22rem] w-full overflow-hidden bg-muted/30 sm:min-h-[28rem] lg:min-h-[34rem]",
+          layout === "sticky" &&
+            "xl:h-[min(52dvh,34rem)] xl:min-h-[22rem] 2xl:min-h-[26rem]"
+        )}
         role="img"
       />
       <div className="border-t bg-background px-4 py-2 sm:px-5">
@@ -502,10 +515,12 @@ function MapLegend({ points }: { points: TripMapPoint[] }) {
 
 function StopSummary({
   focusedMapPointId,
+  layout,
   onMarkerFocus,
   points,
 }: {
   focusedMapPointId: string | null
+  layout: TripMapLayout
   onMarkerFocus: (mapPointId: string) => void
   points: TripMapPoint[]
 }) {
@@ -523,9 +538,19 @@ function StopSummary({
   }
 
   return (
-    <div className="grid gap-3 border-t bg-background px-4 py-4 sm:px-5">
+    <div
+      className={cn(
+        "grid gap-3 border-t bg-background px-4 py-4 sm:px-5",
+        layout === "sticky" && "xl:max-h-[13rem] xl:overflow-y-auto"
+      )}
+    >
       <h3 className="text-sm font-medium">Mapped Journey</h3>
-      <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      <ol
+        className={cn(
+          "grid gap-2 sm:grid-cols-2 xl:grid-cols-3",
+          layout === "sticky" && "xl:grid-cols-1 2xl:grid-cols-2"
+        )}
+      >
         {summaryPoints.map((point) => {
           const selected = focusedMapPointId === point.id
 

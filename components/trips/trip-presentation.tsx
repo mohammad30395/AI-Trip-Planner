@@ -58,38 +58,47 @@ function TripPresentation({ trip }: { trip: TripPresentationData }) {
   }
 
   return (
-    <article className="mx-auto grid w-full max-w-6xl gap-8 lg:gap-10">
-      <TripSummaryHeader trip={trip} />
-      <TripMapSection
-        destination={trip.destination}
-        durationLabel={trip.durationLabel}
-        focusedMapPointId={focusedMapPointId}
-        lookups={mapLookups}
-        onMarkerFocus={setFocusedMapPointId}
-        source={trip.source}
-      />
-      <HotelList
-        destination={trip.destination}
-        hotels={trip.hotels}
-        mapControls={mapControls}
-      />
-      <DayByDayItinerary
-        days={trip.days}
-        destination={trip.destination}
-        mapControls={mapControls}
-      />
-      <TripNotesSection practicalNotes={trip.practicalNotes} />
-      <PlaceAttributionNotice />
+    <article className="grid w-full gap-8 xl:grid-cols-[minmax(0,3fr)_minmax(24rem,2fr)] xl:items-start xl:gap-x-8 2xl:grid-cols-[minmax(0,3fr)_minmax(28rem,2fr)] 2xl:gap-x-10">
+      <div className="min-w-0 xl:col-start-1 xl:row-start-1">
+        <TripSummaryHeader trip={trip} />
+      </div>
+
+      <aside className="min-w-0 xl:sticky xl:top-28 xl:z-10 xl:col-start-2 xl:row-span-2 xl:row-start-1 xl:self-start">
+        <TripMapSection
+          destination={trip.destination}
+          durationLabel={trip.durationLabel}
+          focusedMapPointId={focusedMapPointId}
+          layout="sticky"
+          lookups={mapLookups}
+          onMarkerFocus={setFocusedMapPointId}
+          source={trip.source}
+        />
+      </aside>
+
+      <div className="grid min-w-0 gap-8 xl:col-start-1 xl:row-start-2 lg:gap-10">
+        <HotelList
+          destination={trip.destination}
+          hotels={trip.hotels}
+          mapControls={mapControls}
+        />
+        <DayByDayItinerary
+          days={trip.days}
+          destination={trip.destination}
+          mapControls={mapControls}
+        />
+        <TripNotesSection practicalNotes={trip.practicalNotes} />
+        <PlaceAttributionNotice />
+      </div>
     </article>
   )
 }
 
 function TripSummaryHeader({ trip }: { trip: TripPresentationData }) {
   return (
-    <header className="grid gap-5 pt-2">
-      <div className="max-w-4xl">
+    <header className="grid gap-5">
+      <div>
         <Badge variant="outline">Saved itinerary</Badge>
-        <h1 className="mt-4 font-heading text-4xl leading-tight font-bold tracking-normal text-foreground sm:text-5xl lg:text-6xl">
+        <h1 className="mt-4 font-heading text-4xl leading-tight font-bold tracking-normal text-foreground sm:text-5xl xl:text-[3.3rem]">
           Your trip from{" "}
           <span className="text-foreground">{trip.source}</span> to{" "}
           <span className="text-primary">{trip.destination}</span> is ready
@@ -167,7 +176,7 @@ function HotelList({
       />
 
       {hotels.length > 0 ? (
-        <ul className="grid gap-5 md:grid-cols-2">
+        <ul className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
           {hotels.map((hotel, index) => (
             <li key={hotel.id}>
               <HotelCard
@@ -330,7 +339,7 @@ function DayByDayItinerary({
             </div>
 
             {day.activities.length > 0 ? (
-              <ol className="grid gap-5 md:grid-cols-2">
+              <ol className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,20rem),1fr))]">
                 {day.activities.map((activity, index) => (
                   <li key={activity.id}>
                     <ActivityPlaceCard
@@ -812,6 +821,10 @@ function MapFocusButton({
 }
 
 function scrollTripMapIntoView() {
+  if (window.matchMedia("(min-width: 1280px)").matches) {
+    return
+  }
+
   document.getElementById("trip-map-panel")?.scrollIntoView({
     behavior: prefersReducedMotion() ? "auto" : "smooth",
     block: "center",

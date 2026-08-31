@@ -1,7 +1,5 @@
-import Link from "next/link"
 import { auth } from "@clerk/nextjs/server"
 
-import { buttonVariants } from "@/components/ui/button"
 import { SavedTripDetail } from "@/components/trips/saved-trip-detail"
 
 type ViewTripPageProps = {
@@ -16,14 +14,8 @@ async function ViewTripPage({ params }: ViewTripPageProps) {
   const { tripId } = await params
 
   return (
-    <section className="grid min-w-0 gap-8">
+    <section className="min-w-0">
       <SavedTripDetail tripId={tripId} />
-
-      <div>
-        <Link href="/my-trips" className={buttonVariants({ variant: "outline" })}>
-          Back to My Trips
-        </Link>
-      </div>
     </section>
   )
 }

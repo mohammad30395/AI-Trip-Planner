@@ -112,3 +112,17 @@
   card and selected marker states stay synchronized.
 - Desktop map panels may be sticky-compatible below the global header; mobile
   maps must remain in normal document flow.
+
+## Saved Trip Layout Guidance
+
+- Saved trip detail pages should render one `TripPresentation` tree and one
+  `TripMapSection` tree; do not duplicate desktop/mobile copies.
+- On wide desktop screens, saved trips use a normal-document-scroll itinerary
+  column beside a sticky map column, with the itinerary around 60% and the map
+  around 40% of the content width.
+- Below the wide desktop breakpoint, the saved trip page stacks in one column
+  with the map in normal document flow after the trip header and before the
+  itinerary cards.
+- `View on Map` should avoid disruptive page scrolling when the sticky desktop
+  map is already visible, while still scrolling to the normal-flow map on
+  stacked layouts.

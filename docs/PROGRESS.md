@@ -2210,3 +2210,42 @@ Verification:
 Next milestone:
 - UI Prompt-10: saved-trip page composition/layout after the map polish is
   committed.
+
+## UI Prompt-10 Saved Trip Workspace
+
+Changed:
+- Reorganized saved trip detail rendering into a single responsive
+  `TripPresentation` tree with the existing itinerary content on the left and
+  one existing `TripMapSection` on the right at wide desktop sizes.
+- Added a wide-desktop split of roughly 60% itinerary to 40% map using normal
+  document scrolling, with the map column sticky below the global app header.
+- Kept tablet and smaller layouts stacked to avoid cramped columns, with the
+  mobile map in normal document flow after the trip header and before itinerary
+  cards so `View on Map` remains reachable.
+- Made hotel and activity grids container-aware so cards can remain two-up when
+  readable and collapse naturally in the narrower itinerary column.
+- Made the UI-09 map panel accept a tiny sticky-layout sizing mode without
+  changing Leaflet initialization, markers, popups, providers, coordinates, or
+  map ids.
+- Kept desktop `View on Map` from scrolling the page when the sticky map is
+  already visible, while preserving stacked-layout scrolling to the map.
+- Restyled saved-trip loading/unavailable states as compact app panels and kept
+  Convex query ownership and route semantics unchanged.
+
+Verification:
+- Target saved-trip screenshots inspected from `UI's ss`, especially the
+  itinerary/map split references at `Screenshot 2026-08-31 at 1.27.35 PM.png`,
+  `Screenshot 2026-08-31 at 1.27.02 PM.png`,
+  `Screenshot 2026-08-31 at 1.27.06 PM.png`, plus card-width references at
+  `Screenshot 2026-08-31 at 1.26.15 PM.png` and
+  `Screenshot 2026-08-31 at 1.26.54 PM.png`.
+- `npm test` passed: 9 test files, 86 passed, 2 skipped.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Rendered browser verification was unavailable in this Codex environment: the
+  browser skill is present, but its required Node REPL execution tool was not
+  exposed, and local Playwright/Puppeteer packages are not installed.
+
+Next milestone:
+- UI Prompt-11: My Trips page redesign.
