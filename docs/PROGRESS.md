@@ -37,7 +37,39 @@
 - [x] Post-build Fix - Canonical place matching
 - [x] Post-build Fix - External image URL enrichment
 - [x] Prompt-03 - Map UX and route comprehension
+- [x] UI Prompt-01 - Target design system foundation
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## UI Prompt-01 - Target Design System Foundation
+
+Completion pass:
+- Added `docs/UI_REDESIGN.md` as the persistent source of truth for UI
+  redesign tokens, primitive guidance, and architecture boundaries.
+- Switched the primary app font from Geist Sans to Poppins through
+  `next/font/google`, while retaining Geist Mono for monospace usage.
+- Replaced the grayscale-only theme base with compact light-first tokens for
+  brand orange, warm neutral surfaces, semantic success/rating/info colors,
+  dark-mode equivalents, target-like radius levels, and restrained shadows.
+- Broadened the shared app container max-width strategy while preserving
+  centered responsive padding.
+- Refined Button, Card, Input, and Badge styling without removing existing
+  variant names, size names, Base UI usage, or focus-visible accessibility.
+- Added the UI redesign rule to `AGENTS.md`.
+- Preserved feature behavior and architecture; no auth, Convex, AI, map,
+  provider, billing, route, or data-model logic changed.
+
+Verification:
+- `npm test` passed with 9 test files, 85 tests passed, and 2 skipped live
+  smoke guards.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
+- Rendered browser automation was unavailable in this Codex environment after
+  the browser skill setup path and local Playwright/Puppeteer checks.
+
+Next:
+- UI Prompt-02 can apply these shared tokens to the first page-level redesign
+  target without changing functional/security architecture.
 
 ## Prompt-03 - Map UX and Route Comprehension
 

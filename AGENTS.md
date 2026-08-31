@@ -13,5 +13,6 @@ Never print, copy, commit, or expose secret environment variable values.
 Run the relevant checks before marking a milestone complete.
 Use `npm test` for the automated pure/unit test suite when tests are relevant.
 Do not add dependencies unless the current milestone explicitly allows them or approval is given.
+For UI redesign milestones, read `docs/UI_REDESIGN.md` and preserve the existing functional/security architecture.
 
 This project uses the current stable Next.js App Router. For Next.js 16+, request interception belongs in `proxy.ts`.
