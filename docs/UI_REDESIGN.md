@@ -55,3 +55,12 @@
 - Create Trip presentation should consume `useCreateTripController()` instead
   of embedding AI, quota, save, abort, or navigation orchestration in layout
   components.
+- The Create Trip page should read as an app workspace: on desktop use an
+  approximately 40/60 conversation-to-context split, matched panel heights, and
+  the shared large panel radius with restrained borders and shadows.
+- Keep the conversation surface stable as messages grow by using a flex panel
+  with internal scrolling on desktop; allow natural stacked document flow on
+  mobile.
+- Before saved-trip provider enrichment supplies canonical place coordinates,
+  Create Trip context visuals may be map-inspired only. They must not fabricate
+  coordinates, initialize Leaflet, or imply verified geography.

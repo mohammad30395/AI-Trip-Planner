@@ -1,12 +1,5 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 import {
@@ -49,70 +42,89 @@ function ConversationPanel({
   const statusLabel = getStatusLabel(state, isComplete)
 
   return (
-    <Card className="app-card min-w-0">
-      <CardHeader className="border-b">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <CardTitle>Planning Conversation</CardTitle>
-            <p className="app-muted mt-1 text-sm">
+    <section className="app-panel flex min-h-[34rem] min-w-0 flex-col overflow-hidden lg:h-full lg:min-h-0">
+      <header className="flex-none border-b px-5 py-5 sm:px-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <Badge variant="outline">AI planning</Badge>
+            <h1
+              id="create-trip-title"
+              className="mt-4 max-w-xl font-heading text-2xl leading-tight font-bold tracking-normal text-foreground sm:text-3xl"
+            >
+              Start Planning new{" "}
+              <span className="text-primary">Trip</span> using AI
+            </h1>
+            <p className="app-muted mt-3 max-w-2xl text-sm leading-6">
+              Collect trip requirements with the assistant, then generate and
+              save a structured itinerary when the brief is ready.
+            </p>
+          </div>
+          <div className="grid shrink-0 gap-2 sm:justify-items-end">
+            <Badge variant={isComplete ? "default" : "secondary"}>
+              {statusLabel}
+            </Badge>
+            <p className="text-sm font-medium text-muted-foreground">
               Step {getStepNumber(state.currentStep)} of 6
             </p>
           </div>
-          <Badge variant={isComplete ? "default" : "secondary"}>
-            {statusLabel}
-          </Badge>
         </div>
-      </CardHeader>
-      <CardContent className="grid gap-5">
+      </header>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
         <div
-          className="grid max-h-[360px] min-h-[280px] gap-3 overflow-y-auto rounded-lg border bg-muted/25 p-3"
+          className="min-h-[14rem] flex-1 overflow-y-auto rounded-[var(--app-card-radius)] border bg-soft-surface/60 p-3 sm:min-h-[16rem] sm:p-4 lg:min-h-0"
           aria-live="polite"
         >
-          {state.messages.map((message) => (
-            <div
-              key={message.id}
-              className={cn(
-                "max-w-[92%] rounded-lg px-3 py-2 text-sm leading-6",
-                message.role === "assistant"
-                  ? "justify-self-start bg-background text-foreground ring-1 ring-border"
-                  : "justify-self-end bg-primary text-primary-foreground"
-              )}
-            >
-              {message.content}
-            </div>
-          ))}
+          <div className="grid gap-3">
+            {state.messages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "max-w-[92%] rounded-[var(--app-control-radius)] px-3 py-2 text-sm leading-6 shadow-sm",
+                  message.role === "assistant"
+                    ? "justify-self-start bg-background text-foreground ring-1 ring-border"
+                    : "justify-self-end bg-primary text-primary-foreground"
+                )}
+              >
+                {message.content}
+              </div>
+            ))}
+          </div>
         </div>
 
         {state.error !== null ? (
-          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p className="rounded-[var(--app-control-radius)] border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {state.error}
           </p>
         ) : null}
 
-        {renderGenerativeUI({
-          disabled: isBusy,
-          selector,
-          requirements: state.requirements,
-          onSubmitSource,
-          onSubmitDestination,
-          onSubmitDuration,
-          onSelectBudget,
-          onSubmitGroup,
-          onConfirm,
-          onGenerateFinal,
-          onReset,
-          onSaveTrip,
-          finalError: state.finalError,
-          finalQuota: state.finalQuota,
-          finalItinerary: state.finalItinerary,
-          generationAccess: state.generationAccess,
-          isGeneratingFinal: state.isGeneratingFinal,
-          isSavingTrip: state.isSavingTrip,
-          saveError: state.saveError,
-          savedTripId: state.savedTripId,
-        })}
-      </CardContent>
-      <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+        <div className="flex-none overflow-y-auto rounded-[var(--app-card-radius)] border bg-background p-4 lg:max-h-[min(24rem,42dvh)]">
+          {renderGenerativeUI({
+            disabled: isBusy,
+            selector,
+            requirements: state.requirements,
+            onSubmitSource,
+            onSubmitDestination,
+            onSubmitDuration,
+            onSelectBudget,
+            onSubmitGroup,
+            onConfirm,
+            onGenerateFinal,
+            onReset,
+            onSaveTrip,
+            finalError: state.finalError,
+            finalQuota: state.finalQuota,
+            finalItinerary: state.finalItinerary,
+            generationAccess: state.generationAccess,
+            isGeneratingFinal: state.isGeneratingFinal,
+            isSavingTrip: state.isSavingTrip,
+            saveError: state.saveError,
+            savedTripId: state.savedTripId,
+          })}
+        </div>
+      </div>
+
+      <footer className="flex flex-none flex-col gap-3 border-t bg-soft-surface/50 p-4 sm:flex-row sm:justify-between sm:px-5">
         <Button
           className="w-full sm:w-auto"
           disabled={isBusy}
@@ -122,8 +134,8 @@ function ConversationPanel({
         >
           Start Over
         </Button>
-      </CardFooter>
-    </Card>
+      </footer>
+    </section>
   )
 }
 

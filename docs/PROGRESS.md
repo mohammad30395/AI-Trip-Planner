@@ -41,7 +41,46 @@
 - [x] UI Prompt-02 - App shell, header, navigation, and auth UI
 - [x] UI Prompt-03 - Landing page hero, composer, suggestions, and preview
 - [x] UI Prompt-04 - Create Trip controller extraction
+- [x] UI Prompt-05 - Create Trip workspace shell, split layout, and panel architecture
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## UI Prompt-05 - Create Trip Workspace Shell, Split Layout, and Panel Architecture
+
+Completion pass:
+- Recomposed `/create-trip` as an app-like workspace under the existing global
+  header instead of a conventional page heading plus card stack.
+- Changed the desktop Create Trip composition to a viewport-aware split layout
+  using an approximately 40/60 conversation-to-context ratio with aligned panel
+  heights.
+- Rebuilt the left conversation panel as a large rounded workspace with a
+  header, internally scrollable conversation thread, bounded current-control
+  region, and footer reset action.
+- Rebuilt the right side as a visually dominant trip context workspace that
+  preserves source, destination, duration, budget, and traveler brief fields
+  from existing requirements state.
+- Used only a presentational map-inspired route surface before saved-trip
+  enrichment; no coordinates are fabricated and no Leaflet, Geoapify, Mapbox,
+  or external map request is introduced in Create Trip.
+- Kept `useCreateTripController()` as the single orchestration source and did
+  not change AI request bodies, final generation, save behavior, auth, quota,
+  billing, Convex, Geoapify, Leaflet, or route protection.
+- Added concise reusable Create Trip workspace guidance to
+  `docs/UI_REDESIGN.md`.
+
+Verification:
+- `npm test` passed with 9 test files, 85 tests passed, and 2 skipped live
+  smoke guards.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
+- Rendered browser automation was unavailable in this Codex environment after
+  the browser skill setup path, tool discovery for the required browser runner,
+  and local Playwright/Puppeteer checks.
+
+Next:
+- UI Prompt-06 can redesign the detailed selector controls, traveler/budget
+  cards, duration input, chat bubble details, and selected-control states within
+  the new workspace structure.
 
 ## UI Prompt-04 - Create Trip Controller Extraction
 
