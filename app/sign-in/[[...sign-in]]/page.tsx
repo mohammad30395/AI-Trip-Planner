@@ -1,14 +1,21 @@
 import { SignIn } from "@clerk/nextjs"
 
-import { AppContainer } from "@/components/app-container"
+import { AuthPageShell } from "@/components/auth/auth-page-shell"
+import { clerkAuthAppearance } from "@/components/auth/clerk-appearance"
 
 function SignInPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/20 py-12">
-      <AppContainer className="flex justify-center">
-        <SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" />
-      </AppContainer>
-    </main>
+    <AuthPageShell
+      title="Welcome back"
+      description="Sign in to continue planning and manage your saved trips."
+    >
+      <SignIn
+        routing="path"
+        path="/sign-in"
+        signUpUrl="/sign-up"
+        appearance={clerkAuthAppearance}
+      />
+    </AuthPageShell>
   )
 }
 

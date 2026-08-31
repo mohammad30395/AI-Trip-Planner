@@ -1,14 +1,10 @@
 "use client"
 
 import Link from "next/link"
+import { AlertCircle } from "lucide-react"
 
+import { AppStatePanel } from "@/components/ui/app-state-panel"
 import { Button, buttonVariants } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 
 function ViewTripError({
   reset,
@@ -24,15 +20,13 @@ function ViewTripError({
         </h1>
       </div>
 
-      <Card className="app-card max-w-2xl">
-        <CardHeader>
-          <CardTitle>Trip could not be loaded</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <p className="app-muted text-sm leading-6">
-            The saved trip hit an unexpected loading error. Retry this page, or
-            return to your saved trips.
-          </p>
+      <AppStatePanel
+        className="max-w-2xl"
+        description="The saved trip hit an unexpected loading error. Retry this page, or return to your saved trips."
+        icon={AlertCircle}
+        title="Trip could not be loaded"
+        tone="destructive"
+        action={
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button type="button" onClick={reset}>
               Try Again
@@ -44,8 +38,8 @@ function ViewTripError({
               My Trips
             </Link>
           </div>
-        </CardContent>
-      </Card>
+        }
+      />
     </section>
   )
 }

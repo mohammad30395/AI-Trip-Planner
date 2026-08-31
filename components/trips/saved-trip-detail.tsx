@@ -4,13 +4,8 @@ import Link from "next/link"
 import { useQuery } from "convex/react"
 import { AlertCircle, Loader2 } from "lucide-react"
 
+import { AppStatePanel } from "@/components/ui/app-state-panel"
 import { buttonVariants } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { TripPresentation } from "@/components/trips/trip-presentation"
 import { api } from "@/convex/_generated/api"
 import { buildTripPresentation } from "@/lib/trips/presentation"
@@ -121,31 +116,21 @@ function TripStateCard({
   const Icon = busy ? Loader2 : AlertCircle
 
   return (
-    <Card className="app-panel mx-auto max-w-2xl p-0">
-      <CardHeader className="px-5 py-5">
-        <div className="flex items-start gap-3">
-          <span
-            className="grid size-10 shrink-0 place-items-center rounded-[var(--app-control-radius)] bg-accent text-primary"
-            aria-hidden="true"
-          >
-            <Icon className={busy ? "size-5 animate-spin" : "size-5"} />
-          </span>
-          <div className="min-w-0">
-            <CardTitle>{title}</CardTitle>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="grid gap-4 px-5 pb-5">
-        <p className="app-muted text-sm leading-6">{message}</p>
-        {actionHref !== undefined && actionLabel !== undefined ? (
-          <div>
-            <Link href={actionHref} className={buttonVariants()}>
-              {actionLabel}
-            </Link>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
+    <AppStatePanel
+      busy={busy}
+      className="mx-auto max-w-2xl"
+      description={message}
+      icon={Icon}
+      title={title}
+      tone={busy ? "primary" : "neutral"}
+      action={
+        actionHref !== undefined && actionLabel !== undefined ? (
+          <Link href={actionHref} className={buttonVariants()}>
+            {actionLabel}
+          </Link>
+        ) : undefined
+      }
+    />
   )
 }
 

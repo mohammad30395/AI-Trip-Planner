@@ -140,3 +140,17 @@
 - Empty My Trips states may link to the real `/create-trip` route, but the
   populated dashboard should avoid duplicating the authenticated header's
   primary create action.
+
+## Auth, Pricing, and State Guidance
+
+- Clerk remains authoritative for authentication and billing UI. Do not replace
+  `SignIn`, `SignUp`, or `PricingTable` with custom forms or fake pricing cards.
+- Customize Clerk surfaces only through supported appearance props and stable
+  surrounding layout; do not target generated Clerk DOM or hide required Clerk
+  controls.
+- Pricing copy may describe existing app billing boundaries, but must not
+  invent prices, discounts, guarantees, usage amounts, testimonials, or local
+  plan feature lists.
+- Secondary loading, empty, error, not-found, and account-sync states should use
+  product typography, app radius tokens, restrained icons, safe explanations,
+  and real-route recovery actions only.

@@ -43,6 +43,7 @@
 - [x] UI Prompt-04 - Create Trip controller extraction
 - [x] UI Prompt-05 - Create Trip workspace shell, split layout, and panel architecture
 - [x] UI Prompt-06 - Create Trip conversation controls and interaction polish
+- [x] UI Prompt-12 - Pricing, auth surfaces, and secondary app states
 - [ ] Milestone 30 - Production readiness and Vercel deployment
 
 ## UI Prompt-06 - Create Trip Conversation Controls and Interaction Polish
@@ -2285,3 +2286,40 @@ Verification:
 
 Next milestone:
 - UI Prompt-12.
+
+## UI Prompt-12 Pricing, Auth Surfaces, and Secondary App States
+
+Changed:
+- Redesigned `/pricing` as a centered public pricing surface with factual
+  billing-boundary copy, a framed live Clerk `PricingTable`, and real-route
+  Create Trip recovery/continuation.
+- Preserved Clerk as the source of truth for all plan names, prices, checkout,
+  subscription state, and account billing management.
+- Wrapped sign-in and sign-up in a shared product auth shell using the existing
+  `BrandLogo`, centered page hierarchy, and no full app navigation clutter.
+- Added a small Clerk appearance configuration through supported `appearance`
+  props for auth components only, keeping Clerk fields, verification, social
+  auth, legal links, routing, and redirects untouched.
+- Introduced one presentational `AppStatePanel` primitive for repeated loading,
+  empty, error, not-found, unavailable, and account-sync panels.
+- Added a simple root `not-found.tsx` with safe Page not found copy and real
+  `/` plus `/create-trip` actions.
+- Restyled saved-trip unavailable states, My Trips account-sync/empty states,
+  and route error pages around the shared panel without changing queries,
+  auth checks, retry callbacks, or route ownership.
+- Added durable auth/pricing/state guidance to `docs/UI_REDESIGN.md`.
+
+Verification:
+- Target screenshots in `UI's ss` were inspected for reusable visual language;
+  no dedicated pricing/auth screenshots were present, so pricing/auth styling
+  was inferred from the established light Poppins/orange product system.
+- `npm test` passed: 10 test files, 89 passed, 2 skipped.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- Rendered browser verification was unavailable in this Codex environment: the
+  browser skill is present, but its required JavaScript execution hook was not
+  exposed, and local Playwright/Puppeteer packages are not installed.
+
+Next milestone:
+- UI Prompt-13: focused responsive behavior audit.
