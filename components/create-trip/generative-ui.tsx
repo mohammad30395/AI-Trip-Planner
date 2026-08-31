@@ -44,6 +44,10 @@ import {
   type TripRequirements,
   type UISelector,
 } from "./create-trip-flow"
+import {
+  getFinalPresentationState,
+  type FinalPresentationState,
+} from "./final-transition-state"
 
 const budgetPresentation = {
   budget: {
@@ -694,50 +698,78 @@ function FinalItineraryUI({
   savedTripId,
 }: FinalItineraryUIProps) {
   const hasSavedTrip = savedTripId !== null
+  const presentationState = getFinalPresentationState({
+    finalError: error,
+    finalQuota: quota,
+    finalItinerary: itinerary,
+    isGeneratingFinal: isGenerating,
+    isSavingTrip: isSaving,
+    saveError,
+    savedTripId,
+  })
+  const hasItinerary = itinerary !== null
+  const generationButtonLabel =
+    presentationState === "generationError"
+      ? "Retry Generation"
+      : isGenerating
+        ? "Generating Itinerary..."
+        : "Generate Itinerary"
 
   return (
     <div className="grid gap-4 rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-4">
-      <div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="flex items-center gap-2 text-sm font-medium">
-            <Sparkles className="size-4 text-primary" aria-hidden="true" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-medium text-primary">
+            <Sparkles className="size-4" aria-hidden="true" />
             READY_FOR_FINAL
           </p>
-          {access !== null ? <AccessStatusBadge access={access} /> : null}
+          <p className="app-muted mt-1 text-sm leading-6">
+            Generate a structured itinerary from the confirmed brief. Prices are
+            generated estimates until later enrichment verifies real place data.
+          </p>
         </div>
-        <p className="app-muted mt-1 text-sm leading-6">
-          Generate a structured itinerary from the confirmed brief. Prices are
-          generated estimates until later enrichment verifies real place data.
-        </p>
+        {access !== null ? <AccessStatusBadge access={access} /> : null}
       </div>
+
+      <FinalTransitionStatus state={presentationState} />
 
       {quota !== null ? (
         <QuotaExceededNotice message={error} quota={quota} />
-      ) : error !== null ? (
-        <InlineError message={error} />
+      ) : presentationState === "generationError" && error !== null ? (
+        <GenerationErrorNotice message={error} />
       ) : null}
 
-      {isGenerating ? <GenerationLoadingStatus /> : null}
-
-      {itinerary === null ? (
+      {!hasItinerary ? (
         <Button
           className="w-full sm:w-fit"
           disabled={disabled || isGenerating || isSaving}
           type="button"
           onClick={onGenerate}
         >
-          {isGenerating ? "Generating Itinerary..." : "Generate Itinerary"}
+          {isGenerating ? (
+            <LoaderCircle className="animate-spin" aria-hidden="true" />
+          ) : (
+            <Sparkles aria-hidden="true" />
+          )}
+          {generationButtonLabel}
         </Button>
       ) : (
         <>
           <GeneratedItinerary itinerary={itinerary} />
-          {saveError !== null ? <InlineError message={saveError} /> : null}
+          {saveError !== null ? <SaveErrorNotice message={saveError} /> : null}
           <Button
             className="w-full sm:w-fit"
             disabled={disabled || isSaving || hasSavedTrip}
             type="button"
             onClick={onSave}
           >
+            {isSaving ? (
+              <LoaderCircle className="animate-spin" aria-hidden="true" />
+            ) : hasSavedTrip ? (
+              <Check aria-hidden="true" />
+            ) : (
+              <Plane aria-hidden="true" />
+            )}
             {hasSavedTrip
               ? "Saved"
               : isSaving
@@ -777,20 +809,127 @@ function FinalItineraryUI({
   )
 }
 
-function GenerationLoadingStatus() {
+function FinalTransitionStatus({
+  state,
+}: {
+  state: FinalPresentationState
+}) {
+  const config = getFinalTransitionConfig(state)
+  const Icon = config.icon
+  const isLive = state === "generating" || state === "saving"
+
   return (
-    <div className="grid gap-3 rounded-[var(--app-card-radius)] border bg-background p-4 text-center shadow-sm">
-      <div className="mx-auto grid size-10 place-items-center rounded-full bg-primary/10 text-primary">
-        <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+    <div
+      className={cn(
+        "grid gap-3 rounded-[var(--app-card-radius)] border bg-background p-4 text-center shadow-[var(--app-shadow-card)]",
+        config.className
+      )}
+      role={isLive ? "status" : undefined}
+      aria-live={isLive ? "polite" : undefined}
+    >
+      <div
+        className={cn(
+          "mx-auto grid size-10 place-items-center rounded-full",
+          config.iconClassName
+        )}
+      >
+        <Icon
+          className={cn("size-5", config.isSpinning && "animate-spin")}
+          aria-hidden="true"
+        />
       </div>
       <div>
-        <p className="font-medium text-primary">Planning your trip...</p>
+        <p className="font-semibold text-foreground">{config.title}</p>
         <p className="app-muted mt-1 text-sm leading-6">
-          Gathering itinerary ideas from the confirmed brief.
+          {config.description}
         </p>
       </div>
     </div>
   )
+}
+
+function getFinalTransitionConfig(state: FinalPresentationState): {
+  title: string
+  description: string
+  icon: LucideIcon
+  iconClassName: string
+  className?: string
+  isSpinning?: boolean
+} {
+  switch (state) {
+    case "generating":
+      return {
+        title: "Planning your dream trip",
+        description:
+          "Building your day-by-day itinerary, hotels, and activities.",
+        icon: LoaderCircle,
+        iconClassName: "bg-primary/10 text-primary",
+        className: "border-primary/25",
+        isSpinning: true,
+      }
+    case "quotaBlocked":
+      return {
+        title: "Free generation limit reached",
+        description:
+          "Your confirmed brief is still here. Upgrade or try again when access is available.",
+        icon: Wallet,
+        iconClassName: "bg-primary/10 text-primary",
+        className: "border-primary/25 bg-primary/5",
+      }
+    case "generationError":
+      return {
+        title: "Generation needs a retry",
+        description:
+          "The itinerary was not created, but your confirmed brief is preserved.",
+        icon: AlertCircle,
+        iconClassName: "bg-destructive/10 text-destructive",
+        className: "border-destructive/25",
+      }
+    case "awaitingSave":
+      return {
+        title: "Itinerary ready",
+        description:
+          "Review the generated plan, then save it to open the full trip workspace.",
+        icon: Check,
+        iconClassName: "bg-success/10 text-success",
+        className: "border-success/25",
+      }
+    case "saving":
+      return {
+        title: "Saving your trip",
+        description:
+          "Keeping the generated itinerary intact while your saved trip is created.",
+        icon: LoaderCircle,
+        iconClassName: "bg-primary/10 text-primary",
+        className: "border-primary/25",
+        isSpinning: true,
+      }
+    case "saveError":
+      return {
+        title: "Itinerary ready. Save needs attention",
+        description:
+          "The generated itinerary is still available. Retry save when ready.",
+        icon: AlertCircle,
+        iconClassName: "bg-destructive/10 text-destructive",
+        className: "border-destructive/25",
+      }
+    case "savedNavigating":
+      return {
+        title: "Trip saved",
+        description: "Opening your saved itinerary now.",
+        icon: Check,
+        iconClassName: "bg-success/10 text-success",
+        className: "border-success/25",
+      }
+    case "ready":
+      return {
+        title: "Ready to build your itinerary",
+        description:
+          "Use the confirmed brief to generate hotels, daily activities, and practical notes.",
+        icon: Sparkles,
+        iconClassName: "bg-primary/10 text-primary",
+      }
+  }
 }
 
 function AccessStatusBadge({
@@ -801,7 +940,7 @@ function AccessStatusBadge({
   const isPremium = access.tier === "premium"
 
   return (
-    <div className="grid justify-items-start gap-2">
+    <div className="grid justify-items-start gap-2 sm:justify-items-end">
       <span className="w-fit rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
         {isPremium ? "Premium access" : "Free access"}
         {isPremium && !access.quotaEnforced ? ": quota bypassed" : ": daily quota"}
@@ -823,13 +962,13 @@ function QuotaExceededNotice({
   quota: FinalItineraryQuota
 }) {
   return (
-    <div className="grid gap-3 rounded-[var(--app-card-radius)] border border-destructive/30 bg-destructive/10 p-3 text-sm">
+    <div className="grid gap-3 rounded-[var(--app-card-radius)] border border-primary/25 bg-primary/5 p-3 text-sm">
       <div>
-        <p className="flex items-center gap-2 font-medium text-destructive">
+        <p className="flex items-center gap-2 font-medium text-primary">
           <AlertCircle className="size-4" aria-hidden="true" />
-          Generation quota reached
+          Free allowance used
         </p>
-        <p className="mt-1 leading-6 text-destructive">
+        <p className="app-muted mt-1 leading-6">
           {message ?? buildQuotaExceededMessage(quota)}
         </p>
       </div>
@@ -842,6 +981,30 @@ function QuotaExceededNotice({
       >
         View Pricing
       </Link>
+    </div>
+  )
+}
+
+function GenerationErrorNotice({ message }: { message: string }) {
+  return (
+    <div className="grid gap-2 rounded-[var(--app-card-radius)] border border-destructive/25 bg-background p-3 text-sm">
+      <p className="flex items-center gap-2 font-medium text-destructive">
+        <AlertCircle className="size-4" aria-hidden="true" />
+        Could not generate itinerary
+      </p>
+      <p className="app-muted leading-6">{message}</p>
+    </div>
+  )
+}
+
+function SaveErrorNotice({ message }: { message: string }) {
+  return (
+    <div className="grid gap-2 rounded-[var(--app-card-radius)] border border-destructive/25 bg-background p-3 text-sm">
+      <p className="flex items-center gap-2 font-medium text-destructive">
+        <AlertCircle className="size-4" aria-hidden="true" />
+        Could not save trip
+      </p>
+      <p className="app-muted leading-6">{message}</p>
     </div>
   )
 }

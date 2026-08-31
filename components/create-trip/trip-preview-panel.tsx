@@ -1,8 +1,10 @@
 import type { LucideIcon } from "lucide-react"
 import {
+  AlertCircle,
   CalendarDays,
   CheckCircle2,
   Compass,
+  LoaderCircle,
   MapPin,
   Navigation,
   UsersRound,
@@ -20,7 +22,14 @@ import {
 } from "./create-trip-flow"
 
 type TripPreviewPanelProps = {
+  hasFinalError: boolean
+  hasFinalItinerary: boolean
+  hasFinalQuota: boolean
+  hasSaveError: boolean
+  isGeneratingFinal: boolean
+  isSavingTrip: boolean
   requirements: TripRequirements
+  savedTripId: string | null
   step: TripRequirementStep
 }
 
@@ -31,12 +40,34 @@ type BriefItem = {
   isComplete: boolean
 }
 
-function TripPreviewPanel({ requirements, step }: TripPreviewPanelProps) {
+function TripPreviewPanel({
+  hasFinalError,
+  hasFinalItinerary,
+  hasFinalQuota,
+  hasSaveError,
+  isGeneratingFinal,
+  isSavingTrip,
+  requirements,
+  savedTripId,
+  step,
+}: TripPreviewPanelProps) {
   const briefItems = getBriefItems(requirements)
   const completedCount = briefItems.filter((item) => item.isComplete).length
   const isReady = step === "readyForFinal"
   const destination = requirements.destination.trim()
   const source = requirements.source.trim()
+  const workspaceState = getWorkspaceState({
+    completedCount,
+    hasFinalError,
+    hasFinalItinerary,
+    hasFinalQuota,
+    hasSaveError,
+    isGeneratingFinal,
+    isReady,
+    isSavingTrip,
+    savedTripId,
+  })
+  const WorkspaceIcon = workspaceState.icon
 
   return (
     <aside
@@ -57,8 +88,8 @@ function TripPreviewPanel({ requirements, step }: TripPreviewPanelProps) {
             later from provider-enriched saved trips.
           </p>
         </div>
-        <Badge variant={isReady ? "default" : "outline"}>
-          {isReady ? "Ready" : `${completedCount}/5 set`}
+        <Badge variant={workspaceState.badgeVariant}>
+          {workspaceState.badgeLabel}
         </Badge>
       </header>
 
@@ -85,14 +116,28 @@ function TripPreviewPanel({ requirements, step }: TripPreviewPanelProps) {
           <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="max-w-sm rounded-[var(--app-card-radius)] border bg-background/90 p-4 shadow-[var(--app-shadow-card)]">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <Compass className="size-4 text-primary" aria-hidden="true" />
-                Planning status
+                <WorkspaceIcon
+                  className={cn(
+                    "size-4",
+                    workspaceState.isBusy
+                      ? "animate-spin text-primary"
+                      : workspaceState.toneClassName
+                  )}
+                  aria-hidden="true"
+                />
+                {workspaceState.title}
               </div>
               <p className="app-muted mt-2 text-sm leading-6">
                 {getWorkspaceStatus({
                   completedCount,
                   destination,
+                  hasFinalItinerary,
+                  hasFinalQuota,
+                  hasSaveError,
                   isReady,
+                  isGeneratingFinal,
+                  isSavingTrip,
+                  savedTripId,
                   source,
                 })}
               </p>
@@ -144,20 +189,19 @@ function TripPreviewPanel({ requirements, step }: TripPreviewPanelProps) {
         </div>
 
         <div className="grid flex-none gap-3 rounded-[var(--app-card-radius)] border bg-background p-4 text-sm sm:grid-cols-[auto_minmax(0,1fr)] sm:items-start">
-          <CheckCircle2
+          <WorkspaceIcon
             className={cn(
               "size-5",
-              isReady ? "text-success" : "text-muted-foreground"
+              workspaceState.isBusy
+                ? "animate-spin text-primary"
+                : workspaceState.toneClassName
             )}
             aria-hidden="true"
           />
           <div>
-            <p className="font-medium">
-              {isReady ? "Brief ready for generation" : "Brief in progress"}
-            </p>
+            <p className="font-medium">{workspaceState.footerTitle}</p>
             <p className="app-muted mt-1 leading-6">
-              Final generation, saving, and the real Leaflet map remain behind
-              the existing controller and saved-trip enrichment flow.
+              {workspaceState.footerDescription}
             </p>
           </div>
         </div>
@@ -270,14 +314,50 @@ function getBriefItems(requirements: TripRequirements): BriefItem[] {
 function getWorkspaceStatus({
   completedCount,
   destination,
+  hasFinalItinerary,
+  hasFinalQuota,
+  hasSaveError,
   isReady,
+  isGeneratingFinal,
+  isSavingTrip,
+  savedTripId,
   source,
 }: {
   completedCount: number
   destination: string
+  hasFinalItinerary: boolean
+  hasFinalQuota: boolean
+  hasSaveError: boolean
   isReady: boolean
+  isGeneratingFinal: boolean
+  isSavingTrip: boolean
+  savedTripId: string | null
   source: string
 }) {
+  if (savedTripId !== null) {
+    return "Your trip was saved and the saved itinerary view is opening."
+  }
+
+  if (isSavingTrip) {
+    return "Saving the generated itinerary without changing the confirmed brief."
+  }
+
+  if (hasSaveError) {
+    return "The generated itinerary is still available while save is retried."
+  }
+
+  if (hasFinalItinerary) {
+    return "A generated itinerary is ready to review and save."
+  }
+
+  if (isGeneratingFinal) {
+    return "Building the final itinerary from your confirmed trip brief."
+  }
+
+  if (hasFinalQuota) {
+    return "The confirmed brief is preserved while generation access is resolved."
+  }
+
   if (isReady) {
     return "Your confirmed brief is ready for itinerary generation."
   }
@@ -291,6 +371,152 @@ function getWorkspaceStatus({
   }
 
   return "Your trip will come together here as the conversation collects the brief."
+}
+
+function getWorkspaceState({
+  completedCount,
+  hasFinalError,
+  hasFinalItinerary,
+  hasFinalQuota,
+  hasSaveError,
+  isGeneratingFinal,
+  isReady,
+  isSavingTrip,
+  savedTripId,
+}: {
+  completedCount: number
+  hasFinalError: boolean
+  hasFinalItinerary: boolean
+  hasFinalQuota: boolean
+  hasSaveError: boolean
+  isGeneratingFinal: boolean
+  isReady: boolean
+  isSavingTrip: boolean
+  savedTripId: string | null
+}) {
+  if (savedTripId !== null) {
+    return {
+      badgeLabel: "Opening",
+      badgeVariant: "default" as const,
+      footerDescription:
+        "Automatic navigation to the saved trip remains controlled by the existing save flow.",
+      footerTitle: "Trip saved",
+      icon: CheckCircle2,
+      isBusy: false,
+      title: "Opening itinerary",
+      toneClassName: "text-success",
+    }
+  }
+
+  if (isSavingTrip) {
+    return {
+      badgeLabel: "Saving",
+      badgeVariant: "default" as const,
+      footerDescription:
+        "The generated plan remains in place while the save mutation completes.",
+      footerTitle: "Saving your trip",
+      icon: LoaderCircle,
+      isBusy: true,
+      title: "Saving trip",
+      toneClassName: "text-primary",
+    }
+  }
+
+  if (hasSaveError) {
+    return {
+      badgeLabel: "Save retry",
+      badgeVariant: "outline" as const,
+      footerDescription:
+        "Generation succeeded; only persistence needs attention.",
+      footerTitle: "Save needs attention",
+      icon: AlertCircle,
+      isBusy: false,
+      title: "Save retry available",
+      toneClassName: "text-destructive",
+    }
+  }
+
+  if (hasFinalItinerary) {
+    return {
+      badgeLabel: "Generated",
+      badgeVariant: "default" as const,
+      footerDescription:
+        "Save the generated trip to continue into the full itinerary workspace.",
+      footerTitle: "Itinerary ready",
+      icon: CheckCircle2,
+      isBusy: false,
+      title: "Generated plan",
+      toneClassName: "text-success",
+    }
+  }
+
+  if (isGeneratingFinal) {
+    return {
+      badgeLabel: "Building",
+      badgeVariant: "default" as const,
+      footerDescription:
+        "No provider map data is shown until the trip is saved and enriched.",
+      footerTitle: "Generation in progress",
+      icon: LoaderCircle,
+      isBusy: true,
+      title: "Building itinerary",
+      toneClassName: "text-primary",
+    }
+  }
+
+  if (hasFinalQuota) {
+    return {
+      badgeLabel: "Quota",
+      badgeVariant: "outline" as const,
+      footerDescription:
+        "The app keeps the confirmed brief available for later generation.",
+      footerTitle: "Generation access needed",
+      icon: Wallet,
+      isBusy: false,
+      title: "Quota reached",
+      toneClassName: "text-primary",
+    }
+  }
+
+  if (hasFinalError) {
+    return {
+      badgeLabel: "Retry",
+      badgeVariant: "outline" as const,
+      footerDescription:
+        "Retry uses the same confirmed brief and existing generation flow.",
+      footerTitle: "Generation needs retry",
+      icon: AlertCircle,
+      isBusy: false,
+      title: "Retry generation",
+      toneClassName: "text-destructive",
+    }
+  }
+
+  if (isReady) {
+    return {
+      badgeLabel: "Ready",
+      badgeVariant: "default" as const,
+      footerDescription:
+        "Final generation, saving, and the real Leaflet map remain behind the existing controller and saved-trip enrichment flow.",
+      footerTitle: "Brief ready for generation",
+      icon: CheckCircle2,
+      isBusy: false,
+      title: "Planning status",
+      toneClassName: "text-success",
+    }
+  }
+
+  return {
+    badgeLabel: `${completedCount}/5 set`,
+    badgeVariant: "outline" as const,
+    footerDescription:
+      "Final generation, saving, and the real Leaflet map remain behind the existing controller and saved-trip enrichment flow.",
+    footerTitle: "Brief in progress",
+    icon: Compass,
+    isBusy: false,
+    title: "Planning status",
+    toneClassName: "text-primary",
+  }
 }
 
 function formatTravelers(requirements: TripRequirements) {

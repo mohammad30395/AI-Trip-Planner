@@ -2124,3 +2124,27 @@ Open issues:
 
 Next milestone:
 - Milestone 32
+
+## UI Prompt-07 Generation, Save, and Navigation Transition
+
+Changed:
+- Polished the READY_FOR_FINAL presentation without changing the final itinerary API, AI contracts, quota enforcement, Convex save mutation, idempotency key, or saved-trip navigation.
+- Added a pure controller-derived final presentation-state mapper for ready, generating, quota blocked, generation error, generated awaiting save, saving, save error, and saved/navigating.
+- Updated the final generation card to use target-like light treatment, compact orange loading emphasis, truthful copy, no fake progress, and real disabled button states.
+- Reworked quota/access presentation into a non-destructive product notice with the existing `/pricing` route.
+- Split generation failure and save failure treatments so retry generation and retry save remain semantically distinct.
+- Updated the right context panel to reflect generation/save progress from existing controller state only, without fake maps, coordinates, hotels, or provider data.
+- Added focused unit coverage for final presentation-state mapping.
+- Recorded reusable UI redesign rules for generation, quota, save, and automatic navigation states.
+
+Verification:
+- Target screenshots inspected from `UI's ss`, including the final generation transition reference at `Screenshot 2026-08-31 at 1.26.02 PM.png`.
+- `npm test` passed: 9 test files, 86 passed, 2 skipped.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed with Next.js 16.3.2.
+- `git diff --check` passed.
+- Rendered authenticated browser verification was unavailable in this Codex environment because no browser automation/session tool was exposed and Playwright is not installed. A local Chrome executable exists, but it cannot safely drive an authenticated Clerk `/create-trip` session from the CLI.
+
+Next milestone:
+- UI Prompt-08: itinerary card/detail presentation, while keeping saved-trip enrichment and map contracts intact.

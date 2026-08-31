@@ -72,3 +72,16 @@
 - Shared selection cards should use native buttons, `aria-pressed`, pale
   borders, soft icon surfaces, and orange-tinted selected states rather than
   inventing new interaction semantics.
+- Final generation states should be derived from the controller state only:
+  ready, generating, quota/access blocked, generation error, generated awaiting
+  save, saving, save error, and saved/navigation.
+- Loading UI must stay truthful. Do not display fake percentages, countdowns,
+  provider names, map progress, hotel counts, or place coordinates before real
+  state provides them.
+- Quota/access states should use compact product notices with a real pricing
+  link when offered; avoid oversized destructive error treatment.
+- Generation errors and save errors should remain visually and semantically
+  distinct where state supports it, so a valid generated itinerary is not
+  implied to be lost after a save failure.
+- Preserve automatic post-save navigation to `/view-trip/${tripId}`. Do not add
+  artificial delays or replace it with a required manual View Trip action.

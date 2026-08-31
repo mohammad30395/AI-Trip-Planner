@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest"
 
-import type { ConversationalStepResponse } from "@/lib/ai/contract"
+import type {
+  ConversationalStepResponse,
+  FinalItineraryResponse,
+} from "@/lib/ai/contract"
 import { buildFallbackConversationResponse } from "@/lib/ai/conversation-fallback"
 import {
   formatSaveTripMutationError,
@@ -18,6 +21,7 @@ import {
   validateCurrentStep,
   type TripRequirements,
 } from "@/components/create-trip/create-trip-flow"
+import { getFinalPresentationState } from "@/components/create-trip/final-transition-state"
 
 const completeRequirements = {
   source: "Dhaka",
@@ -27,6 +31,91 @@ const completeRequirements = {
   groupSize: 2,
   groupType: "couple",
 } satisfies TripRequirements
+
+const generatedItinerary = {
+  travelPlan: {
+    source: "Dhaka",
+    destination: "Tokyo",
+    durationDays: 3,
+    budgetTier: "mid-range",
+    groupSize: 2,
+    groupType: "couple",
+  },
+  summary: "Generated summary.",
+  hotels: [],
+  itinerary: [
+    {
+      dayNumber: 1,
+      title: "Arrival",
+      activities: [
+        {
+          title: "Free time",
+          description: "Rest after arrival.",
+          timeWindow: "Evening",
+          estimatedPriceText: "Generated estimate.",
+          place: {
+            kind: "generic_activity",
+            name: null,
+            addressHint: null,
+            areaHint: null,
+            originHint: null,
+            destinationHint: null,
+          },
+        },
+      ],
+    },
+    {
+      dayNumber: 2,
+      title: "Explore",
+      activities: [
+        {
+          title: "Visit Tokyo Tower",
+          description: "Visit Tokyo Tower.",
+          timeWindow: "Morning",
+          estimatedPriceText: "Generated estimate.",
+          place: {
+            kind: "specific_place",
+            name: "Tokyo Tower",
+            addressHint: null,
+            areaHint: "Minato City",
+            originHint: null,
+            destinationHint: null,
+          },
+        },
+      ],
+    },
+    {
+      dayNumber: 3,
+      title: "Departure",
+      activities: [
+        {
+          title: "Train to airport",
+          description: "Travel to the airport.",
+          timeWindow: "Morning",
+          estimatedPriceText: "Generated estimate.",
+          place: {
+            kind: "transport",
+            name: null,
+            addressHint: null,
+            areaHint: null,
+            originHint: "Tokyo",
+            destinationHint: "Airport",
+          },
+        },
+      ],
+    },
+  ],
+} satisfies FinalItineraryResponse
+
+const finalPresentationBase = {
+  finalError: null,
+  finalQuota: null,
+  finalItinerary: null,
+  isGeneratingFinal: false,
+  isSavingTrip: false,
+  saveError: null,
+  savedTripId: null,
+}
 
 describe("create-trip pure state helpers", () => {
   test("validates missing fields at the UI boundary", () => {
@@ -157,80 +246,7 @@ describe("create-trip pure state helpers", () => {
       },
       {
         type: "finalGenerationSucceeded",
-        itinerary: {
-          travelPlan: {
-            source: "Dhaka",
-            destination: "Tokyo",
-            durationDays: 3,
-            budgetTier: "mid-range",
-            groupSize: 2,
-            groupType: "couple",
-          },
-          summary: "Generated summary.",
-          hotels: [],
-          itinerary: [
-            {
-              dayNumber: 1,
-              title: "Arrival",
-              activities: [
-                {
-                  title: "Free time",
-                  description: "Rest after arrival.",
-                  timeWindow: "Evening",
-                  estimatedPriceText: "Generated estimate.",
-                  place: {
-                    kind: "generic_activity",
-                    name: null,
-                    addressHint: null,
-                    areaHint: null,
-                    originHint: null,
-                    destinationHint: null,
-                  },
-                },
-              ],
-            },
-            {
-              dayNumber: 2,
-              title: "Explore",
-              activities: [
-                {
-                  title: "Visit Tokyo Tower",
-                  description: "Visit Tokyo Tower.",
-                  timeWindow: "Morning",
-                  estimatedPriceText: "Generated estimate.",
-                  place: {
-                    kind: "specific_place",
-                    name: "Tokyo Tower",
-                    addressHint: null,
-                    areaHint: "Minato City",
-                    originHint: null,
-                    destinationHint: null,
-                  },
-                },
-              ],
-            },
-            {
-              dayNumber: 3,
-              title: "Departure",
-              activities: [
-                {
-                  title: "Train to airport",
-                  description: "Travel to the airport.",
-                  timeWindow: "Morning",
-                  estimatedPriceText: "Generated estimate.",
-                  place: {
-                    kind: "transport",
-                    name: null,
-                    addressHint: null,
-                    areaHint: null,
-                    originHint: "Tokyo",
-                    destinationHint: "Airport",
-                  },
-                },
-              ],
-            },
-          ],
-        },
+        itinerary: generatedItinerary,
         access: {
           tier: "free",
           quotaEnforced: true,
@@ -241,6 +257,59 @@ describe("create-trip pure state helpers", () => {
     expect(succeededState.finalItinerary?.travelPlan.destination).toBe("Tokyo")
     expect(succeededState.saveError).toBeNull()
     expect(succeededState.savedTripId).toBeNull()
+  })
+
+  test("maps final generation and save lifecycle to presentation states", () => {
+    expect(getFinalPresentationState(finalPresentationBase)).toBe("ready")
+    expect(
+      getFinalPresentationState({
+        ...finalPresentationBase,
+        isGeneratingFinal: true,
+      })
+    ).toBe("generating")
+    expect(
+      getFinalPresentationState({
+        ...finalPresentationBase,
+        finalQuota: {
+          limit: 1,
+          remaining: 0,
+          resetSeconds: 86_400,
+        },
+      })
+    ).toBe("quotaBlocked")
+    expect(
+      getFinalPresentationState({
+        ...finalPresentationBase,
+        finalError: "Itinerary generation unavailable.",
+      })
+    ).toBe("generationError")
+    expect(
+      getFinalPresentationState({
+        ...finalPresentationBase,
+        finalItinerary: generatedItinerary,
+      })
+    ).toBe("awaitingSave")
+    expect(
+      getFinalPresentationState({
+        ...finalPresentationBase,
+        finalItinerary: generatedItinerary,
+        isSavingTrip: true,
+      })
+    ).toBe("saving")
+    expect(
+      getFinalPresentationState({
+        ...finalPresentationBase,
+        finalItinerary: generatedItinerary,
+        saveError: "Trip save unavailable.",
+      })
+    ).toBe("saveError")
+    expect(
+      getFinalPresentationState({
+        ...finalPresentationBase,
+        finalItinerary: generatedItinerary,
+        savedTripId: "trip_123",
+      })
+    ).toBe("savedNavigating")
   })
 
   test("builds deterministic conversation fallback selectors", () => {
