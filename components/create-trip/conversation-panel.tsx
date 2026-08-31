@@ -1,3 +1,5 @@
+import { Bot, LoaderCircle, RotateCcw } from "lucide-react"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -43,18 +45,21 @@ function ConversationPanel({
 
   return (
     <section className="app-panel flex min-h-[34rem] min-w-0 flex-col overflow-hidden lg:h-full lg:min-h-0">
-      <header className="flex-none border-b px-5 py-5 sm:px-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex-none border-b px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <Badge variant="outline">AI planning</Badge>
+            <Badge variant="outline">
+              <Bot aria-hidden="true" />
+              AI planning
+            </Badge>
             <h1
               id="create-trip-title"
-              className="mt-4 max-w-xl font-heading text-2xl leading-tight font-bold tracking-normal text-foreground sm:text-3xl"
+              className="mt-3 max-w-xl font-heading text-xl leading-tight font-bold tracking-normal text-foreground sm:text-2xl"
             >
               Start Planning new{" "}
               <span className="text-primary">Trip</span> using AI
             </h1>
-            <p className="app-muted mt-3 max-w-2xl text-sm leading-6">
+            <p className="app-muted mt-2 max-w-2xl text-sm leading-6">
               Collect trip requirements with the assistant, then generate and
               save a structured itinerary when the brief is ready.
             </p>
@@ -72,7 +77,7 @@ function ConversationPanel({
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 sm:p-5">
         <div
-          className="min-h-[14rem] flex-1 overflow-y-auto rounded-[var(--app-card-radius)] border bg-soft-surface/60 p-3 sm:min-h-[16rem] sm:p-4 lg:min-h-0"
+          className="min-h-[14rem] flex-1 overflow-y-auto rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-3 sm:min-h-[16rem] sm:p-4 lg:min-h-0"
           aria-live="polite"
         >
           <div className="grid gap-3">
@@ -80,15 +85,16 @@ function ConversationPanel({
               <div
                 key={message.id}
                 className={cn(
-                  "max-w-[92%] rounded-[var(--app-control-radius)] px-3 py-2 text-sm leading-6 shadow-sm",
+                  "max-w-[88%] break-words px-3.5 py-2.5 text-sm leading-6 shadow-sm",
                   message.role === "assistant"
-                    ? "justify-self-start bg-background text-foreground ring-1 ring-border"
-                    : "justify-self-end bg-primary text-primary-foreground"
+                    ? "justify-self-start rounded-[1.25rem] rounded-tl-sm bg-background text-foreground ring-1 ring-border/80"
+                    : "justify-self-end rounded-[1.25rem] rounded-tr-sm bg-primary text-primary-foreground shadow-[var(--app-shadow-primary)]"
                 )}
               >
                 {message.content}
               </div>
             ))}
+            {state.isLoading ? <AssistantLoadingBubble /> : null}
           </div>
         </div>
 
@@ -132,10 +138,20 @@ function ConversationPanel({
           variant="outline"
           onClick={onReset}
         >
+          <RotateCcw aria-hidden="true" />
           Start Over
         </Button>
       </footer>
     </section>
+  )
+}
+
+function AssistantLoadingBubble() {
+  return (
+    <div className="flex max-w-[88%] items-center gap-2 justify-self-start rounded-[1.25rem] rounded-tl-sm bg-background px-3.5 py-2.5 text-sm text-muted-foreground shadow-sm ring-1 ring-border/80">
+      <LoaderCircle className="size-4 animate-spin text-primary" aria-hidden="true" />
+      <span>Thinking...</span>
+    </div>
   )
 }
 

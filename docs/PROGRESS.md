@@ -42,7 +42,50 @@
 - [x] UI Prompt-03 - Landing page hero, composer, suggestions, and preview
 - [x] UI Prompt-04 - Create Trip controller extraction
 - [x] UI Prompt-05 - Create Trip workspace shell, split layout, and panel architecture
+- [x] UI Prompt-06 - Create Trip conversation controls and interaction polish
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## UI Prompt-06 - Create Trip Conversation Controls and Interaction Polish
+
+Completion pass:
+- Refined the Create Trip conversation panel header, assistant/user bubbles,
+  existing conversational loading indicator, and reset action while preserving
+  the UI-05 workspace structure.
+- Redesigned source and destination selectors as polished input surfaces with
+  travel/location icons, larger inputs, accessible labels, and unchanged submit
+  callbacks.
+- Added one presentational `SelectionCard` primitive for budget and traveler
+  options using native buttons, `aria-pressed`, focus rings, soft icon surfaces,
+  and orange-tinted selected states.
+- Redesigned every supported traveler domain option: `solo`, `couple`,
+  `family`, `friends`, and `business`; the group size contract remains 1 to 20.
+- Redesigned budget options with target-inspired presentation labels:
+  `budget` -> Cheap, `mid-range` -> Moderate, and `premium` -> Luxury. The
+  submitted canonical values remain unchanged.
+- Redesigned duration into a centered stepper with accessible decrease/increase
+  controls, editable numeric entry, and preserved 1 to 30 validation.
+- Refined the review/confirm surface, safe unknown-selector fallback, quota
+  notice, and final-generation loading status without redesigning generated
+  itinerary cards.
+- Did not change controller orchestration, selector values, requirement enums,
+  validation rules, AI request bodies, API routes, save behavior, auth, quota,
+  billing, Convex, Geoapify, Leaflet, or navigation.
+- Added concise reusable conversation/selection-card rules to
+  `docs/UI_REDESIGN.md`.
+
+Verification:
+- `npm test` passed with 9 test files, 85 tests passed, and 2 skipped live
+  smoke guards.
+- `npm run lint` passed.
+- `npx tsc --noEmit` passed.
+- `npm run build` passed.
+- Rendered browser automation was unavailable in this Codex environment after
+  the browser skill setup path, tool discovery for the required browser runner,
+  and local Playwright/Puppeteer checks.
+
+Next:
+- UI Prompt-07 can continue with the next scoped visual milestone without
+  changing the Create Trip controller contract.
 
 ## UI Prompt-05 - Create Trip Workspace Shell, Split Layout, and Panel Architecture
 

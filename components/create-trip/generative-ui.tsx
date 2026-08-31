@@ -1,5 +1,27 @@
 import { useId, useState } from "react"
 import Link from "next/link"
+import type { LucideIcon } from "lucide-react"
+import {
+  AlertCircle,
+  Banknote,
+  Briefcase,
+  CalendarDays,
+  Check,
+  Heart,
+  Home,
+  LoaderCircle,
+  MapPin,
+  Minus,
+  Navigation,
+  Plane,
+  Plus,
+  SendHorizontal,
+  Sparkles,
+  User,
+  Users,
+  UsersRound,
+  Wallet,
+} from "lucide-react"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,6 +44,70 @@ import {
   type TripRequirements,
   type UISelector,
 } from "./create-trip-flow"
+
+const budgetPresentation = {
+  budget: {
+    title: "Cheap",
+    description: "Stay conscious of costs",
+    icon: Banknote,
+    iconClassName: "bg-success/10 text-success",
+  },
+  "mid-range": {
+    title: "Moderate",
+    description: "Keep cost on the average side",
+    icon: Wallet,
+    iconClassName: "bg-info/10 text-info",
+  },
+  premium: {
+    title: "Luxury",
+    description: "Do not worry about cost",
+    icon: Sparkles,
+    iconClassName: "bg-primary/10 text-primary",
+  },
+} satisfies Record<
+  BudgetTier,
+  {
+    title: string
+    description: string
+    icon: LucideIcon
+    iconClassName: string
+  }
+>
+
+const groupPresentation = {
+  solo: {
+    title: "Just Me",
+    description: "Solo adventure",
+    icon: User,
+  },
+  couple: {
+    title: "A Couple",
+    description: "Two travelers",
+    icon: Heart,
+  },
+  family: {
+    title: "Family",
+    description: "Family vacation",
+    icon: Home,
+  },
+  friends: {
+    title: "Friends",
+    description: "Group getaway",
+    icon: Users,
+  },
+  business: {
+    title: "Business",
+    description: "Work trip",
+    icon: Briefcase,
+  },
+} satisfies Record<
+  GroupType,
+  {
+    title: string
+    description: string
+    icon: LucideIcon
+  }
+>
 
 type RenderGenerativeUIProps = {
   selector: UISelector | string
@@ -76,6 +162,7 @@ function renderGenerativeUI({
           helper="City, airport, or region"
           label="Starting point"
           placeholder="Dhaka"
+          tone="source"
           value={requirements.source}
           disabled={disabled}
           onSubmit={onSubmitSource}
@@ -88,6 +175,7 @@ function renderGenerativeUI({
           helper="Where should the trip go?"
           label="Destination"
           placeholder="Tokyo"
+          tone="destination"
           value={requirements.destination}
           disabled={disabled}
           onSubmit={onSubmitDestination}
@@ -154,6 +242,7 @@ type SourceDestinationInputUIProps = {
   label: string
   helper: string
   placeholder: string
+  tone: "source" | "destination"
   value: string
   disabled: boolean
   onSubmit: (value: string) => void
@@ -163,6 +252,7 @@ function SourceDestinationInputUI({
   helper,
   label,
   placeholder,
+  tone,
   value,
   disabled,
   onSubmit,
@@ -172,10 +262,11 @@ function SourceDestinationInputUI({
   const errorId = `${inputId}-error`
   const [draft, setDraft] = useState(value)
   const [error, setError] = useState<string | null>(null)
+  const Icon = tone === "source" ? MapPin : Navigation
 
   return (
     <form
-      className="grid gap-3"
+      className="grid gap-4"
       onSubmit={(event) => {
         event.preventDefault()
 
@@ -190,27 +281,40 @@ function SourceDestinationInputUI({
         onSubmit(normalizedDraft)
       }}
     >
-      <FieldText
-        htmlFor={inputId}
-        helper={helper}
-        helperId={helperId}
-        label={label}
-      />
-      <Input
-        id={inputId}
-        aria-describedby={error === null ? helperId : `${helperId} ${errorId}`}
-        aria-invalid={error !== null}
-        autoComplete="off"
-        disabled={disabled}
-        placeholder={placeholder}
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.currentTarget.value)
-          setError(null)
-        }}
-      />
+      <div className="rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-3">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-background text-primary ring-1 ring-border">
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <FieldText
+              htmlFor={inputId}
+              helper={helper}
+              helperId={helperId}
+              label={label}
+            />
+            <Input
+              id={inputId}
+              aria-describedby={
+                error === null ? helperId : `${helperId} ${errorId}`
+              }
+              aria-invalid={error !== null}
+              autoComplete="off"
+              className="mt-3 h-11 bg-background text-base"
+              disabled={disabled}
+              placeholder={placeholder}
+              value={draft}
+              onChange={(event) => {
+                setDraft(event.currentTarget.value)
+                setError(null)
+              }}
+            />
+          </div>
+        </div>
+      </div>
       {error !== null ? <InlineError id={errorId} message={error} /> : null}
       <Button className="w-full sm:w-fit" disabled={disabled} type="submit">
+        <SendHorizontal aria-hidden="true" />
         Use {label}
       </Button>
     </form>
@@ -231,12 +335,24 @@ function DurationSelectionUI({
   const inputId = useId()
   const helperId = `${inputId}-helper`
   const errorId = `${inputId}-error`
-  const [draft, setDraft] = useState(value?.toString() ?? "")
+  const [draft, setDraft] = useState(value?.toString() ?? "4")
   const [error, setError] = useState<string | null>(null)
+  const parsedDraft = Number(draft)
+  const hasValidDraft = draft.trim().length > 0 && Number.isInteger(parsedDraft)
+  const canDecrease = hasValidDraft && parsedDraft > 1
+  const canIncrease = hasValidDraft && parsedDraft < 30
+
+  function adjustDuration(delta: number) {
+    const current = hasValidDraft ? parsedDraft : 4
+    const next = Math.min(30, Math.max(1, current + delta))
+
+    setDraft(next.toString())
+    setError(null)
+  }
 
   return (
     <form
-      className="grid gap-3"
+      className="grid gap-4"
       onSubmit={(event) => {
         event.preventDefault()
 
@@ -256,31 +372,77 @@ function DurationSelectionUI({
         onSubmit(parsedDuration)
       }}
     >
-      <FieldText
-        htmlFor={inputId}
-        helper="Enter 1 to 30 days."
-        helperId={helperId}
-        label="Duration"
-      />
-      <Input
-        id={inputId}
-        aria-describedby={error === null ? helperId : `${helperId} ${errorId}`}
-        aria-invalid={error !== null}
-        disabled={disabled}
-        inputMode="numeric"
-        min={1}
-        max={30}
-        placeholder="5"
-        type="number"
-        value={draft}
-        onChange={(event) => {
-          setDraft(event.currentTarget.value)
-          setError(null)
-        }}
-      />
+      <div className="grid justify-items-center gap-4 rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-4 text-center">
+        <div>
+          <div className="flex items-center justify-center gap-2 text-sm font-medium">
+            <CalendarDays className="size-4 text-primary" aria-hidden="true" />
+            <span>How many days do you want to travel?</span>
+          </div>
+          <p className="app-muted mt-1 text-xs" id={helperId}>
+            Choose 1 to 30 days.
+          </p>
+        </div>
+
+        <div className="flex w-full max-w-sm items-center justify-center gap-3">
+          <Button
+            aria-label="Decrease trip duration"
+            disabled={disabled || !canDecrease}
+            size="icon-lg"
+            type="button"
+            variant="outline"
+            onClick={() => adjustDuration(-1)}
+          >
+            <Minus aria-hidden="true" />
+          </Button>
+          <div className="min-w-0 flex-1 rounded-[var(--app-control-radius)] border bg-background px-3 py-2">
+            <label className="sr-only" htmlFor={inputId}>
+              Duration days
+            </label>
+            <div className="flex items-center justify-center gap-2">
+              <Input
+                id={inputId}
+                aria-describedby={
+                  error === null ? helperId : `${helperId} ${errorId}`
+                }
+                aria-invalid={error !== null}
+                className="h-9 w-16 border-0 bg-transparent px-0 text-center text-2xl font-bold shadow-none focus-visible:ring-0"
+                disabled={disabled}
+                inputMode="numeric"
+                min={1}
+                max={30}
+                placeholder="5"
+                type="number"
+                value={draft}
+                onChange={(event) => {
+                  setDraft(event.currentTarget.value)
+                  setError(null)
+                }}
+              />
+              <span className="text-lg font-bold">
+                {Number(draft) === 1 ? "Day" : "Days"}
+              </span>
+            </div>
+          </div>
+          <Button
+            aria-label="Increase trip duration"
+            disabled={disabled || !canIncrease}
+            size="icon-lg"
+            type="button"
+            variant="outline"
+            onClick={() => adjustDuration(1)}
+          >
+            <Plus aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
       {error !== null ? <InlineError id={errorId} message={error} /> : null}
-      <Button className="w-full sm:w-fit" disabled={disabled} type="submit">
-        Use Duration
+      <Button
+        className="mx-auto w-full sm:w-fit"
+        disabled={disabled}
+        type="submit"
+      >
+        <Check aria-hidden="true" />
+        Confirm
       </Button>
     </form>
   )
@@ -296,43 +458,32 @@ function BudgetUI({ disabled, value, onSelect }: BudgetUIProps) {
   const labelId = useId()
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
       <FieldText
         helper="Choose the planning style."
         label="Budget tier"
         labelId={labelId}
       />
       <div
-        className="grid gap-2 sm:grid-cols-3"
+        className="grid gap-3 sm:grid-cols-3"
         role="group"
         aria-labelledby={labelId}
       >
         {budgetOptions.map((option) => {
           const isSelected = value === option.value
+          const presentation = budgetPresentation[option.value]
 
           return (
-            <button
+            <SelectionCard
               key={option.value}
-              aria-pressed={isSelected}
-              className={cn(
-                "app-focus-ring rounded-lg border bg-background p-3 text-left transition-colors hover:bg-muted",
-                isSelected &&
-                  "border-primary bg-primary text-primary-foreground hover:bg-primary"
-              )}
+              description={presentation.description}
               disabled={disabled}
-              type="button"
+              icon={presentation.icon}
+              iconClassName={presentation.iconClassName}
+              selected={isSelected}
+              title={presentation.title}
               onClick={() => onSelect(option.value)}
-            >
-              <span className="block text-sm font-medium">{option.label}</span>
-              <span
-                className={cn(
-                  "mt-1 block text-xs leading-5 text-muted-foreground",
-                  isSelected && "text-primary-foreground/80"
-                )}
-              >
-                {option.description}
-              </span>
-            </button>
+            />
           )
         })}
       </div>
@@ -391,61 +542,75 @@ function GroupSizeUI({
         })
       }}
     >
-      <div className="grid gap-2">
+      <div className="grid gap-3">
         <FieldText
           helper="Pick the closest match."
           label="Group type"
           labelId={groupTypeLabelId}
         />
         <div
-          className="flex flex-wrap gap-2"
+          className="grid gap-3 sm:grid-cols-2"
           role="group"
           aria-labelledby={groupTypeLabelId}
         >
-          {groupTypeOptions.map((option) => (
-            <Button
-              key={option.value}
-              aria-pressed={selectedType === option.value}
-              disabled={disabled}
-              type="button"
-              variant={selectedType === option.value ? "default" : "outline"}
-              onClick={() => {
-                setSelectedType(option.value)
-                setError(null)
-              }}
-            >
-              {option.label}
-            </Button>
-          ))}
+          {groupTypeOptions.map((option) => {
+            const presentation = groupPresentation[option.value]
+
+            return (
+              <SelectionCard
+                key={option.value}
+                description={presentation.description}
+                disabled={disabled}
+                icon={presentation.icon}
+                selected={selectedType === option.value}
+                title={presentation.title}
+                onClick={() => {
+                  setSelectedType(option.value)
+                  setError(null)
+                }}
+              />
+            )
+          })}
         </div>
       </div>
-      <div className="grid gap-2">
-        <FieldText
-          htmlFor={inputId}
-          helper="Enter 1 to 20 travelers."
-          helperId={helperId}
-          label="Group size"
-        />
-        <Input
-          id={inputId}
-          aria-describedby={error === null ? helperId : `${helperId} ${errorId}`}
-          aria-invalid={error !== null}
-          disabled={disabled}
-          inputMode="numeric"
-          min={1}
-          max={20}
-          placeholder="2"
-          type="number"
-          value={draftSize}
-          onChange={(event) => {
-            setDraftSize(event.currentTarget.value)
-            setError(null)
-          }}
-        />
+      <div className="rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-3">
+        <div className="flex items-start gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-full bg-background text-primary ring-1 ring-border">
+            <UsersRound className="size-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <FieldText
+              htmlFor={inputId}
+              helper="Enter 1 to 20 travelers."
+              helperId={helperId}
+              label="Group size"
+            />
+            <Input
+              id={inputId}
+              aria-describedby={
+                error === null ? helperId : `${helperId} ${errorId}`
+              }
+              aria-invalid={error !== null}
+              className="mt-3 h-11 bg-background text-base"
+              disabled={disabled}
+              inputMode="numeric"
+              min={1}
+              max={20}
+              placeholder="2"
+              type="number"
+              value={draftSize}
+              onChange={(event) => {
+                setDraftSize(event.currentTarget.value)
+                setError(null)
+              }}
+            />
+          </div>
+        </div>
       </div>
       {error !== null ? <InlineError id={errorId} message={error} /> : null}
       <Button className="w-full sm:w-fit" disabled={disabled} type="submit">
-        Use Travelers
+        <Check aria-hidden="true" />
+        Confirm Travelers
       </Button>
     </form>
   )
@@ -462,36 +627,29 @@ function ReviewConfirmUI({
   requirements,
   onSubmit,
 }: ReviewConfirmUIProps) {
+  const reviewItems = getReviewItems(requirements)
+
   return (
-    <div className="grid gap-4 rounded-lg border bg-muted/30 p-4">
+    <div className="grid gap-4 rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-4">
       <div>
-        <p className="text-sm font-medium">Review the local trip brief</p>
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Plane className="size-4 text-primary" aria-hidden="true" />
+          <span>Review the local trip brief</span>
+        </div>
         <p className="app-muted mt-1 text-sm leading-6">
           Confirming moves this conversation to READY_FOR_FINAL. It does not
           generate an itinerary or save data yet.
         </p>
       </div>
       <dl className="grid gap-2 text-sm sm:grid-cols-2">
-        <ReviewItem label="Source" value={requirements.source || "Not set"} />
-        <ReviewItem
-          label="Destination"
-          value={requirements.destination || "Not set"}
-        />
-        <ReviewItem
-          label="Duration"
-          value={
-            requirements.durationDays === null
-              ? "Not set"
-              : `${requirements.durationDays} day${requirements.durationDays === 1 ? "" : "s"}`
-          }
-        />
-        <ReviewItem label="Budget" value={formatBudget(requirements.budgetTier)} />
-        <ReviewItem
-          label="Travelers"
-          value={`${requirements.groupSize ?? "?"} ${formatGroupType(
-            requirements.groupType
-          )} traveler${requirements.groupSize === 1 ? "" : "s"}`}
-        />
+        {reviewItems.map((item) => (
+          <ReviewItem
+            key={item.label}
+            icon={item.icon}
+            label={item.label}
+            value={item.value}
+          />
+        ))}
       </dl>
       <Button
         className="w-full sm:w-fit"
@@ -499,6 +657,7 @@ function ReviewConfirmUI({
         type="button"
         onClick={onSubmit}
       >
+        <Check aria-hidden="true" />
         Confirm Brief
       </Button>
     </div>
@@ -537,10 +696,13 @@ function FinalItineraryUI({
   const hasSavedTrip = savedTripId !== null
 
   return (
-    <div className="grid gap-4 rounded-lg border bg-muted/30 p-4">
+    <div className="grid gap-4 rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-4">
       <div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-medium">READY_FOR_FINAL</p>
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <Sparkles className="size-4 text-primary" aria-hidden="true" />
+            READY_FOR_FINAL
+          </p>
           {access !== null ? <AccessStatusBadge access={access} /> : null}
         </div>
         <p className="app-muted mt-1 text-sm leading-6">
@@ -554,6 +716,8 @@ function FinalItineraryUI({
       ) : error !== null ? (
         <InlineError message={error} />
       ) : null}
+
+      {isGenerating ? <GenerationLoadingStatus /> : null}
 
       {itinerary === null ? (
         <Button
@@ -594,6 +758,7 @@ function FinalItineraryUI({
             variant="outline"
             onClick={onGenerate}
           >
+            <Sparkles aria-hidden="true" />
             {isGenerating ? "Regenerating..." : "Retry Generation"}
           </Button>
         ) : null}
@@ -604,8 +769,25 @@ function FinalItineraryUI({
           variant="outline"
           onClick={onReset}
         >
+          <Plane aria-hidden="true" />
           Start Another Brief
         </Button>
+      </div>
+    </div>
+  )
+}
+
+function GenerationLoadingStatus() {
+  return (
+    <div className="grid gap-3 rounded-[var(--app-card-radius)] border bg-background p-4 text-center shadow-sm">
+      <div className="mx-auto grid size-10 place-items-center rounded-full bg-primary/10 text-primary">
+        <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
+      </div>
+      <div>
+        <p className="font-medium text-primary">Planning your trip...</p>
+        <p className="app-muted mt-1 text-sm leading-6">
+          Gathering itinerary ideas from the confirmed brief.
+        </p>
       </div>
     </div>
   )
@@ -641,9 +823,12 @@ function QuotaExceededNotice({
   quota: FinalItineraryQuota
 }) {
   return (
-    <div className="grid gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
+    <div className="grid gap-3 rounded-[var(--app-card-radius)] border border-destructive/30 bg-destructive/10 p-3 text-sm">
       <div>
-        <p className="font-medium text-destructive">Generation quota reached</p>
+        <p className="flex items-center gap-2 font-medium text-destructive">
+          <AlertCircle className="size-4" aria-hidden="true" />
+          Generation quota reached
+        </p>
         <p className="mt-1 leading-6 text-destructive">
           {message ?? buildQuotaExceededMessage(quota)}
         </p>
@@ -820,10 +1005,14 @@ function formatGeneratedRoute(
 
   return `${originHint ?? "Trip origin"} to ${destinationHint ?? "destination"}`
 }
+
 function UnknownSelectorFallback({ selector }: { selector: string }) {
   return (
-    <div className="rounded-lg border bg-muted/30 p-4">
-      <p className="text-sm font-medium">Unsupported UI request</p>
+    <div className="rounded-[var(--app-card-radius)] border bg-soft-surface/70 p-4">
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <AlertCircle className="size-4 text-destructive" aria-hidden="true" />
+        Unsupported UI request
+      </p>
       <p className="app-muted mt-1 text-sm leading-6">
         The selected UI block could not be rendered safely.
       </p>
@@ -868,23 +1057,116 @@ function FieldText({
 function InlineError({ id, message }: { id?: string; message: string }) {
   return (
     <p
-      className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+      className="flex items-start gap-2 rounded-[var(--app-control-radius)] border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
       id={id}
     >
-      {message}
+      <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span>{message}</span>
     </p>
   )
 }
 
-function ReviewItem({ label, value }: { label: string; value: string }) {
+function ReviewItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon
+  label: string
+  value: string
+}) {
   return (
-    <div className="rounded-lg bg-background p-3 ring-1 ring-border">
-      <dt className="text-xs font-medium uppercase text-muted-foreground">
+    <div className="rounded-[var(--app-control-radius)] bg-background p-3 ring-1 ring-border">
+      <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-normal text-muted-foreground">
+        <Icon className="size-3.5 text-primary" aria-hidden="true" />
         {label}
       </dt>
       <dd className="mt-1 break-words font-medium">{value}</dd>
     </div>
   )
+}
+
+function SelectionCard({
+  description,
+  disabled,
+  icon: Icon,
+  iconClassName,
+  selected,
+  title,
+  onClick,
+}: {
+  description: string
+  disabled: boolean
+  icon: LucideIcon
+  iconClassName?: string
+  selected: boolean
+  title: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      aria-pressed={selected}
+      className={cn(
+        "app-focus-ring min-h-28 rounded-[var(--app-card-radius)] border bg-background p-3 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-accent disabled:pointer-events-none disabled:opacity-50",
+        selected && "border-primary bg-accent ring-2 ring-primary/15"
+      )}
+      disabled={disabled}
+      type="button"
+      onClick={onClick}
+    >
+      <span
+        className={cn(
+          "mb-3 grid size-10 place-items-center rounded-full bg-primary/10 text-primary",
+          iconClassName
+        )}
+      >
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+      <span className="block text-sm font-semibold text-foreground">
+        {title}
+      </span>
+      <span className="app-muted mt-1 block text-xs leading-5">
+        {description}
+      </span>
+    </button>
+  )
+}
+
+function getReviewItems(requirements: TripRequirements) {
+  return [
+    {
+      icon: MapPin,
+      label: "Source",
+      value: requirements.source || "Not set",
+    },
+    {
+      icon: Navigation,
+      label: "Destination",
+      value: requirements.destination || "Not set",
+    },
+    {
+      icon: CalendarDays,
+      label: "Duration",
+      value:
+        requirements.durationDays === null
+          ? "Not set"
+          : `${requirements.durationDays} day${
+              requirements.durationDays === 1 ? "" : "s"
+            }`,
+    },
+    {
+      icon: Wallet,
+      label: "Budget",
+      value: formatBudget(requirements.budgetTier),
+    },
+    {
+      icon: UsersRound,
+      label: "Travelers",
+      value: `${requirements.groupSize ?? "?"} ${formatGroupType(
+        requirements.groupType
+      )} traveler${requirements.groupSize === 1 ? "" : "s"}`,
+    },
+  ]
 }
 
 export { renderGenerativeUI }

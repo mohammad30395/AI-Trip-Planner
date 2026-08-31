@@ -64,3 +64,11 @@
 - Before saved-trip provider enrichment supplies canonical place coordinates,
   Create Trip context visuals may be map-inspired only. They must not fabricate
   coordinates, initialize Leaflet, or imply verified geography.
+- Assistant chat bubbles should stay left-aligned on a very light neutral
+  surface; user reply bubbles should stay right-aligned on the shared primary
+  orange with white text.
+- Generative option controls may use friendly presentation labels, but submitted
+  values must remain the canonical domain values from `create-trip-flow.ts`.
+- Shared selection cards should use native buttons, `aria-pressed`, pale
+  borders, soft icon surfaces, and orange-tinted selected states rather than
+  inventing new interaction semantics.
