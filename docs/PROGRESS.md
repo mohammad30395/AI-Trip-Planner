@@ -47,7 +47,55 @@
 - [x] UI Prompt-13 - Responsive, overflow, sticky, and breakpoint hardening
 - [x] UI Prompt-14 - Final accessibility, performance, security, and visual QA
 - [x] Image Bugfix-01 - Restore destination image rendering
+- [x] Place Enrichment Bugfix-02 - Restore itinerary place enrichment
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## Place Enrichment Bugfix-02 - Restore Itinerary Place Enrichment
+
+Completion pass:
+- Traced saved-trip hotel and activity cards from generated itinerary fields
+  through `buildHotelPlaceEnrichmentRequest`,
+  `buildActivityPlaceEnrichmentRequest`, `usePlaceEnrichment`,
+  `/api/place-enrichment`, the server-only Geoapify adapter, image resolution,
+  `ExternalImageFrame`, and Leaflet map point creation.
+- Confirmed destination cover images still use the working city lookup,
+  approved Wikimedia URL-only resolver, exact trusted-host validator, and shared
+  image frame from Image Bugfix-01.
+- Reproduced the London-to-Paris hotel failures with real Geoapify diagnostics:
+  Four Seasons returned a valid hotel POI on the primary query, while The Ritz
+  primary query returned only a building/address candidate and needed a bounded
+  name-plus-destination fallback to find the hotel POI.
+- Added bounded server-side geocoding attempts for non-city lookups: original
+  full semantic query first, then name plus destination, then address plus
+  destination only if an address exists. Transient provider failures do not
+  advance through fallback attempts.
+- Improved matching normalization for accented provider text such as `Hôtel`
+  and `Vendôme`, and added an explicit strong-address fallback gate that can
+  accept a Geoapify building/address result only on the address fallback attempt.
+- Preserved country filtering, destination proximity bias, local-distance
+  rejection, category/type checks, and the rule that only accepted Geoapify
+  results can become map points.
+- Allowed hotels to use the existing approved Wikimedia resolver only through
+  strict exact-place title matching after a canonical Geoapify match. Ambiguous
+  hotel images still fall back to `Photo unavailable`.
+- Kept coordinate confidence and image confidence independent; either one may
+  succeed or fail without authorizing the other.
+- Removed all temporary live diagnostic code before commit.
+
+Verification:
+- Focused tests passed for Geoapify matching/fallback behavior, route
+  no-match/error semantics, external image validation, and strict Wikimedia
+  image resolution.
+- Temporary live diagnostics confirmed Four Seasons Hotel George V enriches as
+  a verified Geoapify hotel point with an exact Wikimedia image and The Ritz
+  Paris enriches as a probable Geoapify hotel point through the
+  name-plus-destination fallback with an exact Wikimedia image.
+- Rendered authenticated browser verification remained unavailable in this
+  Codex environment; no final screenshot or pixel-parity claim was made.
+
+Next:
+- Production readiness can continue with restored itinerary-place enrichment
+  and unchanged provider/security boundaries.
 
 ## Image Bugfix-01 - Restore Destination Image Rendering
 

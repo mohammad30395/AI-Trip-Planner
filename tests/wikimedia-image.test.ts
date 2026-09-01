@@ -168,24 +168,74 @@ describe("Wikimedia image resolver", () => {
     ).resolves.toMatchObject({ status: "rejected_unsafe_url" })
   })
 
-  test("does not perform secondary exact image lookup for hotels", async () => {
-    const fetchMock = vi.fn()
+  test("performs strict secondary exact image lookup for hotels", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        wikimediaSearchResponse([
+          wikimediaPage({
+            title: "File:Hotel Ritz Paris.jpg",
+            thumbUrl:
+              "https://thumb.wikimedia.org/wikipedia/commons/thumb/ritz.jpg/1200px-ritz.jpg",
+            objectName: "Hotel Ritz Paris",
+          }),
+        ])
+      )
+    )
     vi.stubGlobal("fetch", fetchMock)
 
     await expect(
       resolvePlaceImage({
         place: placeFixture({
-          displayName: "Hotel Supreme",
+          displayName: "Le Ritz",
+          formattedAddress: "Le Ritz, Place Vendôme, 75001 Paris, France",
         }),
         request: {
-          query: "Hotel Supreme",
+          query: "The Ritz Paris",
           lookupKind: "hotel",
-          destination: "Sylhet",
+          destination: "Paris",
         },
         signal: AbortSignal.timeout(1_000),
       })
-    ).resolves.toMatchObject({ status: "unsupported_lookup" })
-    expect(fetchMock).not.toHaveBeenCalled()
+    ).resolves.toMatchObject({
+      status: "found",
+      image: {
+        source: "wikimedia",
+        kind: "exact_place",
+        alt: "The Ritz Paris",
+      },
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test("rejects ambiguous secondary hotel images", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        wikimediaSearchResponse([
+          wikimediaPage({
+            title: "File:Paris luxury hotel lobby.jpg",
+            thumbUrl:
+              "https://thumb.wikimedia.org/wikipedia/commons/thumb/lobby.jpg/1200px-lobby.jpg",
+            objectName: "Paris luxury hotel lobby",
+          }),
+        ])
+      )
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    await expect(
+      resolvePlaceImage({
+        place: placeFixture({
+          displayName: "Le Ritz",
+          formattedAddress: "Le Ritz, Place Vendôme, 75001 Paris, France",
+        }),
+        request: {
+          query: "The Ritz Paris",
+          lookupKind: "hotel",
+          destination: "Paris",
+        },
+        signal: AbortSignal.timeout(1_000),
+      })
+    ).resolves.toMatchObject({ status: "rejected_ambiguous_match" })
   })
 
   test("Geoapify image has priority over secondary resolver", async () => {

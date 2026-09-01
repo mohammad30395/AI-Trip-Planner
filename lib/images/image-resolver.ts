@@ -39,10 +39,6 @@ export async function resolvePlaceImage({
 }): Promise<ImageResolutionResult> {
   const lookupKind = request.lookupKind ?? "specific_place"
 
-  if (lookupKind === "hotel") {
-    return { status: "unsupported_lookup" }
-  }
-
   if (lookupKind === "city") {
     return resolveDestinationImage({
       place,
@@ -67,12 +63,17 @@ export async function resolveExactPlaceImage({
   request: PlaceEnrichmentRequest
   signal: AbortSignal
 }): Promise<ImageResolutionResult> {
+  const lookupKind = request.lookupKind ?? "specific_place"
+  const query = lookupKind === "hotel" ? request.query : place.displayName
+  const context =
+    lookupKind === "hotel" ? buildHotelImageContext(request, place) : buildContext(request, place)
+
   return mapWikimediaResult(
     await resolveWikimediaImage({
-      query: place.displayName,
-      context: buildContext(request, place),
+      query,
+      context,
       kind: "exact_place",
-      alt: place.displayName,
+      alt: lookupKind === "hotel" ? request.query : place.displayName,
       strictTitleMatch: true,
       signal,
     })
@@ -134,6 +135,18 @@ function buildContext(
     request.destination,
     request.country,
     place.formattedAddress,
+  ]
+    .filter((part): part is string => part !== undefined && part.trim().length > 0)
+    .join(" ")
+}
+
+function buildHotelImageContext(
+  request: PlaceEnrichmentRequest,
+  place: PlaceEnrichment
+) {
+  return [
+    request.destination ?? request.city,
+    request.country ?? getLastAddressPart(place.formattedAddress),
   ]
     .filter((part): part is string => part !== undefined && part.trim().length > 0)
     .join(" ")

@@ -196,7 +196,8 @@ stored in Convex. Current image enrichment remains on-demand through the
 existing place-enrichment cache. Geoapify Place Details is checked first for
 accepted canonical places. When Geoapify does not provide a valid image, the
 provider-neutral resolver may use Wikimedia Commons as a URL-only secondary
-provider for destination covers and accepted non-hotel exact places. Missing,
+provider for destination covers and accepted exact places, including hotels,
+only when the strict exact-place title match gate accepts the media. Missing,
 unsafe, ambiguous, or broken provider media falls back to the shared neutral
 image frame.
 

@@ -111,6 +111,9 @@
 - Destination, hotel, and activity imagery must pass through the shared
   external-image validator, and Next image host configuration must stay aligned
   with that exact trusted-host list.
+- Place-specific imagery and mappable coordinates remain independently gated:
+  a strict image match never authorizes a map point, and a Geoapify coordinate
+  match never guarantees a photo.
 
 ## Map Guidance
 

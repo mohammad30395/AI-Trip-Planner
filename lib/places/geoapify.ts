@@ -26,6 +26,7 @@ const SPECIFIC_PLACE_PROBABLE_SCORE = 72
 const SPECIFIC_PLACE_VERIFIED_SCORE = 90
 const CITY_PROBABLE_SCORE = 65
 const CITY_VERIFIED_SCORE = 85
+const STRONG_ADDRESS_COVERAGE = 0.8
 
 type GeoapifyGeocodingResponse = {
   results?: unknown[]
@@ -72,6 +73,8 @@ export type PlaceCandidateRankingInput = {
   request: PlaceEnrichmentRequest
   destinationContext?: DestinationContext
   candidates: GeoapifyCandidate[]
+  matchedQuery?: string
+  allowAddressMatch?: boolean
 }
 
 export type PlaceCandidateRankingResult =
@@ -95,6 +98,12 @@ type GeoapifyStatus =
   | "provider_no_results"
   | "provider_no_confident_match"
   | "provider_timeout"
+
+type GeocodingAttempt = {
+  allowAddressMatch: boolean
+  searchText: string
+  request: PlaceEnrichmentRequest
+}
 
 export class GeoapifyConfigurationError extends Error {
   readonly missingVariables: string[]
@@ -124,16 +133,11 @@ export async function enrichPlaceWithGeoapify(
 ): Promise<PlaceEnrichment> {
   const apiKey = getGeoapifyApiKey()
   const destinationContext = await getDestinationContext(request, apiKey, signal)
-  const geocodingResponse = await fetchGeoapifyJson<GeoapifyGeocodingResponse>(
-    buildGeocodingUrl(request, apiKey, destinationContext),
-    "geocoding",
-    signal
-  )
-
-  const basePlace = normalizeBestGeocodingResult(
+  const basePlace = await getBestGeocodingResult(
     request,
-    geocodingResponse,
-    destinationContext
+    apiKey,
+    destinationContext,
+    signal
   )
   const image = await getOptionalDetailsImage(
     basePlace.providerPlaceId,
@@ -164,16 +168,16 @@ function getGeoapifyApiKey() {
 }
 
 function buildGeocodingUrl(
-  request: PlaceEnrichmentRequest,
+  attempt: GeocodingAttempt,
   apiKey: string,
   destinationContext: DestinationContext | undefined
 ) {
   const url = new URL(GEOAPIFY_GEOCODING_URL)
-  url.searchParams.set("text", buildGeoapifySearchText(request))
+  url.searchParams.set("text", attempt.searchText)
   url.searchParams.set("format", "json")
   url.searchParams.set("lang", "en")
   url.searchParams.set("limit", GEOAPIFY_RESULT_LIMIT)
-  const lookupKind = getLookupKind(request)
+  const lookupKind = getLookupKind(attempt.request)
 
   if (lookupKind === "city") {
     url.searchParams.set("type", "city")
@@ -339,10 +343,143 @@ async function getDestinationContext(
   }
 }
 
+async function getBestGeocodingResult(
+  request: PlaceEnrichmentRequest,
+  apiKey: string,
+  destinationContext: DestinationContext | undefined,
+  signal: AbortSignal
+) {
+  let lastNoMatchError: GeoapifyProviderError | undefined
+
+  for (const attempt of buildGeocodingAttempts(request)) {
+    const geocodingResponse = await fetchGeoapifyJson<GeoapifyGeocodingResponse>(
+      buildGeocodingUrl(attempt, apiKey, destinationContext),
+      "geocoding",
+      signal
+    )
+
+    try {
+      return normalizeBestGeocodingResult(
+        attempt.request,
+        geocodingResponse,
+        destinationContext,
+        attempt.searchText,
+        attempt.allowAddressMatch
+      )
+    } catch (error) {
+      if (error instanceof GeoapifyProviderError && isNoMatchError(error)) {
+        if (
+          lastNoMatchError === undefined ||
+          error.code === "provider_no_confident_match"
+        ) {
+          lastNoMatchError = error
+        }
+        continue
+      }
+
+      throw error
+    }
+  }
+
+  throw (
+    lastNoMatchError ??
+    new GeoapifyProviderError(
+      "provider_no_confident_match",
+      404,
+      "Geoapify returned no confident place match."
+    )
+  )
+}
+
+function buildGeocodingAttempts(
+  request: PlaceEnrichmentRequest
+): GeocodingAttempt[] {
+  const lookupKind = getLookupKind(request)
+  const attempts: GeocodingAttempt[] = [
+    {
+      allowAddressMatch: false,
+      request,
+      searchText: buildGeoapifySearchText(request),
+    },
+  ]
+
+  if (lookupKind === "city") {
+    return attempts
+  }
+
+  addGeocodingAttempt(attempts, request, [
+    request.query,
+    request.destination ?? request.city,
+    request.country,
+  ], false)
+
+  if (request.address !== undefined) {
+    addGeocodingAttempt(attempts, request, [
+      request.address,
+      request.destination ?? request.city,
+      request.country,
+    ], true)
+  }
+
+  return attempts
+}
+
+function addGeocodingAttempt(
+  attempts: GeocodingAttempt[],
+  request: PlaceEnrichmentRequest,
+  parts: Array<string | undefined>,
+  allowAddressMatch: boolean
+) {
+  const searchText = buildSearchText(parts)
+
+  if (
+    searchText.length === 0 ||
+    attempts.some(
+      (attempt) => normalizeText(attempt.searchText) === normalizeText(searchText)
+    )
+  ) {
+    return
+  }
+
+  attempts.push({
+    allowAddressMatch,
+    request,
+    searchText,
+  })
+}
+
+function buildSearchText(parts: Array<string | undefined>) {
+  const seen = new Set<string>()
+
+  return parts
+    .filter((part): part is string => part !== undefined && part.trim().length > 0)
+    .map((part) => part.trim().replace(/\s+/g, " "))
+    .filter((part) => {
+      const key = normalizeText(part)
+
+      if (seen.has(key)) {
+        return false
+      }
+
+      seen.add(key)
+      return true
+    })
+    .join(", ")
+}
+
+function isNoMatchError(error: GeoapifyProviderError) {
+  return (
+    error.code === "provider_no_results" ||
+    error.code === "provider_no_confident_match"
+  )
+}
+
 function normalizeBestGeocodingResult(
   request: PlaceEnrichmentRequest,
   response: GeoapifyGeocodingResponse,
-  destinationContext: DestinationContext | undefined
+  destinationContext: DestinationContext | undefined,
+  matchedQuery = buildGeoapifySearchText(request),
+  allowAddressMatch = false
 ): PlaceEnrichment {
   if (!Array.isArray(response.results) || response.results.length === 0) {
     throw new GeoapifyProviderError(
@@ -366,6 +503,8 @@ function normalizeBestGeocodingResult(
     request,
     destinationContext,
     candidates,
+    matchedQuery,
+    allowAddressMatch,
   })
 
   if (ranking.status === "no_confident_match") {
@@ -447,11 +586,12 @@ function toPlaceEnrichment(
 }
 
 export function rankGeoapifyCandidates({
+  allowAddressMatch = false,
   candidates,
   destinationContext,
   request,
+  matchedQuery = buildGeoapifySearchText(request),
 }: PlaceCandidateRankingInput): PlaceCandidateRankingResult {
-  const matchedQuery = buildGeoapifySearchText(request)
   const lookupKind = getLookupKind(request)
 
   if (lookupKind !== "city" && isGenericPlaceQuery(request.query)) {
@@ -464,7 +604,13 @@ export function rankGeoapifyCandidates({
 
   const scoredCandidates = candidates
     .map((candidate) =>
-      scoreGeoapifyCandidate(candidate, request, destinationContext, lookupKind)
+      scoreGeoapifyCandidate(
+        candidate,
+        request,
+        destinationContext,
+        lookupKind,
+        allowAddressMatch
+      )
     )
     .filter((score): score is CandidateScore => score !== null)
     .sort((left, right) => right.score - left.score)
@@ -509,7 +655,8 @@ function scoreGeoapifyCandidate(
   candidate: GeoapifyCandidate,
   request: PlaceEnrichmentRequest,
   destinationContext: DestinationContext | undefined,
-  lookupKind: PlaceLookupKind
+  lookupKind: PlaceLookupKind,
+  allowAddressMatch: boolean
 ): CandidateScore | null {
   if (!hasExpectedCountry(candidate, request, destinationContext)) {
     return null
@@ -553,8 +700,10 @@ function scoreGeoapifyCandidate(
 
   const nameCoverage = getTokenCoverage(requestedNameTokens, candidateNameTokens)
   const textCoverage = getTokenCoverage(requestedNameTokens, candidateTextTokens)
+  const strongAddressMatch =
+    allowAddressMatch && hasStrongAddressMatch(candidate, request)
 
-  if (lookupKind === "hotel" && nameCoverage < 0.5) {
+  if (lookupKind === "hotel" && nameCoverage < 0.5 && !strongAddressMatch) {
     return null
   }
 
@@ -592,6 +741,10 @@ function scoreGeoapifyCandidate(
 
   if (lookupKind === "hotel" && isHotelCategory(candidate.category)) {
     score += 12
+  }
+
+  if (lookupKind === "hotel" && strongAddressMatch) {
+    score += 40
   }
 
   return {
@@ -747,6 +900,57 @@ function scoreContextText(value: string | undefined, ...targets: (string | undef
   return 0
 }
 
+function hasStrongAddressMatch(
+  candidate: GeoapifyCandidate,
+  request: PlaceEnrichmentRequest
+) {
+  const addressTokens = getDistinctiveTokens(request.address)
+
+  if (addressTokens.length === 0) {
+    return false
+  }
+
+  const candidateTokens = getNormalizedTokens(
+    [candidate.displayName, candidate.formattedAddress]
+      .filter((part): part is string => part !== undefined)
+      .join(" ")
+  )
+  const addressCoverage = getTokenCoverage(addressTokens, candidateTokens)
+
+  return (
+    addressCoverage >= STRONG_ADDRESS_COVERAGE &&
+    hasRequiredNumericAddressTokens(addressTokens, candidateTokens) &&
+    hasAddressCompatibleResultType(candidate) &&
+    hasAddressCompatibleCategory(candidate)
+  )
+}
+
+function hasRequiredNumericAddressTokens(
+  addressTokens: readonly string[],
+  candidateTokens: readonly string[]
+) {
+  const requiredNumericTokens = addressTokens.filter((token) => /^\d/.test(token))
+
+  if (requiredNumericTokens.length === 0) {
+    return true
+  }
+
+  const candidateTokenSet = new Set(candidateTokens)
+  return requiredNumericTokens.every((token) => candidateTokenSet.has(token))
+}
+
+function hasAddressCompatibleResultType(candidate: GeoapifyCandidate) {
+  const resultType = normalizeText(candidate.resultType)
+
+  return resultType === "building" || resultType === "amenity"
+}
+
+function hasAddressCompatibleCategory(candidate: GeoapifyCandidate) {
+  const category = normalizeText(candidate.category)
+
+  return category === "" || isHotelCategory(category)
+}
+
 function scoreRank(candidate: GeoapifyCandidate) {
   let score = 0
 
@@ -836,6 +1040,8 @@ function normalizeText(value: string | undefined) {
   return (
     value
       ?.toLocaleLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/&/g, " and ")
       .replace(/['’`]/g, "")
       .replace(/[^a-z0-9]+/g, " ")

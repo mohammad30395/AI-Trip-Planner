@@ -44,9 +44,9 @@
   places, then use the provider-neutral image resolver for approved secondary
   URL-only sources.
 - Use Wikimedia Commons as the current secondary image provider for
-  representative destination covers and accepted non-hotel exact places.
-  Hotels must not use secondary exact-image lookup because unrelated media is
-  too risky for lodging cards.
+  representative destination covers and accepted exact places, including hotels,
+  only through strict exact-place title matching. Ambiguous or unrelated hotel
+  media must keep the neutral image fallback.
 - Allow only `upload.wikimedia.org` and `thumb.wikimedia.org` image URLs in the
   current renderer; Commons source-page URLs are metadata only. Do not add
   wildcard image hosts, scrape Google Images, or accept AI-invented image URLs.

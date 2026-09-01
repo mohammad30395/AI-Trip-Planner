@@ -148,12 +148,14 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
           })
         }
 
-        expect(url.searchParams.get("text")).toBe(
-          "Hotel Supreme, Zindabazar, Sylhet"
-        )
         expect(url.searchParams.get("type")).toBe("amenity")
         expect(url.searchParams.get("filter")).toBe("countrycode:bd")
         expect(url.searchParams.get("bias")).toBe("proximity:91.8687,24.8949")
+
+        if (url.searchParams.get("text") !== "Hotel Supreme, Zindabazar, Sylhet") {
+          return jsonResponse({ results: [] })
+        }
+
         return jsonResponse({
           results: [
             {
@@ -193,7 +195,7 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
     ).rejects.toMatchObject({
       code: "provider_no_confident_match",
     })
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
   test("normalizes destination city media as representative images", async () => {
@@ -534,6 +536,137 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
     })
   })
 
+  test("falls back to name and destination for Paris hotel POI matches", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "test-key")
+    const geocodingSearches: string[] = []
+    const fetchMock = vi.fn(async (input: FetchInput) => {
+      const url = toUrl(input)
+
+      if (url.pathname === "/v1/geocode/search") {
+        const searchText = url.searchParams.get("text")
+        geocodingSearches.push(searchText ?? "")
+
+        if (url.searchParams.get("type") === "city") {
+          return jsonResponse({
+            results: [
+              {
+                place_id: "paris-city",
+                name: "Paris",
+                formatted: "Paris, France",
+                result_type: "city",
+                country: "France",
+                country_code: "fr",
+                city: "Paris",
+                lat: 48.8535,
+                lon: 2.3484,
+                rank: {
+                  confidence: 1,
+                  match_type: "full_match",
+                },
+              },
+            ],
+          })
+        }
+
+        if (
+          searchText ===
+          "The Ritz Paris, 15 Place Vendôme, 75001 Paris, 1st arrondissement, Paris"
+        ) {
+          expect(url.searchParams.get("type")).toBe("amenity")
+          return jsonResponse({
+            results: [
+              {
+                place_id: "ritz-building",
+                name: "15 Place Vendôme",
+                formatted:
+                  "15 Place Vendôme, 1st Arrondissement, 75001 Paris, France",
+                result_type: "building",
+                country: "France",
+                country_code: "fr",
+                city: "Paris",
+                lat: 48.8679507,
+                lon: 2.328898,
+                rank: {
+                  confidence: 0.9,
+                  match_type: "match_by_building",
+                },
+              },
+            ],
+          })
+        }
+
+        expect(searchText).toBe("The Ritz Paris, Paris")
+        return jsonResponse({
+          results: [
+            {
+              place_id: "ritz-bakery",
+              name: "Ritz Paris Le Comptoir",
+              formatted: "Ritz Paris Le Comptoir, 38 Rue Cambon, Paris, France",
+              result_type: "amenity",
+              category: "commercial.food_and_drink.bakery",
+              country: "France",
+              country_code: "fr",
+              city: "Paris",
+              lat: 48.8688849,
+              lon: 2.3275884,
+              rank: {
+                confidence: 0,
+                match_type: "full_match",
+              },
+            },
+            {
+              place_id: "ritz-hotel",
+              name: "Le Ritz",
+              formatted: "Le Ritz, Place Vendôme, 75001 Paris, France",
+              result_type: "amenity",
+              category: "accommodation.hotel",
+              country: "France",
+              country_code: "fr",
+              city: "Paris",
+              lat: 48.8679688,
+              lon: 2.3288445,
+              rank: {
+                confidence: 0,
+                match_type: "full_match",
+              },
+            },
+          ],
+        })
+      }
+
+      if (url.pathname === "/v2/place-details") {
+        return jsonResponse({ features: [] })
+      }
+
+      return jsonResponse({ query: { pages: [] } })
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const place = await enrichPlaceWithGeoapify(
+      {
+        query: "The Ritz Paris",
+        lookupKind: "hotel",
+        destination: "Paris",
+        area: "1st arrondissement",
+        address: "15 Place Vendôme, 75001 Paris",
+      },
+      AbortSignal.timeout(1_000)
+    )
+
+    expect(place).toMatchObject({
+      providerPlaceId: "ritz-hotel",
+      displayName: "Le Ritz",
+      formattedAddress: "Le Ritz, Place Vendôme, 75001 Paris, France",
+      matchStatus: "probable",
+      matchedQuery: "The Ritz Paris, Paris",
+    })
+    expect(geocodingSearches).toEqual([
+      "Paris",
+      "The Ritz Paris, 15 Place Vendôme, 75001 Paris, 1st arrondissement, Paris",
+      "The Ritz Paris, Paris",
+    ])
+  })
+
   test("maps no-result and malformed coordinates to provider errors", async () => {
     await expectProviderError({ results: [] }, "provider_no_results")
     await expectProviderError(
@@ -599,6 +732,67 @@ describe("Geoapify enrichment adapter with mocked provider responses", () => {
 
     expect(attraction.status).toBe("verified")
     expect(city.status).toBe("verified")
+  })
+
+  test("accepts minor hotel name variation with strong Paris context", () => {
+    const result = rankGeoapifyCandidates({
+      request: {
+        query: "The Ritz Paris",
+        lookupKind: "hotel",
+        destination: "Paris",
+        address: "15 Place Vendôme, 75001 Paris",
+      },
+      candidates: [
+        candidate({
+          providerPlaceId: "ritz-paris",
+          displayName: "Ritz Paris",
+          formattedAddress: "Ritz Paris, 15 Place Vendôme, 75001 Paris, France",
+          resultType: "amenity",
+          category: "accommodation.hotel",
+          countryCode: "fr",
+          country: "France",
+          city: "Paris",
+        }),
+      ],
+    })
+
+    expect(result.status).toBe("verified")
+  })
+
+  test("accepts explicit address-level hotel fallback only with exact address evidence", () => {
+    const request = {
+      query: "The Ritz Paris",
+      lookupKind: "hotel" as const,
+      destination: "Paris",
+      address: "15 Place Vendôme, 75001 Paris",
+    }
+    const exactAddress = candidate({
+      providerPlaceId: "ritz-address",
+      displayName: "15 Place Vendôme",
+      formattedAddress: "15 Place Vendôme, 75001 Paris, France",
+      resultType: "building",
+      countryCode: "fr",
+      country: "France",
+      city: "Paris",
+      rankConfidence: 0.9,
+      rankMatchType: "match_by_building",
+    })
+
+    expect(
+      rankGeoapifyCandidates({
+        request,
+        candidates: [exactAddress],
+      }).status
+    ).toBe("no_confident_match")
+
+    expect(
+      rankGeoapifyCandidates({
+        request,
+        allowAddressMatch: true,
+        matchedQuery: "15 Place Vendôme, 75001 Paris, Paris",
+        candidates: [exactAddress],
+      }).status
+    ).toBe("probable")
   })
 
   test("rejects unrelated hotel candidates even with matching area text", () => {
