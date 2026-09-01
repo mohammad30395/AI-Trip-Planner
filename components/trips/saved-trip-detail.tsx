@@ -122,6 +122,7 @@ function TripStateCard({
       description={message}
       icon={Icon}
       title={title}
+      titleAs="h1"
       tone={busy ? "primary" : "neutral"}
       action={
         actionHref !== undefined && actionLabel !== undefined ? (

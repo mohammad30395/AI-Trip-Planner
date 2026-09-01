@@ -45,7 +45,67 @@
 - [x] UI Prompt-06 - Create Trip conversation controls and interaction polish
 - [x] UI Prompt-12 - Pricing, auth surfaces, and secondary app states
 - [x] UI Prompt-13 - Responsive, overflow, sticky, and breakpoint hardening
+- [x] UI Prompt-14 - Final accessibility, performance, security, and visual QA
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## UI Prompt-14 - Final Accessibility, Performance, Security, and Visual QA
+
+Completion pass:
+- Performed the final source/static QA pass across `/`, `/pricing`,
+  `/sign-in`, `/sign-up`, root not-found, `/create-trip`, `/my-trips`,
+  `/view-trip/[tripId]`, and their important loading, error, empty,
+  unavailable, quota, generation, save, image fallback, and map states.
+- Inspected all 13 target screenshots in `UI's ss` as the final visual
+  reference set and mapped them to landing, Create Trip states, generated
+  itinerary/detail, provider-specific map references, My Trips, and saved-trip
+  split states.
+- Fixed mobile navigation focus restoration so selecting a menu link closes the
+  panel and returns focus to the trigger instead of leaving focus on removed
+  menu content.
+- Fixed route-level state semantics by letting `AppStatePanel` render real
+  heading elements and using `h1` for root not-found and saved-trip
+  loading/unavailable states.
+- Exposed busy `AppStatePanel` instances as status regions while keeping their
+  textual loading message visible.
+- Suppressed browser-default outlines on programmatically focused saved-trip
+  hotel/activity cards; the existing map-focus ring remains the visual selected
+  state.
+- Re-audited form labels, `aria-invalid`, `aria-describedby`,
+  `aria-pressed`, disabled controls, focus rings, live status messages, reduced
+  motion handling, touch targets, and image alt/fallback behavior.
+- Re-audited Leaflet lifecycle and confirmed one map instance, one app-owned
+  OSM tile layer, marker layer cleanup, listener cleanup, animation-frame
+  cleanup, `map.remove()`, DOM-built popups, and reduced-motion map focus.
+- Re-audited provider/security boundaries and confirmed Geoapify remains
+  server-only/canonical, Leaflet receives only normalized accepted coordinates,
+  OpenStreetMap tiles remain application-controlled with visible attribution,
+  and no Mapbox/Google/MapLibre/Cesium runtime package or import exists.
+- Re-audited Clerk auth, Clerk Billing, Arcjet quota, OpenRouter AI contracts,
+  Convex owner-scoped trip access, save idempotency, and persisted trip
+  navigation without changing those contracts.
+- Removed no broad historical code. Existing unrendered reusable UI artifacts
+  were left in place unless they were proven direct defects.
+
+Verification:
+- HTTP smoke checks returned HTML 200 for `/`, `/pricing`, `/sign-in`, and
+  `/sign-up`; signed-out `/create-trip`, `/my-trips`, and
+  `/view-trip/sample-trip-123` returned Clerk sign-in redirects; a missing root
+  route returned 404.
+- Browser automation remained unavailable because the required browser
+  JavaScript execution hook was not exposed and Playwright/Puppeteer are not
+  installed locally. No final pixel-parity claim was made.
+- Static warning searches found no `@ts-ignore`, broad handwritten `any`,
+  unsafe HTML injection, fake `href="#"`, production screenshot references, or
+  committed localhost runtime dependencies in active app code.
+- Existing sanitized `console.warn` diagnostics are development-only and were
+  reviewed as non-secret logging.
+- Automated checks for this milestone are recorded in the implementation
+  report.
+
+Next:
+- Optional UI Prompt-15 is not recommended for production readiness. The UI
+  redesign should move to production-readiness/deployment work instead of
+  adding motion.
 
 ## UI Prompt-13 - Responsive, Overflow, Sticky, and Breakpoint Hardening
 

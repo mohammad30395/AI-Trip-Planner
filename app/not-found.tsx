@@ -19,6 +19,7 @@ function NotFoundPage() {
             description="The page you requested could not be found. Return home or start a new trip from an existing route."
             icon={Compass}
             title="Page not found"
+            titleAs="h1"
             tone="neutral"
             action={
               <div className="flex flex-col gap-2 sm:flex-row">

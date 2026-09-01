@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Menu, X } from "lucide-react"
 
 import { NavLinks, type HeaderNavItem } from "@/components/navigation/nav-links"
@@ -17,6 +17,7 @@ type MobileNavProps = {
 
 function MobileNav({ items, actions, navLabel, className }: MobileNavProps) {
   const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     const closeMenu = () => setOpen(false)
@@ -38,6 +39,7 @@ function MobileNav({ items, actions, navLabel, className }: MobileNavProps) {
         aria-expanded={open}
         aria-controls="mobile-navigation-menu"
         onClick={() => setOpen((current) => !current)}
+        ref={triggerRef}
       >
         {open ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
       </Button>
@@ -51,7 +53,10 @@ function MobileNav({ items, actions, navLabel, className }: MobileNavProps) {
             <NavLinks
               items={items}
               orientation="mobile"
-              onNavigate={() => setOpen(false)}
+              onNavigate={() => {
+                setOpen(false)
+                triggerRef.current?.focus()
+              }}
             />
           </nav>
           <div className="mt-3 border-t pt-3">{actions}</div>

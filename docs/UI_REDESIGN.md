@@ -173,6 +173,11 @@
 - Secondary loading, empty, error, not-found, and account-sync states should use
   product typography, app radius tokens, restrained icons, safe explanations,
   and real-route recovery actions only.
+- Route-level loading, empty, unavailable, and not-found states should expose
+  their state title as the page `h1`; nested state panels inside pages that
+  already have a heading should use a lower-level heading.
+- When the mobile navigation menu closes after route selection, focus should
+  return to the menu trigger instead of remaining on removed menu content.
 - Default and large shared buttons should remain close to 44px touch targets.
   Smaller sizes are reserved for compact, deliberate UI contexts where the
   surrounding control group already provides clear affordance.

@@ -6,11 +6,11 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 type AppStatePanelTone = "primary" | "destructive" | "success" | "neutral"
+type AppStatePanelTitleElement = "h1" | "h2"
 
 const toneClasses: Record<AppStatePanelTone, string> = {
   primary: "bg-accent text-primary",
@@ -27,6 +27,7 @@ type AppStatePanelProps = {
   description: ReactNode
   icon: LucideIcon
   title: string
+  titleAs?: AppStatePanelTitleElement
   tone?: AppStatePanelTone
 }
 
@@ -38,6 +39,7 @@ function AppStatePanel({
   description,
   icon: Icon,
   title,
+  titleAs: TitleElement = "h2",
   tone = "primary",
 }: AppStatePanelProps) {
   const isCentered = align === "center"
@@ -45,6 +47,7 @@ function AppStatePanel({
   return (
     <Card
       aria-busy={busy || undefined}
+      role={busy ? "status" : undefined}
       className={cn(
         "app-panel p-0",
         isCentered ? "text-center" : "text-left",
@@ -74,9 +77,14 @@ function AppStatePanel({
             <Icon className={cn("size-5", busy && "animate-spin")} />
           </span>
           <div className="min-w-0">
-            <CardTitle className={cn(isCentered && "text-2xl")}>
+            <TitleElement
+              className={cn(
+                "font-heading text-base leading-snug font-semibold",
+                isCentered && "text-2xl"
+              )}
+            >
               {title}
-            </CardTitle>
+            </TitleElement>
           </div>
         </div>
       </CardHeader>
