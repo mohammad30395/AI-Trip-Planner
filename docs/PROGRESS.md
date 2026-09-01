@@ -46,7 +46,48 @@
 - [x] UI Prompt-12 - Pricing, auth surfaces, and secondary app states
 - [x] UI Prompt-13 - Responsive, overflow, sticky, and breakpoint hardening
 - [x] UI Prompt-14 - Final accessibility, performance, security, and visual QA
+- [x] Image Bugfix-01 - Restore destination image rendering
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## Image Bugfix-01 - Restore Destination Image Rendering
+
+Completion pass:
+- Traced `/my-trips` destination cover images from Convex saved trip list data
+  through `buildTripCardData`, `buildDestinationCoverEnrichmentRequest`,
+  `usePlaceEnrichment`, `/api/place-enrichment`, Geoapify city enrichment,
+  optional Wikimedia image resolution, external image normalization,
+  `ExternalImageFrame`, and Next Image remote host configuration.
+- Confirmed old and new saved trips use the same dynamic destination text for
+  cover lookup, so existing trips do not need regeneration or data mutation.
+- Reproduced the failing layer with temporary local diagnostics: real city
+  enrichment for Paris and Barishal succeeded with verified Geoapify matches,
+  but image resolution returned no attached image because Commons thumbnail
+  URLs were rejected by the trusted-host validator.
+- Confirmed Commons currently returns HTTPS image thumbnails from the exact
+  host `thumb.wikimedia.org` under the Wikimedia thumbnail path and that a
+  representative Paris thumbnail responded with HTTP 200 and `image/jpeg`.
+- Added `thumb.wikimedia.org` to the exact trusted external image host list and
+  aligned `next.config.ts` image `remotePatterns` with that same host.
+- Preserved `upload.wikimedia.org`, HTTPS-only validation, source/kind/alt
+  validation, `ExternalImageFrame`, fallback behavior, and rejection of
+  lookalike/untrusted hosts.
+- Added focused regression tests for trusted Wikimedia thumbnail URLs,
+  continued rejection of unsupported hosts, and Next image host alignment.
+- Removed all temporary diagnostic code before commit.
+
+Verification:
+- Focused image tests passed for external image validation, Wikimedia image
+  resolution, and Geoapify image normalization.
+- Temporary live diagnostics after the fix confirmed Paris and Barishal produce
+  representative Wikimedia images from `thumb.wikimedia.org`, pass URL
+  validation, and return HTTP 200 image content.
+- Authenticated rendered `/my-trips` browser verification remained unavailable
+  in this Codex environment; no final rendered screenshot claim was made.
+- Automated checks for this bugfix are recorded in the implementation report.
+
+Next:
+- Production readiness can continue with the restored destination image
+  pipeline and unchanged image-safety boundary.
 
 ## UI Prompt-14 - Final Accessibility, Performance, Security, and Visual QA
 

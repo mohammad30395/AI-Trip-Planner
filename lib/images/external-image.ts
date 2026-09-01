@@ -14,6 +14,7 @@ export type ExternalImage = {
 }
 
 export const SUPPORTED_EXTERNAL_IMAGE_HOSTS = [
+  "thumb.wikimedia.org",
   "upload.wikimedia.org",
 ] as const
 const SUPPORTED_SOURCE_PAGE_HOSTS = ["commons.wikimedia.org"] as const

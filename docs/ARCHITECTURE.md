@@ -201,11 +201,12 @@ unsafe, ambiguous, or broken provider media falls back to the shared neutral
 image frame.
 
 Remote image URLs are validated before rendering. The current allowed host
-family is limited to `upload.wikimedia.org`. Wikimedia Commons source-page
-URLs may be stored as metadata only. Next Image remote patterns must stay
-aligned with that validator and must not be widened to arbitrary hosts. Do not
-scrape Google Images or browser search result HTML, and do not let AI invent
-image URLs.
+family is limited to `upload.wikimedia.org` and `thumb.wikimedia.org`, the two
+Wikimedia media hosts returned by the approved Commons image pipeline.
+Wikimedia Commons source-page URLs may be stored as metadata only. Next Image
+remote patterns must stay aligned with that validator and must not be widened
+to arbitrary hosts. Do not scrape Google Images or browser search result HTML,
+and do not let AI invent image URLs.
 
 ## AI Contract Boundary
 

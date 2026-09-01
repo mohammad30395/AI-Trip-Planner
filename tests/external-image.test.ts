@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest"
 
+import nextConfig from "@/next.config"
 import {
   getExternalImageRenderMode,
   normalizeExternalImage,
@@ -14,6 +15,23 @@ import { buildPlaceEnrichmentCacheKey } from "@/components/trips/place-enrichmen
 
 describe("external image validation and lookup policy", () => {
   test("accepts supported HTTPS Geoapify image metadata", () => {
+    expect(
+      normalizeExternalImage({
+        url: "https://thumb.wikimedia.org/wikipedia/commons/thumb/example.jpg/1200px-example.jpg",
+        source: "wikimedia",
+        kind: "representative",
+        alt: "Paris destination",
+        attribution: "Example photographer",
+        sourcePageUrl: "https://commons.wikimedia.org/wiki/File:Paris.jpg",
+        license: "CC BY-SA 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+      })
+    ).toMatchObject({
+      source: "wikimedia",
+      kind: "representative",
+      url: "https://thumb.wikimedia.org/wikipedia/commons/thumb/example.jpg/1200px-example.jpg",
+    })
+
     expect(
       normalizeExternalImage({
         url: "https://upload.wikimedia.org/wikipedia/commons/example.jpg",
@@ -58,6 +76,7 @@ describe("external image validation and lookup policy", () => {
     expect(normalizeExternalImageUrl("https://localhost/file.jpg")).toBeNull()
     expect(normalizeExternalImageUrl("https://127.0.0.1/file.jpg")).toBeNull()
     expect(normalizeExternalImageUrl("https://images.example/file.jpg")).toBeNull()
+    expect(normalizeExternalImageUrl("https://evilthumb.wikimedia.org/file.jpg")).toBeNull()
     expect(normalizeExternalImageUrl("not a url")).toBeNull()
     expect(
       normalizeExternalImage({
@@ -67,6 +86,21 @@ describe("external image validation and lookup policy", () => {
         alt: " ",
       })
     ).toBeNull()
+  })
+
+  test("keeps Next image hosts aligned with trusted Wikimedia image hosts", () => {
+    expect(nextConfig.images?.remotePatterns).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          protocol: "https",
+          hostname: "thumb.wikimedia.org",
+        }),
+        expect.objectContaining({
+          protocol: "https",
+          hostname: "upload.wikimedia.org",
+        }),
+      ])
+    )
   })
 
   test("models loading, successful, missing, and broken image render states", () => {

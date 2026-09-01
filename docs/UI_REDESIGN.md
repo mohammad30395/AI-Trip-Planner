@@ -108,6 +108,9 @@
   existing enrichment provides a canonical mappable place.
 - Image fallbacks should keep card dimensions stable, stay neutral/light, and
   never fabricate place photography.
+- Destination, hotel, and activity imagery must pass through the shared
+  external-image validator, and Next image host configuration must stay aligned
+  with that exact trusted-host list.
 
 ## Map Guidance
 

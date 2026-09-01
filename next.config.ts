@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "thumb.wikimedia.org",
+      },
+      {
+        protocol: "https",
         hostname: "upload.wikimedia.org",
       },
     ],
