@@ -262,7 +262,11 @@ opening a pull request.
 
 ## License
 
-No explicit license file is currently included in this repository.
+This project is licensed under the MIT License.
+
+Copyright (c) 2026 Mohammad Mahmudul Kabir Fahmid.
+
+See [LICENSE](LICENSE) for the full license text.
 
 ## Further Reading
 
