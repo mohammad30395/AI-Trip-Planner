@@ -18,8 +18,6 @@ Variable names only. Never commit or print values.
 | `ARCJET_KEY` | Server-only | Arcjet protection and quota checks |
 | `OPEN_ROUTER_API_KEY` | Server-only | OpenRouter server calls |
 | `OPEN_ROUTER_MODEL` | Server-only | Server-selected OpenRouter model |
-| `AGENTROUTER_API_KEY` | Server-only | Isolated AgentRouter Claude migration smoke calls |
-| `AGENTROUTER_MODEL` | Server-only | Server-selected AgentRouter Claude model for migration smoke calls |
 | `GEOAPIFY_API_KEY` | Server-only | Geoapify place-enrichment server calls |
 
 Do not create or use `NEXT_PUBLIC_GEOAPIFY_API_KEY`. Geoapify calls must go
