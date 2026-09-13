@@ -109,7 +109,6 @@ const generatedItinerary = {
 
 const finalPresentationBase = {
   finalError: null,
-  finalQuota: null,
   finalItinerary: null,
   isGeneratingFinal: false,
   isSavingTrip: false,
@@ -249,7 +248,6 @@ describe("create-trip pure state helpers", () => {
         itinerary: generatedItinerary,
         access: {
           tier: "free",
-          quotaEnforced: true,
         },
       }
     )
@@ -267,16 +265,6 @@ describe("create-trip pure state helpers", () => {
         isGeneratingFinal: true,
       })
     ).toBe("generating")
-    expect(
-      getFinalPresentationState({
-        ...finalPresentationBase,
-        finalQuota: {
-          limit: 1,
-          remaining: 0,
-          resetSeconds: 86_400,
-        },
-      })
-    ).toBe("quotaBlocked")
     expect(
       getFinalPresentationState({
         ...finalPresentationBase,

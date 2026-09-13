@@ -1,5 +1,4 @@
 import { useId, useState } from "react"
-import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
 import {
   AlertCircle,
@@ -23,14 +22,10 @@ import {
   Wallet,
 } from "lucide-react"
 
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { FinalItineraryResponse } from "@/lib/ai/contract"
-import type {
-  FinalItineraryQuota,
-  TripGenerationAccessStatus,
-} from "@/lib/ai/itinerary"
-import { buildQuotaExceededMessage } from "@/lib/quota/free-generation-quota"
+import type { TripGenerationAccessStatus } from "@/lib/ai/itinerary"
 import { cn } from "@/lib/utils"
 
 import {
@@ -127,7 +122,6 @@ type RenderGenerativeUIProps = {
   onSaveTrip: () => void
   onReset: () => void
   finalError: string | null
-  finalQuota: FinalItineraryQuota | null
   finalItinerary: FinalItineraryResponse | null
   generationAccess: TripGenerationAccessStatus | null
   isGeneratingFinal: boolean
@@ -139,7 +133,6 @@ type RenderGenerativeUIProps = {
 function renderGenerativeUI({
   disabled,
   finalError,
-  finalQuota,
   finalItinerary,
   generationAccess,
   isGeneratingFinal,
@@ -225,7 +218,6 @@ function renderGenerativeUI({
         <FinalItineraryUI
           disabled={disabled}
           error={finalError}
-          quota={finalQuota}
           access={generationAccess}
           isGenerating={isGeneratingFinal}
           isSaving={isSavingTrip}
@@ -671,7 +663,6 @@ function ReviewConfirmUI({
 type FinalItineraryUIProps = {
   disabled: boolean
   error: string | null
-  quota: FinalItineraryQuota | null
   access: TripGenerationAccessStatus | null
   itinerary: FinalItineraryResponse | null
   isGenerating: boolean
@@ -686,7 +677,6 @@ type FinalItineraryUIProps = {
 function FinalItineraryUI({
   disabled,
   error,
-  quota,
   access,
   itinerary,
   isGenerating,
@@ -700,7 +690,6 @@ function FinalItineraryUI({
   const hasSavedTrip = savedTripId !== null
   const presentationState = getFinalPresentationState({
     finalError: error,
-    finalQuota: quota,
     finalItinerary: itinerary,
     isGeneratingFinal: isGenerating,
     isSavingTrip: isSaving,
@@ -733,9 +722,7 @@ function FinalItineraryUI({
 
       <FinalTransitionStatus state={presentationState} />
 
-      {quota !== null ? (
-        <QuotaExceededNotice message={error} quota={quota} />
-      ) : presentationState === "generationError" && error !== null ? (
+      {presentationState === "generationError" && error !== null ? (
         <GenerationErrorNotice message={error} />
       ) : null}
 
@@ -867,15 +854,6 @@ function getFinalTransitionConfig(state: FinalPresentationState): {
         className: "border-primary/25",
         isSpinning: true,
       }
-    case "quotaBlocked":
-      return {
-        title: "Free generation limit reached",
-        description:
-          "Your confirmed brief is still here. Upgrade or try again when access is available.",
-        icon: Wallet,
-        iconClassName: "bg-primary/10 text-primary",
-        className: "border-primary/25 bg-primary/5",
-      }
     case "generationError":
       return {
         title: "Generation needs a retry",
@@ -942,45 +920,13 @@ function AccessStatusBadge({
   return (
     <div className="grid justify-items-start gap-2 sm:justify-items-end">
       <span className="w-fit rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
-        {isPremium ? "Premium access" : "Free access"}
-        {isPremium && !access.quotaEnforced ? ": quota bypassed" : ": daily quota"}
+        {isPremium ? "Premium access" : "Authenticated access"}
       </span>
       {access.notice !== undefined ? (
         <p className="max-w-sm rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
           {access.notice}
         </p>
       ) : null}
-    </div>
-  )
-}
-
-function QuotaExceededNotice({
-  message,
-  quota,
-}: {
-  message: string | null
-  quota: FinalItineraryQuota
-}) {
-  return (
-    <div className="grid gap-3 rounded-[var(--app-card-radius)] border border-primary/25 bg-primary/5 p-3 text-sm">
-      <div>
-        <p className="flex items-center gap-2 font-medium text-primary">
-          <AlertCircle className="size-4" aria-hidden="true" />
-          Free allowance used
-        </p>
-        <p className="app-muted mt-1 leading-6">
-          {message ?? buildQuotaExceededMessage(quota)}
-        </p>
-      </div>
-      <Link
-        className={buttonVariants({
-          className: "w-full sm:w-fit",
-          variant: "outline",
-        })}
-        href="/pricing"
-      >
-        View Pricing
-      </Link>
     </div>
   )
 }

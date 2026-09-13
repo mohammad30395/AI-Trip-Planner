@@ -18,7 +18,6 @@ import {
   createUserSafeError,
   formatUserSafeErrorMessage,
 } from "@/lib/errors/user-safe-error"
-import { buildQuotaExceededMessage } from "@/lib/quota/free-generation-quota"
 
 import {
   buildUserMessage,
@@ -214,19 +213,6 @@ function useCreateTripController(): CreateTripController {
       const parsedResponse = parseFinalItineraryResponseEnvelope(responseBody)
 
       if (!parsedResponse.ok) {
-        if (
-          parsedResponse.code === "quota_exceeded" &&
-          parsedResponse.quota !== undefined
-        ) {
-          dispatch({
-            type: "finalGenerationQuotaExceeded",
-            error: buildQuotaExceededMessage(parsedResponse.quota),
-            quota: parsedResponse.quota,
-            access: parsedResponse.access ?? null,
-          })
-          return
-        }
-
         throw new Error("Final itinerary response validation failed.")
       }
 

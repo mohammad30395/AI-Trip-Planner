@@ -23,17 +23,15 @@ import type { PlaceEnrichment } from "@/lib/places/place-enrichment"
 import type { TripPresentationData } from "@/lib/trips/presentation"
 
 describe("billing access decisions", () => {
-  test("enforces quota for free users", () => {
+  test("allows authenticated free users without an application quota", () => {
     expect(getTripGenerationAccessStatus(false)).toEqual({
       tier: "free",
-      quotaEnforced: true,
     })
   })
 
-  test("bypasses quota for premium users", () => {
+  test("preserves premium status without requiring a quota bypass", () => {
     expect(getTripGenerationAccessStatus(true)).toEqual({
       tier: "premium",
-      quotaEnforced: false,
     })
   })
 })

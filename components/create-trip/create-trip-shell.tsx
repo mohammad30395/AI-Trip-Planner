@@ -26,7 +26,6 @@ function CreateTripShell() {
         <TripPreviewPanel
           hasFinalError={controller.state.finalError !== null}
           hasFinalItinerary={controller.state.finalItinerary !== null}
-          hasFinalQuota={controller.state.finalQuota !== null}
           hasSaveError={controller.state.saveError !== null}
           isGeneratingFinal={controller.state.isGeneratingFinal}
           isSavingTrip={controller.state.isSavingTrip}

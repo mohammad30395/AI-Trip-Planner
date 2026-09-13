@@ -6,8 +6,7 @@ day-by-day itinerary, enriches real places with provider-backed location data,
 and lets authenticated users save and revisit trips.
 
 Built with Next.js 16.3.2, React 19, TypeScript, Tailwind CSS 4, Clerk,
-Convex, OpenRouter, Geoapify, Leaflet, OpenStreetMap tiles, Arcjet, Vitest, and
-ESLint.
+Convex, OpenRouter, Geoapify, Leaflet, OpenStreetMap tiles, Vitest, and ESLint.
 
 ## What It Does
 
@@ -21,8 +20,8 @@ ESLint.
 - Renders an interactive Leaflet map with OpenStreetMap-compatible tiles.
 - Displays destination and accepted place imagery through a constrained
   external-image boundary.
-- Separates free quota handling from paid unlimited generation through Arcjet
-  and Clerk Billing.
+- Allows authenticated trip generation without an application-level quota while
+  Clerk Billing remains available for account status and pricing.
 
 ## Product Workflow
 
@@ -50,7 +49,6 @@ flowchart TD
 
   NextRoutes --> OpenRouter[OpenRouter itinerary APIs]
   NextRoutes --> Geoapify[Geoapify enrichment]
-  NextRoutes --> Arcjet[Arcjet quota checks]
   NextRoutes --> ClerkBilling[Clerk Billing entitlements]
 
   ConvexClient --> Convex[Convex database]
@@ -85,10 +83,10 @@ captured in [docs/DECISIONS.md](docs/DECISIONS.md).
 | Framework | Next.js 16 App Router, React 19, TypeScript 5 |
 | Styling | Tailwind CSS 4, shadcn-style UI primitives, lucide-react icons |
 | Authentication | Clerk middleware, protected routes, custom sign-in and sign-up pages |
-| Billing | Clerk Billing entitlement checks for unlimited trip generation |
+| Billing | Clerk Billing pricing and account status |
 | Database | Convex queries and mutations with owner-scoped trip access |
 | AI | OpenRouter through the OpenAI SDK with strict itinerary contracts |
-| Quota | Arcjet rate and quota protection for free generation |
+| Quota | No application-level generation quota currently enforced |
 | Place data | Server-only Geoapify geocoding and place details |
 | Maps | Leaflet with OpenStreetMap-compatible tiles |
 | Images | Project-controlled landing assets plus allowlisted Wikimedia hosts |
@@ -118,7 +116,6 @@ lib/
   billing/                  Billing feature constants
   images/                   External image validation helpers
   places/                   Geoapify and place enrichment logic
-  quota/                    Arcjet quota logic
 tests/                      Vitest tests for contracts and core behavior
 docs/                       Project, architecture, environment, and production notes
 ```
@@ -133,7 +130,6 @@ docs/                       Project, architecture, environment, and production n
 - Convex project
 - OpenRouter API key and model
 - Geoapify API key
-- Arcjet key
 
 ### Installation
 
@@ -164,8 +160,8 @@ Open `http://localhost:3000` in a browser.
 
 Environment setup details live in
 [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md). Do not expose server-only values to
-the browser, and do not create client-side provider keys for Geoapify, OpenRouter,
-Arcjet, Clerk secrets, or Convex deploy keys.
+the browser, and do not create client-side provider keys for Geoapify,
+OpenRouter, Clerk secrets, or Convex deploy keys.
 
 | Variable | Scope | Purpose |
 | --- | --- | --- |
@@ -183,7 +179,6 @@ Arcjet, Clerk secrets, or Convex deploy keys.
 | `OPEN_ROUTER_API_KEY` | Server-only | OpenRouter API access. |
 | `OPEN_ROUTER_MODEL` | Server-only | Model used for itinerary generation. |
 | `GEOAPIFY_API_KEY` | Server-only | Geoapify geocoding and place details. |
-| `ARCJET_KEY` | Server-only | Free-tier quota and abuse protection. |
 
 `.env.local` is ignored by git. Never commit real provider credentials.
 
@@ -202,7 +197,7 @@ Arcjet, Clerk secrets, or Convex deploy keys.
 
 ## Security and Data Boundaries
 
-- AI, Geoapify, Arcjet, Clerk secret, and Convex deploy credentials stay on
+- AI, Geoapify, Clerk secret, and Convex deploy credentials stay on
   server routes or build tooling.
 - `proxy.ts` applies Clerk middleware for the current Next.js App Router setup.
 - Convex trip reads and writes are scoped to the authenticated user's Clerk

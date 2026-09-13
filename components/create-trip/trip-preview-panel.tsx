@@ -24,7 +24,6 @@ import {
 type TripPreviewPanelProps = {
   hasFinalError: boolean
   hasFinalItinerary: boolean
-  hasFinalQuota: boolean
   hasSaveError: boolean
   isGeneratingFinal: boolean
   isSavingTrip: boolean
@@ -43,7 +42,6 @@ type BriefItem = {
 function TripPreviewPanel({
   hasFinalError,
   hasFinalItinerary,
-  hasFinalQuota,
   hasSaveError,
   isGeneratingFinal,
   isSavingTrip,
@@ -60,7 +58,6 @@ function TripPreviewPanel({
     completedCount,
     hasFinalError,
     hasFinalItinerary,
-    hasFinalQuota,
     hasSaveError,
     isGeneratingFinal,
     isReady,
@@ -132,7 +129,6 @@ function TripPreviewPanel({
                   completedCount,
                   destination,
                   hasFinalItinerary,
-                  hasFinalQuota,
                   hasSaveError,
                   isReady,
                   isGeneratingFinal,
@@ -315,7 +311,6 @@ function getWorkspaceStatus({
   completedCount,
   destination,
   hasFinalItinerary,
-  hasFinalQuota,
   hasSaveError,
   isReady,
   isGeneratingFinal,
@@ -326,7 +321,6 @@ function getWorkspaceStatus({
   completedCount: number
   destination: string
   hasFinalItinerary: boolean
-  hasFinalQuota: boolean
   hasSaveError: boolean
   isReady: boolean
   isGeneratingFinal: boolean
@@ -354,10 +348,6 @@ function getWorkspaceStatus({
     return "Building the final itinerary from your confirmed trip brief."
   }
 
-  if (hasFinalQuota) {
-    return "The confirmed brief is preserved while generation access is resolved."
-  }
-
   if (isReady) {
     return "Your confirmed brief is ready for itinerary generation."
   }
@@ -377,7 +367,6 @@ function getWorkspaceState({
   completedCount,
   hasFinalError,
   hasFinalItinerary,
-  hasFinalQuota,
   hasSaveError,
   isGeneratingFinal,
   isReady,
@@ -387,7 +376,6 @@ function getWorkspaceState({
   completedCount: number
   hasFinalError: boolean
   hasFinalItinerary: boolean
-  hasFinalQuota: boolean
   hasSaveError: boolean
   isGeneratingFinal: boolean
   isReady: boolean
@@ -460,20 +448,6 @@ function getWorkspaceState({
       icon: LoaderCircle,
       isBusy: true,
       title: "Building itinerary",
-      toneClassName: "text-primary",
-    }
-  }
-
-  if (hasFinalQuota) {
-    return {
-      badgeLabel: "Quota",
-      badgeVariant: "outline" as const,
-      footerDescription:
-        "The app keeps the confirmed brief available for later generation.",
-      footerTitle: "Generation access needed",
-      icon: Wallet,
-      isBusy: false,
-      title: "Quota reached",
       toneClassName: "text-primary",
     }
   }

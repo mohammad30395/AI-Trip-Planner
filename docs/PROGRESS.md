@@ -25,7 +25,7 @@
 - [x] Milestone 19A - Place provider migration: Google Places to Geoapify
 - [x] Revised Prompt 20 - Geoapify server place adapter
 - [x] Milestone 21 - Place enrichment in the UI
-- [x] Milestone 22 - Arcjet rate limiting
+- [x] Milestone 22 - Former quota integration removed
 - [x] Milestone 23 - Clerk Billing UI
 - [x] Milestone 24 - Clerk Billing paid access
 - [x] Milestone 24A - Map provider migration: Mapbox to Leaflet + OpenStreetMap
@@ -703,7 +703,7 @@ Commands run:
 - `npx shadcn@latest add card input badge`
 - `npm uninstall tw-animate-css`
 - `npm uninstall lucide-react`
-- `rg 'use client|lucide|tw-animate|@clerk|convex|arcjet|openai|openrouter|mapbox|google' -n . -g '!node_modules' -g '!.git' -g '!.next'`
+- `rg 'use client|lucide|tw-animate|@clerk|convex|openai|openrouter|mapbox|google' -n . -g '!node_modules' -g '!.git' -g '!.next'`
 - `npm run lint`
 - `npm run build`
 - `npm run dev`
@@ -769,7 +769,7 @@ Commands run:
 - `git status --short --branch`
 - `rg --files -g '!node_modules' -g '!.next'`
 - `npm run lint`
-- `rg 'use client|@clerk|convex|arcjet|openai|openrouter|mapbox|google' app components docs package.json -n`
+- `rg 'use client|@clerk|convex|openai|openrouter|mapbox|google' app components docs package.json -n`
 - `npm run build`
 - `npm run start`
 - `curl -sS -o /tmp/ai-trip-create-trip.html -w '/create-trip %{http_code}\n' http://localhost:3000/create-trip`
@@ -828,7 +828,7 @@ Commands run:
 - `curl -sS -o /tmp/auth-my-trips.html -D /tmp/auth-my-trips.headers -w '/my-trips %{http_code}\n' http://localhost:3000/my-trips`
 - `curl -sS -o /tmp/auth-view-trip.html -D /tmp/auth-view-trip.headers -w '/view-trip/sample-trip-123 %{http_code}\n' http://localhost:3000/view-trip/sample-trip-123`
 - `rg "userId|currentUser|emailAddress|firstName|lastName" app components -n`
-- `rg "@clerk|convex|arcjet|openai|openrouter|mapbox|google|@clerk/ui" package.json app components proxy.ts docs -n`
+- `rg "@clerk|convex|openai|openrouter|mapbox|google|@clerk/ui" package.json app components proxy.ts docs -n`
 - `git status --short --branch`
 - `node -e "... verified required Clerk variable names are present without printing values ..."`
 - `npm run lint`
@@ -1052,7 +1052,7 @@ Commands run:
 - `sed -n ... app/(app)/create-trip/page.tsx app/(app)/layout.tsx components/ui/*.tsx app/globals.css`
 - `npm run lint`
 - `npm run build`
-- `rg "convex|api\\.|openai|openrouter|arcjet|mapbox|google|fetch\\(|axios|saveTrip|createTrip\\(" app/(app)/create-trip components/create-trip -n`
+- `rg "convex|api\\.|openai|openrouter|mapbox|google|fetch\\(|axios|saveTrip|createTrip\\(" app/(app)/create-trip components/create-trip -n`
 - `node --experimental-strip-types --input-type=module ... create-trip-flow reducer smoke test`
 - `npm run dev`
 - `curl -sS -o /tmp/m10-create-trip.html -D /tmp/m10-create-trip.headers -w '/create-trip %{http_code}\\n' http://localhost:3000/create-trip`
@@ -1092,7 +1092,7 @@ Commands run:
 - `npm run lint`
 - `npm run build`
 - `node --experimental-strip-types --input-type=module ... create-trip-flow selector smoke test`
-- `rg "convex|api\\.|openai|openrouter|arcjet|mapbox|google|fetch\\(|axios|saveTrip|createTrip\\(" app/(app)/create-trip components/create-trip -n`
+- `rg "convex|api\\.|openai|openrouter|mapbox|google|fetch\\(|axios|saveTrip|createTrip\\(" app/(app)/create-trip components/create-trip -n`
 - `rg "renderGenerativeUI|UnknownSelectorFallback|aria-pressed|aria-label|onSubmit|onSelect" components/create-trip -n`
 - `tool_search` for browser JavaScript execution tooling
 - `npm run dev`
@@ -1222,7 +1222,7 @@ Commands run:
 - `npm run lint`
 - `npm run build`
 - `node ... environment presence check for OPEN_ROUTER_API_KEY and OPEN_ROUTER_MODEL`
-- `rg "arcjet|saveTrip|createTrip\\(|Google|Places|mapbox|billing|finalItinerary|parseFinalItinerary|hotels|itinerary" app/api/ai-model components/create-trip lib/ai/openrouter.ts -n`
+- `rg "saveTrip|createTrip\\(|Google|Places|mapbox|billing|finalItinerary|parseFinalItinerary|hotels|itinerary" app/api/ai-model components/create-trip lib/ai/openrouter.ts -n`
 - `rg "auth\\.protect|runOpenRouterConversationStep|parseTripConversationRequest|parseTripConversationResponseEnvelope|READY_FOR_FINAL|isLoading|AbortController" app/api/ai-model components/create-trip lib/ai -n`
 - `npm run dev`
 - `curl -sS -o /tmp/m14-ai-model-anon.html -D /tmp/m14-ai-model-anon.headers -w '/api/ai-model %{http_code}\n' -X POST http://localhost:3000/api/ai-model ...`
@@ -1280,7 +1280,7 @@ Commands run:
 - `node --env-file=.env.local --experimental-strip-types --input-type=module ... three OpenRouter final itinerary smoke calls`
 - `node --env-file=.env.local --experimental-strip-types --input-type=module ... Bali final itinerary retry with minimal reasoning`
 - `node ... inline itinerary day-count mismatch validation smoke check`
-- `rg "convex|saveTrip|createTrip\\(|GOOGLE|Google Places|mapbox|Mapbox|arcjet|billing|CLERK_SECRET|OPEN_ROUTER_API_KEY" app/api/ai-itinerary components/create-trip lib/ai -n`
+- `rg "convex|saveTrip|createTrip\\(|GOOGLE|Google Places|mapbox|Mapbox|billing|CLERK_SECRET|OPEN_ROUTER_API_KEY" app/api/ai-itinerary components/create-trip lib/ai -n`
 
 Results:
 - `OPEN_ROUTER_API_KEY` is present by name.
@@ -1372,7 +1372,7 @@ Commands run:
 - `npm run build`
 - `npx convex codegen`
 - `rg -nP '[^\\x00-\\x7F]' app components convex lib docs`
-- `rg "Google Places|GOOGLE_PLACE|mapbox|Mapbox|arcjet|billing|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|fetch\\(" ...`
+- `rg "Google Places|GOOGLE_PLACE|mapbox|Mapbox|billing|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|fetch\\(" ...`
 
 Results:
 - `npx convex dev --once` passed and Convex functions were ready.
@@ -1415,7 +1415,7 @@ Commands run:
 - `npm run lint`
 - `npm run build`
 - `rg -nP '[^\\x00-\\x7F]' app components convex lib docs`
-- `rg "Google Places|GOOGLE_PLACE|mapbox|Mapbox|arcjet|billing|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|fetch\\(|axios|Aceternity|Magic UI" ...`
+- `rg "Google Places|GOOGLE_PLACE|mapbox|Mapbox|billing|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|fetch\\(|axios|Aceternity|Magic UI" ...`
 
 Results:
 - Pure presentation smoke test passed for a 1-day trip, a 7-day trip, long place names, missing optional hotel/place fields, and malformed missing payload rejection.
@@ -1450,7 +1450,7 @@ Commands run:
 - `npm run build`
 - `node --input-type=module ... Convex list dashboard smoke test`
 - `rg -nP '[^\\x00-\\x7F]' app components convex lib docs`
-- `rg "owner|email|userId|user_id|Google Places|GOOGLE_PLACE|mapbox|Mapbox|arcjet|billing|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|fetch\\(|axios|delete|archive" ...`
+- `rg "owner|email|userId|user_id|Google Places|GOOGLE_PLACE|mapbox|Mapbox|billing|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|fetch\\(|axios|delete|archive" ...`
 - `curl -sS -o /tmp/m19-my-trips.html -D /tmp/m19-my-trips.headers -w '/my-trips %{http_code}\\n' http://localhost:3000/my-trips`
 
 Results:
@@ -1605,49 +1605,6 @@ Open issues:
 Next milestone:
 - Milestone 22
 
-## Milestone 22 - Arcjet Rate Limiting
-
-Changed:
-- Installed the allowed `@arcjet/next` dependency.
-- Added the shared non-secret free generation policy in `lib/quota/free-generation-quota.ts`.
-- Added the server-only Arcjet token-bucket adapter in `lib/quota/trip-generation.ts`.
-- Protected only `/api/ai-itinerary` with Arcjet after request validation and before OpenRouter inference.
-- Identified quota subjects with Clerk's server-verified stable `userId`.
-- Added typed final-generation error envelopes for quota and configuration errors.
-- Updated the create-trip UI to preserve the trip brief and show a quota message with a Pricing CTA when blocked.
-- Documented quota boundaries, retry behavior, and the future paid bypass boundary.
-- Did not rate-limit page loads, saved-trip reads, place enrichment, Convex queries, or ordinary route visits.
-
-Commands run:
-- `git status --short --branch && git branch --show-current`
-- `sed -n ... AGENTS.md docs/*.md package.json`
-- `find app components lib convex docs -maxdepth 5 -type f | sort`
-- Official Arcjet documentation lookup for Next.js, rate limiting, token bucket rules, and Clerk identity characteristics
-- `npm install @arcjet/next`
-- `rg -n "tokenBucket|rateLimit|ArcjetRateLimitReason|requested" node_modules/@arcjet node_modules/arcjet -g '*.d.ts'`
-- `node --env-file=.env.local -e "... checked variable-name presence without printing values ..."`
-- `npm run lint`
-- `npm run build`
-- `npm run start -- --port 3001`
-- `curl -sS ... -X POST http://localhost:3001/api/ai-itinerary ...`
-- `awk 'BEGIN{IGNORECASE=1} /^location:/{print}' /tmp/m22-ai-itinerary-unauth.headers`
-
-Results:
-- `npm install @arcjet/next` completed, audited 635 packages, and reported 0 vulnerabilities.
-- `npm run lint` passed.
-- `npm run build` passed with Next.js 16.3.2 and included `/api/ai-itinerary`.
-- Signed-out POST to `/api/ai-itinerary` returned HTTP 307 to `/sign-in`, verifying unauthenticated calls are rejected before quota or AI work.
-- `ARCJET_KEY` is missing by environment variable name-presence check, so live Arcjet allowed, rapid duplicate, and exhausted-quota tests were not run.
-- No Arcjet key, OpenRouter key, Clerk secret, or other secret value was printed.
-
-Open issues:
-- Add `ARCJET_KEY` to `.env.local` and deployment environments before live final-generation quota enforcement can work.
-- After `ARCJET_KEY` is configured, run one authenticated allowed generation, a rapid duplicate-click check, and an exhausted-quota check.
-- Premium quota bypass remains deferred to the Clerk Billing milestone.
-
-Next milestone:
-- Milestone 23
-
 ## Milestone 23 - Clerk Billing UI
 
 Changed:
@@ -1724,7 +1681,7 @@ Commands run:
 - `curl -sS ... -X POST http://localhost:3001/api/ai-itinerary ...`
 
 Results:
-- `ARCJET_KEY`, Clerk keys, and OpenRouter variable names are present by name-presence check. Values were not printed.
+- Clerk and OpenRouter variable names are present by name-presence check. Values were not printed.
 - `npm run lint` passed.
 - `npm run build` passed with Next.js 16.3.2 and included `/api/ai-itinerary`.
 - Signed-out POST to `/api/ai-itinerary` returned HTTP 307 to the sign-in flow, verifying unauthenticated calls are still rejected before quota or AI work.
@@ -1880,7 +1837,7 @@ Changed:
 - Added `lib/errors/user-safe-error.ts` as a small typed error model that separates user-safe messages from minimal internal diagnostic tags.
 - Added unmount cancellation cleanup for create-trip conversational and final itinerary requests so stale responses do not update the UI after navigation/reset.
 - Replaced client-side AI/save diagnostic console noise with user-safe retry messages that preserve collected requirements, generated itineraries, and failed-save state.
-- Made Clerk Billing entitlement verification recoverable at the final itinerary server boundary. If premium entitlement cannot be checked, the route applies the free quota and returns a safe access notice instead of crashing.
+- Made Clerk Billing entitlement verification recoverable at the final itinerary server boundary. If premium entitlement cannot be checked, generation can continue for authenticated users and returns a safe access notice instead of crashing.
 - Extended final itinerary access parsing and UI display to support that safe billing notice.
 - Added per-card Geoapify enrichment retry controls that retry only the failed place lookup and do not regenerate the AI itinerary.
 - Added AbortController support for direct place-enrichment card lookups and guarded aborted lookups from becoming sticky cache entries.
@@ -1932,7 +1889,7 @@ Commands run:
 - `git check-ignore -v .env.local .env .env.development .env.production`
 - `git ls-files '.env*'`
 - Official OpenStreetMap tile usage policy lookup
-- `rg -n "(CLERK_SECRET_KEY|ARCJET_KEY|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|GEOAPIFY_API_KEY|NEXT_PUBLIC_GEOAPIFY_API_KEY|NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN|GOOGLE_PLACE_API_KEY|NEXT_PUBLIC_GOOGLE_PLACE_API_KEY|CONVEX_DEPLOYMENT|CLERK_JWT_ISSUER_DOMAIN|sk-|pk_live|sk_live|sk_test|apiKey|secret|token|password)" ...`
+- `rg -n "(CLERK_SECRET_KEY|OPEN_ROUTER_API_KEY|OPEN_ROUTER_MODEL|GEOAPIFY_API_KEY|NEXT_PUBLIC_GEOAPIFY_API_KEY|NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN|GOOGLE_PLACE_API_KEY|NEXT_PUBLIC_GOOGLE_PLACE_API_KEY|CONVEX_DEPLOYMENT|CLERK_JWT_ISSUER_DOMAIN|sk-|pk_live|sk_live|sk_test|apiKey|secret|token|password)" ...`
 - `rg -n "(dangerouslySetInnerHTML|innerHTML|insertAdjacentHTML|bindPopup|setContent|new URL\\(|fetch\\(|redirect\\(|router\\.push|window\\.location|href=|src=|backgroundImage|tileLayer|tile\\.openstreetmap|mapbox|Mapbox|NEXT_PUBLIC_MAPBOX|GOOGLE_PLACE|Geoapify|geoapify)" ...`
 - `rg -n "(ownerIdentityKey|userId|user_id|email|isPremium|premium|planName|subscription|has\\(|auth\\.protect|getUserIdentity|tokenIdentifier)" ...`
 - `rg -n "(BEGIN .*KEY|PRIVATE KEY|sk-[A-Za-z0-9]|sk_or|pk_live|sk_live|sk_test|AIza|eyJ[A-Za-z0-9_-]{20,}|password\\s*=|secret\\s*=|token\\s*=|apiKey\\s*=)" ...`
@@ -1970,7 +1927,7 @@ Changed:
 - Added AI contract tests for valid conversational responses, invalid selectors, valid final itineraries, malformed itineraries, and day-count validation.
 - Added create-trip state tests for validation, compact requirements, requirement updates, AI success transition, and final-readiness checks.
 - Added mocked Geoapify adapter tests for successful geocoding/details, no result, malformed coordinates, auth/quota/provider errors, details failure fallback, and HTTPS-only image handling.
-- Added pure billing access tests for free quota enforcement and premium quota bypass.
+- Added pure billing access tests for free and premium account-status handling.
 - Added pure map tests for providerPlaceId deduplication, coordinate validation, fixed HTTPS OSM tile config, fallback/canonical center selection, and marker popup text modeling.
 - Moved Leaflet-facing constants and marker text data into `lib/trips/map.ts` so they can be tested without live OSM tile requests or browser map initialization.
 - Kept Convex authorization test coverage limited to audit/static review. A full supported Convex function test pattern would require an additional dedicated Convex test harness dependency, so it was not added in this milestone.

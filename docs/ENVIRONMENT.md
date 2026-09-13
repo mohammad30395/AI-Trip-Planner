@@ -15,7 +15,6 @@ Variable names only. Never commit or print values.
 | `CONVEX_DEPLOYMENT` | Server-only | Generated Convex deployment identifier, if present |
 | `CONVEX_DEPLOY_KEY` | Build/CI-only | Convex production or preview deploy key for Vercel build integration |
 | `CLERK_JWT_ISSUER_DOMAIN` | Server-only | Convex auth configuration for Clerk JWT issuer |
-| `ARCJET_KEY` | Server-only | Arcjet protection and quota checks |
 | `OPEN_ROUTER_API_KEY` | Server-only | OpenRouter server calls |
 | `OPEN_ROUTER_MODEL` | Server-only | Server-selected OpenRouter model |
 | `GEOAPIFY_API_KEY` | Server-only | Geoapify place-enrichment server calls |

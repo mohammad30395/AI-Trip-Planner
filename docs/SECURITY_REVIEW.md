@@ -33,8 +33,8 @@ Impact:
   `NEXT_PUBLIC_GEOAPIFY_API_KEY`, `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`,
   `GOOGLE_PLACE_API_KEY`, and `NEXT_PUBLIC_GOOGLE_PLACE_API_KEY`.
 - Server-only integrations read server variables only:
-  `GEOAPIFY_API_KEY`, `OPEN_ROUTER_API_KEY`, `OPEN_ROUTER_MODEL`,
-  `ARCJET_KEY`, and `CLERK_SECRET_KEY`.
+  `GEOAPIFY_API_KEY`, `OPEN_ROUTER_API_KEY`, `OPEN_ROUTER_MODEL`, and
+  `CLERK_SECRET_KEY`.
 - Clerk route protection is present on app routes and API routes that require
   authentication.
 - Convex trip and user functions derive identity from
@@ -44,8 +44,8 @@ Impact:
   returning data.
 - `/api/ai-model` and `/api/ai-itinerary` validate request bodies and input
   lengths before provider calls.
-- For free users, `/api/ai-itinerary` enforces Arcjet before OpenRouter final
-  itinerary inference.
+- Trip generation currently has no application-level generation quota beyond
+  existing authentication and provider limits.
 - Premium access is checked server-side through Clerk Billing `has({ feature })`
   and is never accepted from the client.
 - Geoapify URLs are constructed from server-owned constants and user input is
@@ -80,11 +80,11 @@ Current implementation matches the development/modest-use requirements:
   printed during Milestone 13. If that key has not already been rotated, rotate
   it in OpenRouter and replace it in `.env.local` and deployment environments.
 - Authenticated browser testing is still needed for Clerk sessions, Convex
-  owner isolation, premium entitlement behavior, Arcjet exhaustion, Geoapify
-  provider errors, and Leaflet tile failures.
+  owner isolation, premium status display, Geoapify provider errors, and Leaflet
+  tile failures.
 - Public OSM standard tiles are suitable for development and modest use only.
   Before production launch, evaluate traffic and use an appropriate OSM-derived
   tile provider or self-hosted tiles if needed.
-- No separate Arcjet bot/security rule currently protects premium users. The
-  current quota rule correctly gates free final-generation attempts; future
-  abuse controls should run for both free and premium users.
+- A replacement quota or abuse-control mechanism may be added later. Until then,
+  authenticated trip generation is limited only by authentication and provider
+  availability/cost limits.

@@ -56,21 +56,13 @@
 - Respect Geoapify free-plan limits and OpenStreetMap attribution requirements.
 - Never log full Geoapify request URLs because the API key is a provider query parameter.
 - Keep place enrichment in memory/UI-only for now. Do not change Convex schema until map or persistence requirements make persisted canonical place data necessary.
-- Run Arcjet before expensive AI work to enforce free quota and abuse controls.
-- The free tier default is one successful trip generation per rolling/day policy documented in one config.
-- Store the free generation quota policy in `lib/quota/free-generation-quota.ts`
-  so UI copy and server enforcement share one source.
-- Enforce Arcjet only on `/api/ai-itinerary`, after request validation and
-  before OpenRouter inference. Page loads, saved-trip reads, and place
-  enrichment are not part of this quota.
-- Track Arcjet quota by Clerk's server-verified stable `userId`, not by client
-  input or email.
-- Consume one token for each valid final-generation attempt. Duplicate client
-  submissions are disabled, but provider failures after the Arcjet decision may
-  still consume the attempt until a future billing/idempotency policy changes
-  that explicitly.
-- Paid Clerk Billing entitlement bypasses the free generation quota at the
-  final-generation server boundary.
+- Trip generation currently has no application-level generation quota beyond
+  existing authentication and provider limits. A replacement quota mechanism may
+  be added later, but this project must not silently recreate the removed quota
+  with memory, cookies, IP state, Convex, Clerk metadata, or another service.
+- Clerk Billing premium status may still be reported by the final-generation
+  server boundary, but ordinary authenticated trip generation does not depend on
+  premium access.
 - Use Clerk's server-side `has({ feature })` authorization check with the
   confirmed dashboard feature key `unlimited_trip_generation`.
 - The installed Clerk SDK's type hints include scoped examples such as

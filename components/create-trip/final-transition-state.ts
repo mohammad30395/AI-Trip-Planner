@@ -1,10 +1,8 @@
 import type { FinalItineraryResponse } from "@/lib/ai/contract"
-import type { FinalItineraryQuota } from "@/lib/ai/itinerary"
 
 type FinalPresentationState =
   | "ready"
   | "generating"
-  | "quotaBlocked"
   | "generationError"
   | "awaitingSave"
   | "saving"
@@ -13,7 +11,6 @@ type FinalPresentationState =
 
 type FinalPresentationStateInput = {
   finalError: string | null
-  finalQuota: FinalItineraryQuota | null
   finalItinerary: FinalItineraryResponse | null
   isGeneratingFinal: boolean
   isSavingTrip: boolean
@@ -23,7 +20,6 @@ type FinalPresentationStateInput = {
 
 function getFinalPresentationState({
   finalError,
-  finalQuota,
   finalItinerary,
   isGeneratingFinal,
   isSavingTrip,
@@ -48,10 +44,6 @@ function getFinalPresentationState({
 
   if (isGeneratingFinal) {
     return "generating"
-  }
-
-  if (finalQuota !== null) {
-    return "quotaBlocked"
   }
 
   if (finalError !== null) {

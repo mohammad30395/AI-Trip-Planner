@@ -119,7 +119,6 @@ function ConversationPanel({
             onReset,
             onSaveTrip,
             finalError: state.finalError,
-            finalQuota: state.finalQuota,
             finalItinerary: state.finalItinerary,
             generationAccess: state.generationAccess,
             isGeneratingFinal: state.isGeneratingFinal,

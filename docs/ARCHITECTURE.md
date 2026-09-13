@@ -30,12 +30,11 @@ Server-only responsibilities:
 - Clerk secret-key operations
 - Clerk Billing entitlement checks
 - Convex mutations and queries that require verified identity
-- Arcjet quota/rate-limit checks
 - OpenRouter AI calls
 - Geoapify place-enrichment calls
 - Structured itinerary validation before persistence
 
-AI, Geoapify, and Arcjet logic must not run in client components.
+AI and Geoapify logic must not run in client components.
 
 ## OpenRouter Server Boundary
 
@@ -64,32 +63,18 @@ the strict final itinerary schema, validates the model response server-side, and
 rejects mismatched itinerary day counts. Generated prices and place details are
 not verified facts until later Geoapify enrichment.
 
-## Quota Boundary
+## Generation Access Boundary
 
-Free final itinerary generation is enforced in `/api/ai-itinerary` before the
-OpenRouter call unless Clerk Billing reports premium access. Ordinary page
-loads, saved-trip reads, place enrichment, and Convex trip fetches are not rate
-limited by this rule.
+Trip generation currently has no application-level generation quota beyond
+existing authentication and provider limits. The `/api/ai-itinerary` route
+authenticates the user, validates the final-generation request, calls OpenRouter,
+validates the model response, and returns the generated itinerary. A replacement
+quota mechanism may be added later, but this project does not currently enforce
+one in memory, cookies, IP state, Convex, Clerk metadata, or another service.
 
-The shared non-secret quota policy lives in
-`lib/quota/free-generation-quota.ts`. The server-only Arcjet adapter lives in
-`lib/quota/trip-generation.ts`, reads `ARCJET_KEY` only on the server, and
-identifies the requester with Clerk's server-verified stable `userId`.
-
-The route authenticates the user, checks the Clerk Billing feature entitlement,
-validates the final-generation request, then asks Arcjet to consume one token
-for the intended final-generation attempt only when the user does not have
-premium access. If Arcjet denies the request, the route returns a typed 429
-response and no expensive AI call is made. The browser disables duplicate
-final-generation submissions while one is pending and shows a quota message plus
-a Pricing CTA when blocked.
-
-Premium users bypass this free quota but do not bypass authentication,
-validation, or OpenRouter response validation. No separate Arcjet bot/security
-rules are configured yet; when added, they should run for both free and premium
-users. Provider failures after the Arcjet decision may consume a free attempt;
-this retry behavior is documented here so future billing/idempotency work can
-adjust it deliberately.
+Clerk Billing may still report whether the signed-in user has premium access so
+the UI can display account status, but ordinary authenticated trip generation
+does not depend on premium access.
 
 ## Billing Boundary
 
@@ -102,13 +87,14 @@ The signed-in account menu uses Clerk's `UserButton`, whose Manage account
 surface exposes Clerk-managed account features, including billing management
 when Billing is enabled and the relevant user plans are public in Clerk.
 
-Paid entitlement checks are enforced only at the AI final-generation server
-boundary. The confirmed Clerk Billing feature key is
-`unlimited_trip_generation`. The installed Clerk SDK autocompletes scoped
-feature examples such as `user:*`, but the current B2C Billing docs and
-dashboard use the configured feature slug directly for `has({ feature })`. The
-route returns only a small Free/Premium access status to the browser and never
-accepts client-supplied premium flags as authorization.
+The final-generation server boundary may check the confirmed Clerk Billing
+feature key `unlimited_trip_generation` to report Free/Premium account status.
+The installed Clerk SDK autocompletes scoped feature examples such as `user:*`,
+but the current B2C Billing docs and dashboard use the configured feature slug
+directly for `has({ feature })`. The route returns only a small Free/Premium
+access status to the browser and never accepts client-supplied premium flags as
+authorization. Premium status is not required for ordinary authenticated trip
+generation.
 
 ## Place Enrichment Boundary
 

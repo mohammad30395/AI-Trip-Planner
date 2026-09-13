@@ -2,7 +2,6 @@ const PREMIUM_TRIP_GENERATION_FEATURE = "unlimited_trip_generation" as const
 
 type TripGenerationAccessStatus = {
   tier: "free" | "premium"
-  quotaEnforced: boolean
   notice?: string
 }
 
@@ -12,7 +11,6 @@ function getTripGenerationAccessStatus(
 ) {
   return {
     tier: hasPremiumEntitlement ? "premium" : "free",
-    quotaEnforced: !hasPremiumEntitlement,
     ...(notice !== undefined ? { notice } : {}),
   } satisfies TripGenerationAccessStatus
 }

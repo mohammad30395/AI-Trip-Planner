@@ -5,7 +5,8 @@ Milestone 31 prepares the repository for deployment but does not deploy it.
 ## Runtime
 
 - Use Node.js `24.x` and npm `11.x` for Vercel builds/functions.
-- Next.js 16 requires Node.js 20.9 or newer; this project targets Node 24 because the installed Arcjet package also requires Node 24.5+ or a very recent Node 22.
+- Next.js 16 requires Node.js 20.9 or newer; this project targets Node 24 to
+  match the repository runtime policy.
 - Do not copy `.env.local` to production. Configure environment variables in the Vercel and Convex dashboards.
 
 ## Vercel Build Settings
@@ -61,7 +62,6 @@ Client-safe:
 Server-only:
 
 - `CLERK_SECRET_KEY`
-- `ARCJET_KEY`
 - `OPEN_ROUTER_API_KEY`
 - `OPEN_ROUTER_MODEL`
 - `GEOAPIFY_API_KEY`
@@ -106,7 +106,6 @@ Use the production Clerk issuer domain. Do not reuse development Clerk issuer va
 - Clerk + Convex auth: use a custom production domain if required by the Clerk/Convex production auth configuration. Do not rely on localhost or development-only domains.
 - Clerk Billing: confirm the Pro plan is public and the feature key is exactly `unlimited_trip_generation`.
 - OpenRouter: use a production API key and model value appropriate for structured JSON Schema output.
-- Arcjet: use a production site/key and confirm the one-generation-per-day free quota behavior.
 - Geoapify: use a separate production key or project where possible. Keep the key server-only, monitor usage, rotate if exposed, and configure restrictions available in Geoapify MyProjects such as allowed IP addresses, HTTP referrers, origins, or CORS where they match the server-side deployment model.
 
 ## Map And Attribution
@@ -123,7 +122,7 @@ Use the production Clerk issuer domain. Do not reuse development Clerk issuer va
 - Landing page loads.
 - Sign-up and sign-in work from the production domain.
 - Signed-out protected routes redirect to sign-in.
-- Free user can complete one final trip generation.
+- Signed-in user can complete final trip generation.
 - A generated trip can be saved once.
 - Saved trip redirects to `/view-trip/[tripId]`.
 - `/my-trips` lists the saved trip for the owner only.
@@ -132,4 +131,4 @@ Use the production Clerk issuer domain. Do not reuse development Clerk issuer va
 - Leaflet map renders with verified markers when enrichment coordinates exist.
 - OpenStreetMap attribution remains visible on mobile and desktop.
 - Pricing page renders Clerk Billing plans.
-- Pro user with `unlimited_trip_generation` bypasses the free quota.
+- Pro user with `unlimited_trip_generation` still sees premium account status.
