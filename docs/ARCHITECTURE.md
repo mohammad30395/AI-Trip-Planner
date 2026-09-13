@@ -64,6 +64,20 @@ the strict final itinerary schema, validates the model response server-side, and
 rejects mismatched itinerary day counts. Generated prices and place details are
 not verified facts until later Geoapify enrichment.
 
+## AgentRouter Migration Boundary
+
+AgentRouter Claude migration work is isolated in `lib/ai/agentrouter.ts`, which
+imports `server-only` and uses native fetch against the Anthropic-compatible
+Messages endpoint. The authenticated `/api/agentrouter-smoke` route is a
+capability smoke test only: it sends a fixed harmless server-side prompt,
+requests JSON Schema structured output through the Anthropic Messages
+`output_config.format` mechanism, validates unknown response data locally, and
+returns only sanitized capability metadata.
+
+Production AI routes remain on OpenRouter until a later migration milestone.
+`/api/ai-model`, `/api/ai-itinerary`, Arcjet, Clerk Billing, Convex schema, and
+client-facing AI contracts are unchanged by this isolated smoke boundary.
+
 ## Quota Boundary
 
 Free final itinerary generation is enforced in `/api/ai-itinerary` before the

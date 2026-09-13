@@ -48,7 +48,27 @@
 - [x] UI Prompt-14 - Final accessibility, performance, security, and visual QA
 - [x] Image Bugfix-01 - Restore destination image rendering
 - [x] Place Enrichment Bugfix-02 - Restore itinerary place enrichment
+- [ ] MIGRATION-01 - AgentRouter Claude isolated adapter and smoke test
 - [ ] Milestone 30 - Production readiness and Vercel deployment
+
+## MIGRATION-01 - AgentRouter Claude Isolated Adapter and Smoke Test
+
+Status:
+- Added an isolated server-only AgentRouter Claude adapter using native fetch,
+  timeout handling, sanitized provider failures, and Anthropic Messages JSON
+  Schema structured output via `output_config.format`.
+- Added authenticated `/api/agentrouter-smoke` as a fixed-prompt capability
+  route that returns only safe metadata.
+- Kept production `/api/ai-model`, `/api/ai-itinerary`, OpenRouter usage,
+  Arcjet, Convex schema, Clerk Billing, and browser AI contracts unchanged.
+- Local mocked transport, runtime validation, and existing conversational
+  contract compatibility tests pass.
+- Live AgentRouter verification remains pending until
+  `AGENTROUTER_API_KEY` is configured server-side.
+
+Next:
+- Configure `AGENTROUTER_API_KEY` and rerun the isolated smoke before
+  proceeding to any production migration milestone.
 
 ## Place Enrichment Bugfix-02 - Restore Itinerary Place Enrichment
 

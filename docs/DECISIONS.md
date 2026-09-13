@@ -18,6 +18,11 @@
 - Protect temporary AI smoke routes with Clerk before provider work begins.
 - Treat OpenRouter provider errors as server diagnostics only; browser responses must not include raw provider errors, headers, request IDs, or key material.
 - Apply explicit timeout/abort handling to OpenRouter calls before wiring product flows.
+- Keep AgentRouter Claude migration work in an isolated server-only adapter and
+  authenticated smoke route until a later milestone explicitly moves production
+  AI traffic. Use the Anthropic-compatible Messages API with JSON Schema
+  structured output through `output_config.format`, not OpenRouter-specific
+  request fields.
 - Use `/api/ai-model` as the authenticated AI conversation boundary. The client sends compact context only, never secrets or authorization identifiers.
 - Use `/api/ai-itinerary` as the distinct authenticated final-generation boundary so conversational and itinerary schemas cannot be confused.
 - Store generated final itineraries in client state only until the Convex persistence milestone.
