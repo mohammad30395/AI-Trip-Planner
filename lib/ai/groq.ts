@@ -10,11 +10,20 @@ import {
   conversationalStepResponseSchema,
   parseConversationalStepResponse,
   type ConversationalStepResponse,
+  parseFinalItineraryResponse,
+  type FinalItineraryResponse,
 } from "./contract"
+import {
+  groqFinalItineraryWireSchema,
+  normalizeGroqFinalItineraryWire,
+} from "./groq-final-schema"
+import { validateItineraryDuration } from "./itinerary"
 
 const GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 const GROQ_CONVERSATION_TIMEOUT_MS = 30_000
 const GROQ_SMOKE_TIMEOUT_MS = GROQ_CONVERSATION_TIMEOUT_MS
+const GROQ_FINAL_ITINERARY_TIMEOUT_MS = 90_000
+const GROQ_FINAL_MAX_COMPLETION_TOKENS_CAP = 4_800
 
 const groqStrictCapabilitySchema = {
   type: "object",
@@ -80,6 +89,30 @@ type GroqStrictCapabilityResult = {
   modelReturned: boolean
 }
 
+type GroqFinalItineraryRequest = {
+  messages: GroqConversationMessage[]
+  durationDays: number
+  maxCompletionTokens?: number
+}
+
+type GroqUsage = {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+}
+
+type GroqRateLimit = {
+  limitTokensPerMinute?: number
+  remainingTokens?: number
+}
+
+type GroqFinalItineraryResult = {
+  response: FinalItineraryResponse
+  modelReturned: boolean
+  usage?: GroqUsage
+  rateLimit?: GroqRateLimit
+}
+
 type GroqStructuredOutputRequest = {
   messages: GroqConversationMessage[]
   schemaName: string
@@ -124,13 +157,25 @@ function getGroqConfig(): GroqCallResult<GroqConfig> {
   }
 }
 
-function createGroqClient(config: GroqConfig) {
+function createGroqClient(
+  config: GroqConfig,
+  timeout = GROQ_CONVERSATION_TIMEOUT_MS
+) {
   return new OpenAI({
     apiKey: config.apiKey,
     baseURL: GROQ_BASE_URL,
-    timeout: GROQ_CONVERSATION_TIMEOUT_MS,
+    timeout,
     maxRetries: 0,
   })
+}
+
+function getGroqFinalMaxCompletionTokens(durationDays: number) {
+  const boundedDuration = Math.min(30, Math.max(1, Math.trunc(durationDays)))
+
+  return Math.min(
+    GROQ_FINAL_MAX_COMPLETION_TOKENS_CAP,
+    1_200 + boundedDuration * 500
+  )
 }
 
 async function runGroqConversationStep(
@@ -154,6 +199,103 @@ async function runGroqConversationStep(
   }
 
   return parseGroqConversationResponse(completion.data)
+}
+
+async function runGroqFinalItinerary(
+  request: GroqFinalItineraryRequest,
+  signal?: AbortSignal
+): Promise<GroqCallResult<GroqFinalItineraryResult>> {
+  const config = getGroqConfig()
+
+  if (!config.ok) {
+    return config
+  }
+
+  const client = createGroqClient(config.data, GROQ_FINAL_ITINERARY_TIMEOUT_MS)
+
+  try {
+    const completionRequest = client.chat.completions.create(
+      {
+        model: config.data.model,
+        messages: request.messages,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "groq_final_itinerary_wire_response",
+            strict: true,
+            schema: groqFinalItineraryWireSchema,
+          },
+        },
+        temperature: 0.4,
+        reasoning_effort: "low",
+        max_completion_tokens:
+          request.maxCompletionTokens ??
+          getGroqFinalMaxCompletionTokens(request.durationDays),
+      },
+      {
+        signal,
+        timeout: GROQ_FINAL_ITINERARY_TIMEOUT_MS,
+      }
+    )
+    const { data: completion, response } = await completionRequest.withResponse()
+    const choice = completion.choices[0]
+
+    if (choice?.finish_reason === "length") {
+      return groqFailure(
+        "output_truncated",
+        "Groq response reached its output limit."
+      )
+    }
+
+    const content = choice?.message.content
+
+    if (!content?.trim()) {
+      return groqFailure("empty_response", "Groq returned an empty response.")
+    }
+
+    const parsedJson = parseJson(content)
+
+    if (!parsedJson.ok) {
+      return parsedJson
+    }
+
+    const normalizedWireValue = normalizeGroqFinalItineraryWire(parsedJson.data)
+    const parsedResponse = parseFinalItineraryResponse(normalizedWireValue)
+
+    if (!parsedResponse.ok) {
+      return groqFailure(
+        "schema_validation",
+        "Groq final itinerary failed runtime validation."
+      )
+    }
+
+    const durationValidation = validateItineraryDuration(
+      parsedResponse.data,
+      request.durationDays
+    )
+
+    if (!durationValidation.ok) {
+      return groqFailure(
+        "schema_validation",
+        "Groq final itinerary failed duration validation."
+      )
+    }
+
+    const usage = getSafeGroqUsage(completion.usage)
+    const rateLimit = getSafeGroqRateLimit(response.headers)
+
+    return {
+      ok: true,
+      data: {
+        response: durationValidation.data,
+        modelReturned: completion.model.length > 0,
+        ...(usage !== undefined ? { usage } : {}),
+        ...(rateLimit !== undefined ? { rateLimit } : {}),
+      },
+    }
+  } catch (error) {
+    return normalizeGroqError(error)
+  }
 }
 
 async function checkGroqModelAvailability(
@@ -444,6 +586,67 @@ function getSafeRetryAfterSeconds(error: unknown) {
   return Math.min(3_600, Math.ceil(seconds))
 }
 
+function getSafeGroqUsage(
+  usage:
+    | {
+        prompt_tokens: number
+        completion_tokens: number
+        total_tokens: number
+      }
+    | undefined
+): GroqUsage | undefined {
+  if (
+    usage === undefined ||
+    !isSafeNonNegativeInteger(usage.prompt_tokens) ||
+    !isSafeNonNegativeInteger(usage.completion_tokens) ||
+    !isSafeNonNegativeInteger(usage.total_tokens)
+  ) {
+    return undefined
+  }
+
+  return {
+    inputTokens: usage.prompt_tokens,
+    outputTokens: usage.completion_tokens,
+    totalTokens: usage.total_tokens,
+  }
+}
+
+function getSafeGroqRateLimit(headers: Headers): GroqRateLimit | undefined {
+  const limitTokensPerMinute = getSafeHeaderInteger(
+    headers,
+    "x-ratelimit-limit-tokens"
+  )
+  const remainingTokens = getSafeHeaderInteger(
+    headers,
+    "x-ratelimit-remaining-tokens"
+  )
+
+  if (limitTokensPerMinute === undefined && remainingTokens === undefined) {
+    return undefined
+  }
+
+  return {
+    ...(limitTokensPerMinute !== undefined ? { limitTokensPerMinute } : {}),
+    ...(remainingTokens !== undefined ? { remainingTokens } : {}),
+  }
+}
+
+function getSafeHeaderInteger(headers: Headers, name: string) {
+  const value = headers.get(name)
+
+  if (value === null) {
+    return undefined
+  }
+
+  const numericValue = Number(value)
+
+  return isSafeNonNegativeInteger(numericValue) ? numericValue : undefined
+}
+
+function isSafeNonNegativeInteger(value: number) {
+  return Number.isSafeInteger(value) && value >= 0
+}
+
 function isPlatformTimeoutError(error: unknown) {
   return (
     error instanceof Error &&
@@ -482,11 +685,16 @@ export {
   checkGroqModelAvailability,
   runGroqConversationStep,
   runGroqConversationSmoke,
+  runGroqFinalItinerary,
   runGroqStrictCapabilitySmoke,
+  getGroqFinalMaxCompletionTokens,
   GROQ_BASE_URL,
   GROQ_CONVERSATION_TIMEOUT_MS,
+  GROQ_FINAL_ITINERARY_TIMEOUT_MS,
+  GROQ_FINAL_MAX_COMPLETION_TOKENS_CAP,
   GROQ_SMOKE_TIMEOUT_MS,
   type GroqCallResult,
   type GroqConversationMessage,
   type GroqFailureCode,
+  type GroqFinalItineraryRequest,
 }

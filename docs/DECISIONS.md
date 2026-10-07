@@ -135,3 +135,12 @@
 - Groq conversational failures, including rate limits, continue through the
   existing deterministic conversation fallback. The route does not retry,
   double-send, or automatically fall back to OpenRouter.
+- The application-level final-itinerary contract remains provider-neutral and
+  unchanged. Groq strict final output uses a separate provider-specific wire
+  schema with all properties required and application-optional values nullable.
+- Groq wire output is normalized without mutation before the existing final
+  runtime parser and duration validator. Provider/map canonical fields remain
+  forbidden and are never removed by normalization to evade validation.
+- Isolated Groq final validation does not authorize production cutover;
+  `/api/ai-itinerary` remains on OpenRouter until a later evidence-backed
+  decision.

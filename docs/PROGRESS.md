@@ -2552,3 +2552,43 @@ Next:
 - Provider Migration Step 4 may separately validate final-itinerary generation
   on GroqCloud. This milestone does not migrate `/api/ai-itinerary` or remove
   OpenRouter.
+
+## Provider Migration Step 4A - Isolated GroqCloud Final Validation
+
+Implementation pass:
+- Added a Groq-only strict final wire schema without changing the canonical
+  `finalItineraryResponseSchema`. Every wire property is required, every object
+  is closed, and application-optional values use documented nullable unions.
+- Added a pure, non-mutating wire normalizer that removes only legitimate null
+  placeholders. Unknown and forbidden provider/map fields remain present so the
+  existing runtime parser rejects them.
+- Added isolated `runGroqFinalItinerary` generation using Chat Completions,
+  `strict: true`, `temperature: 0.4`, low Groq reasoning effort, a 90-second
+  timeout, no retries, safe usage/rate-limit metrics, the canonical final parser,
+  and the canonical duration validator.
+- Added a Groq-specific output budget of
+  `min(4800, 1200 + durationDays * 500)` completion tokens. The cap is below the
+  documented 8K Free Plan organization TPM limit so prompt/input tokens retain
+  headroom, but larger durations remain unsuitable for a single response.
+- Added 17 isolated final adapter/schema tests and an explicitly guarded live
+  validation test. Normal tests perform no provider calls.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  frontend, Convex, Clerk, billing, Geoapify, Leaflet, persistence, shared final
+  contract, environment, or dependency changes were made.
+
+Verification:
+- The isolated final tests and existing Groq adapter tests passed before live
+  validation.
+- The single authorized 1-day live request returned a sanitized adapter failure
+  before application validation completed. The initial harness did not retain
+  the normalized failure code or usage metrics, and no retry was made.
+- The 3-day live request was not attempted because Test A did not pass:
+  `TEST_B_DEFERRED_RATE_LIMIT_SAFETY`.
+- The guarded harness now records only safe normalized failure metadata for any
+  future explicitly authorized run; it does not expose provider bodies, headers,
+  prompts, reasoning, or secrets.
+
+Next:
+- Keep final generation on OpenRouter. A future validation milestone must obtain
+  a successful 1-day Groq result and measured usage before any Step 4B cutover
+  strategy is approved.

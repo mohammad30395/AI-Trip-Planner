@@ -76,6 +76,15 @@ itinerary schema, validates the model response server-side, and rejects
 mismatched itinerary day counts. Generated prices and place details are not
 verified facts until later Geoapify enrichment.
 
+Groq final-itinerary compatibility is validated only through an explicitly
+guarded live test and is not connected to `/api/ai-itinerary`. The isolated
+Groq path uses a provider-specific strict wire schema whose application-optional
+fields are required but nullable. Its pure normalizer removes only those null
+wire placeholders before the existing `parseFinalItineraryResponse` and
+`validateItineraryDuration` boundaries run. The provider-neutral application
+contract, storage shape, frontend envelope, and production OpenRouter route are
+unchanged.
+
 ## Generation Access Boundary
 
 Trip generation currently has no application-level generation quota beyond
