@@ -123,3 +123,15 @@
 - Public OpenStreetMap standard tiles remain a modest-use, best-effort option
   only; production traffic beyond that requires a compliant OSM-derived tile
   provider or self-hosted tiles.
+
+## 2026 Staged AI Provider Migration
+
+- Conversational AI at `/api/ai-model` is cut over to GroqCloud using the
+  existing provider-neutral conversation contract, `strict: false` JSON Schema
+  mode, and runtime validation.
+- Final itinerary generation at `/api/ai-itinerary` remains on OpenRouter
+  pending separate validation and cutover work. OpenRouter configuration and
+  rollback support remain in the repository.
+- Groq conversational failures, including rate limits, continue through the
+  existing deterministic conversation fallback. The route does not retry,
+  double-send, or automatically fall back to OpenRouter.

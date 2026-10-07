@@ -8,11 +8,10 @@ import {
   type TripConversationResponseEnvelope,
 } from "@/lib/ai/conversation"
 import {
-  OpenRouterConfigurationError,
-  OPENROUTER_TIMEOUT_MS,
-  runOpenRouterConversationStep,
-  type OpenRouterConversationMessage,
-} from "@/lib/ai/openrouter"
+  GROQ_CONVERSATION_TIMEOUT_MS,
+  runGroqConversationStep,
+  type GroqConversationMessage,
+} from "@/lib/ai/groq"
 import { buildFallbackConversationResponse } from "@/lib/ai/conversation-fallback"
 import type {
   ConversationalStepResponse,
@@ -40,12 +39,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const result = await runOpenRouterConversationStep(
+    const result = await runGroqConversationStep(
       {
         messages: buildConversationMessages(parsedRequest.data),
-        maxTokens: 700,
+        maxCompletionTokens: 700,
       },
-      AbortSignal.timeout(OPENROUTER_TIMEOUT_MS)
+      AbortSignal.any([
+        request.signal,
+        AbortSignal.timeout(GROQ_CONVERSATION_TIMEOUT_MS),
+      ])
     )
 
     if (!result.ok) {
@@ -62,10 +64,6 @@ export async function POST(request: Request) {
       response,
     } satisfies TripConversationResponseEnvelope)
   } catch (error) {
-    if (error instanceof OpenRouterConfigurationError) {
-      return conversationFallback(parsedRequest.data.requirements)
-    }
-
     if (process.env.NODE_ENV === "development") {
       console.warn("AI conversation route diagnostic", {
         name: error instanceof Error ? error.name : "UnknownError",
@@ -78,7 +76,7 @@ export async function POST(request: Request) {
 
 function buildConversationMessages(
   request: TripConversationRequest
-): OpenRouterConversationMessage[] {
+): GroqConversationMessage[] {
   return [
     {
       role: "system",

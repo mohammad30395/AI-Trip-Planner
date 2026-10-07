@@ -30,16 +30,20 @@ Server-only responsibilities:
 - Clerk secret-key operations
 - Clerk Billing entitlement checks
 - Convex mutations and queries that require verified identity
-- OpenRouter AI calls
+- GroqCloud conversational AI calls
+- OpenRouter final-itinerary AI calls
 - Geoapify place-enrichment calls
 - Structured itinerary validation before persistence
 
 AI and Geoapify logic must not run in client components.
 
-## OpenRouter Server Boundary
+## AI Provider Server Boundaries
 
-OpenRouter is configured only in `lib/ai/openrouter.ts`, which imports
-`server-only` and must never be imported by a client component.
+The staged provider migration keeps both AI adapters server-only. GroqCloud is
+configured in `lib/ai/groq.ts` for conversational generation, while OpenRouter
+remains configured in `lib/ai/openrouter.ts` for final-itinerary generation and
+rollback support. Both modules import `server-only` and must never be imported
+by client components.
 
 The temporary `/api/openrouter-smoke` route is protected by Clerk before it can
 perform provider work. It validates `OPEN_ROUTER_API_KEY` and
@@ -50,18 +54,27 @@ output smoke calls request OpenRouter provider routing with required parameter
 support so the request is not sent to endpoints that cannot honor JSON Schema
 output.
 
+The `/api/groq-smoke` route is also Clerk-protected before provider work. It
+checks configured-model availability and verifies both a tiny strict schema and
+the existing conversational schema without exposing provider credentials or raw
+responses.
+
 The `/api/ai-model` route is the authenticated server boundary for the
 conversation interviewer. It accepts compact conversation messages and normalized
-requirements, validates them before any provider call, and returns only the
-strict conversational schema. The client validates the response envelope again
-before choosing a pre-built UI component. Final itinerary generation remains
-disconnected; a complete brief transitions only to `READY_FOR_FINAL`.
+requirements, validates them before any provider call, calls GroqCloud with the
+existing conversational JSON Schema in `strict: false` mode, and applies the
+existing runtime parser before returning the unchanged response envelope. The
+client validates that envelope again before choosing a pre-built UI component.
+Provider failures use the existing deterministic conversation fallback. Final
+itinerary generation remains disconnected; a complete brief transitions only
+to `READY_FOR_FINAL`.
 
 The `/api/ai-itinerary` route is the authenticated server boundary for final
-itinerary generation. It accepts complete normalized requirements only, requests
-the strict final itinerary schema, validates the model response server-side, and
-rejects mismatched itinerary day counts. Generated prices and place details are
-not verified facts until later Geoapify enrichment.
+itinerary generation and remains on OpenRouter during this migration stage. It
+accepts complete normalized requirements only, requests the strict final
+itinerary schema, validates the model response server-side, and rejects
+mismatched itinerary day counts. Generated prices and place details are not
+verified facts until later Geoapify enrichment.
 
 ## Generation Access Boundary
 

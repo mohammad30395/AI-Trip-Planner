@@ -17,6 +17,8 @@ Variable names only. Never commit or print values.
 | `CLERK_JWT_ISSUER_DOMAIN` | Server-only | Convex auth configuration for Clerk JWT issuer |
 | `OPEN_ROUTER_API_KEY` | Server-only | OpenRouter server calls |
 | `OPEN_ROUTER_MODEL` | Server-only | Server-selected OpenRouter model |
+| `GROQ_API_KEY` | Server-only secret | GroqCloud server calls during staged provider migration |
+| `GROQ_MODEL` | Server-only configuration | Non-secret, server-selected Groq model ID |
 | `GEOAPIFY_API_KEY` | Server-only | Geoapify place-enrichment server calls |
 
 Do not create or use `NEXT_PUBLIC_GEOAPIFY_API_KEY`. Geoapify calls must go

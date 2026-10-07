@@ -2477,3 +2477,78 @@ Verification:
 
 Next milestone:
 - UI Prompt-13: focused responsive behavior audit.
+
+## Provider Migration Step 2 - Isolated GroqCloud Validation
+
+Completion pass:
+- Added a server-only GroqCloud adapter using the existing OpenAI JavaScript
+  SDK, the official OpenAI-compatible Groq base URL, configurable
+  `GROQ_MODEL`, a 30-second timeout, and no automatic retries.
+- Added an authenticated `/api/groq-smoke` route that checks configured-model
+  availability before making one tiny strict-schema request and one request
+  against the unchanged conversational response schema.
+- Kept the shared conversational and final-itinerary schemas unchanged. Their
+  optional properties are not compatible with Groq `strict: true` as written,
+  so the existing-schema smoke uses documented `strict: false` behavior plus
+  the existing runtime parser.
+- Added mocked adapter coverage for configuration, request construction,
+  structured output, parsing, schema validation, empty/truncated responses,
+  sanitized provider failures, rate limiting, timeout handling, and model
+  availability.
+- Excluded OpenRouter headers, provider-routing options, and reasoning options
+  from the Groq adapter. No dependency was added.
+- Preserved OpenRouter as the production provider for both `/api/ai-model` and
+  `/api/ai-itinerary`; no frontend, Convex, Clerk, Geoapify, or Leaflet behavior
+  changed.
+
+Verification:
+- The configured Groq model matched the migration target and was accessible to
+  the configured account.
+- One live tiny `strict: true` response was accepted and runtime-validated.
+- One live unchanged conversational-schema response using `strict: false` was
+  accepted, parsed as JSON, passed `parseConversationalStepResponse`, and
+  returned `nextUISelector: source`.
+- The focused adapter suite passed 13 tests; the complete verification results
+  are recorded in the Step 2 implementation report.
+
+Next:
+- Provider Migration Step 3 may evaluate staged production integration. This
+  milestone does not cut either production AI route over from OpenRouter.
+
+## Provider Migration Step 3 - GroqCloud Conversation Cutover
+
+Completion pass:
+- Added `runGroqConversationStep` to the server-only Groq adapter using the
+  existing OpenAI SDK, configurable `GROQ_MODEL`, Chat Completions,
+  `temperature: 0`, `max_completion_tokens`, a 30-second timeout, and no
+  automatic retries.
+- Kept the shared conversational schema unchanged and sent it with
+  `strict: false`; JSON parsing and `parseConversationalStepResponse` remain
+  mandatory before the adapter can return success.
+- Switched only `/api/ai-model` from `runOpenRouterConversationStep` to
+  `runGroqConversationStep`. The route URL, Clerk-first authentication, request
+  parser, interview prompt, route-side requirement/selector normalization,
+  response envelope, and deterministic fallback remain unchanged.
+- Propagated browser request cancellation together with the existing bounded
+  provider timeout using a combined abort signal.
+- Preserved HTTP-200 deterministic fallback behavior for configuration,
+  provider, timeout, rate-limit, invalid-JSON, schema-validation, empty, and
+  truncated-output failures. No request is retried or sent to OpenRouter.
+- Added dedicated route coverage for authentication ordering, invalid input,
+  one-call Groq success, normalized updates/selectors, review-only completion,
+  every provider failure class, secret sanitization, and absence of
+  conversational or final OpenRouter calls.
+- Preserved `/api/ai-itinerary` on OpenRouter and made no frontend, Convex,
+  Clerk, billing, Geoapify, Leaflet, persistence, shared-contract, or dependency
+  changes.
+
+Verification:
+- Focused Groq adapter and route checks passed before the complete project
+  verification gate.
+- The complete automated and live verification results are recorded in the
+  Step 3 implementation report.
+
+Next:
+- Provider Migration Step 4 may separately validate final-itinerary generation
+  on GroqCloud. This milestone does not migrate `/api/ai-itinerary` or remove
+  OpenRouter.
