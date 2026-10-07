@@ -2635,3 +2635,28 @@ Next:
 - With a newly authorized request budget, run the hardened schema-probe harness
   once and preserve its sanitized result records before considering a wire
   schema change.
+
+## Provider Migration Step 4A.2R - Durable Strict-Schema Probe Re-run
+
+- Added append-only sanitized JSONL evidence capture at
+  `/tmp/groq-schema-probe-report.jsonl`, strict record parsing, durable request
+  counting, sequential stop decisions, and rate-limit safety fields. Offline
+  persistence and sanitization coverage passed before the live run.
+- Made exactly one new live Groq generation request. Probe 0, the previously
+  proven strict closed-object control, returned HTTP 400
+  `invalid_request_error` / `json_validate_failed`; the bounded provider message
+  reported JSON validation failure without a schema path or rejected keyword.
+- Stopped immediately as required. No nullable, enum, `anyOf`, place-subtree,
+  full-schema, or real itinerary request was made. The JSONL file contains
+  exactly one record, matching the one provider request attempted.
+- Classified the result as `CONTROL_FAILURE`, indicating a provider/model-run
+  regression or generation failure rather than evidence against a final wire
+  schema construct. Remaining token allowance was 7,684 of 8,000 TPM with a
+  three-second reset, so rate limiting was not the cause.
+- No production wire-schema, shared-contract, adapter, route, frontend, or
+  provider-routing change was applied. Final itinerary generation remains on
+  OpenRouter.
+
+Next:
+- Re-establish a passing tiny strict control with Groq before resuming final
+  schema bisection.
