@@ -2592,3 +2592,23 @@ Next:
 - Keep final generation on OpenRouter. A future validation milestone must obtain
   a successful 1-day Groq result and measured usage before any Step 4B cutover
   strategy is approved.
+
+## Provider Migration Step 4A.1 - One-Day Groq Final Diagnostic
+
+- Reduced the isolated Groq final wire schema to the currently documented
+  strict structured-output subset and added recursive audit coverage for all
+  eight object nodes and three `anyOf` branches.
+- Removed `reasoning_effort` only from the isolated final request because its
+  combination with strict structured output is not explicitly documented.
+- Added sanitized final-call stage, status, provider category/type, finish,
+  retry, usage-stage, and rate-limit diagnostics; public production errors and
+  routes remain unchanged.
+- The pre-live lint, 45 focused tests, and TypeScript checks passed. The model
+  was accessible, then the only 1-day generation attempt returned HTTP 400
+  `request_rejected` / `invalid_request_error` at `PROVIDER_REQUEST`, with no
+  provider content. No retry or 3-day request was made.
+- `/api/ai-model` remains on Groq and `/api/ai-itinerary` remains on OpenRouter.
+
+Next:
+- Investigate the rejected strict schema offline before authorizing another
+  live final-generation request. Do not cut over final generation yet.

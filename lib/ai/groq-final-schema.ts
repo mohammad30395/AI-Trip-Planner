@@ -12,7 +12,6 @@ const nullableGroupTypeSchema = {
 
 const nullableStringSchema = {
   type: ["string", "null"],
-  minLength: 1,
 } as const
 
 const groqFinalItineraryWireSchema = {
@@ -38,18 +37,18 @@ const groqFinalItineraryWireSchema = {
         "groupType",
       ],
       properties: {
-        source: { type: "string", minLength: 1 },
-        destination: { type: "string", minLength: 1 },
-        durationDays: { type: "integer", minimum: 1, maximum: 30 },
+        source: { type: "string" },
+        destination: { type: "string" },
+        durationDays: { type: "integer" },
         budgetTier: {
           type: "string",
           enum: ["budget", "mid-range", "premium"],
         },
-        groupSize: { type: "integer", minimum: 1, maximum: 20 },
+        groupSize: { type: "integer" },
         groupType: nullableGroupTypeSchema,
       },
     },
-    summary: { type: "string", minLength: 1 },
+    summary: { type: "string" },
     hotels: {
       type: "array",
       items: {
@@ -64,28 +63,26 @@ const groqFinalItineraryWireSchema = {
           "estimatedPriceText",
         ],
         properties: {
-          name: { type: "string", minLength: 1 },
-          description: { type: "string", minLength: 1 },
+          name: { type: "string" },
+          description: { type: "string" },
           area: nullableStringSchema,
           address: nullableStringSchema,
           priceTier: nullableBudgetTierSchema,
-          estimatedPriceText: { type: "string", minLength: 1 },
+          estimatedPriceText: { type: "string" },
         },
       },
     },
     itinerary: {
       type: "array",
-      minItems: 1,
       items: {
         type: "object",
         additionalProperties: false,
         required: ["dayNumber", "title", "activities"],
         properties: {
-          dayNumber: { type: "integer", minimum: 1 },
-          title: { type: "string", minLength: 1 },
+          dayNumber: { type: "integer" },
+          title: { type: "string" },
           activities: {
             type: "array",
-            minItems: 1,
             items: {
               type: "object",
               additionalProperties: false,
@@ -99,8 +96,8 @@ const groqFinalItineraryWireSchema = {
                 "place",
               ],
               properties: {
-                title: { type: "string", minLength: 1 },
-                description: { type: "string", minLength: 1 },
+                title: { type: "string" },
+                description: { type: "string" },
                 timeOfDay: {
                   type: ["string", "null"],
                   enum: [
@@ -112,14 +109,13 @@ const groqFinalItineraryWireSchema = {
                     null,
                   ],
                 },
-                timeWindow: { type: "string", minLength: 1 },
+                timeWindow: { type: "string" },
                 duration: nullableStringSchema,
-                estimatedPriceText: { type: "string", minLength: 1 },
+                estimatedPriceText: { type: "string" },
                 place: {
                   anyOf: [
                     strictPlaceSchema("specific_place", {
                       type: "string",
-                      minLength: 1,
                     }),
                     strictPlaceSchema("generic_activity", { type: "null" }),
                     strictPlaceSchema("transport", { type: "null" }),
@@ -133,7 +129,7 @@ const groqFinalItineraryWireSchema = {
     },
     practicalNotes: {
       type: ["array", "null"],
-      items: { type: "string", minLength: 1 },
+      items: { type: "string" },
     },
   },
 } as const
@@ -144,7 +140,6 @@ function strictPlaceSchema(
   kind: "specific_place" | "generic_activity" | "transport",
   nameSchema: { readonly type: "null" } | {
     readonly type: "string"
-    readonly minLength: 1
   }
 ) {
   return {

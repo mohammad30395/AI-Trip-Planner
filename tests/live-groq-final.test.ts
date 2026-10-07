@@ -12,10 +12,15 @@ import type { FinalItineraryRequirements } from "@/lib/ai/itinerary"
 const runLiveFinal = process.env.RUN_LIVE_GROQ_FINAL === "1"
 
 describe.skipIf(!runLiveFinal)("live isolated Groq final itinerary", () => {
-  test("validates one day and conditionally validates three days", async () => {
+  test("performs exactly one one-day final diagnostic", async () => {
     expect(process.env.GROQ_MODEL).toBe("openai/gpt-oss-20b")
 
     const availability = await checkGroqModelAvailability()
+    console.info("Groq live final model precheck", {
+      configured: Boolean(process.env.GROQ_MODEL?.trim()),
+      accessible: availability.ok && availability.data.accessible,
+      code: availability.ok ? undefined : availability.code,
+    })
     expect(availability).toMatchObject({
       ok: true,
       data: { accessible: true },
@@ -28,14 +33,14 @@ describe.skipIf(!runLiveFinal)("live isolated Groq final itinerary", () => {
     const oneDay = await runGroqFinalItinerary({
       messages: buildGroqFinalMessages(oneDayRequirements),
       durationDays: 1,
+      maxCompletionTokens: getGroqFinalMaxCompletionTokens(1),
     })
 
     if (!oneDay.ok) {
       console.info("Groq live final Test A", {
         result: "failed",
         code: oneDay.code,
-        retryAfterSeconds: oneDay.retryAfterSeconds,
-        rateLimited: oneDay.code === "rate_limited",
+        ...oneDay.diagnostic,
       })
       expect(oneDay.ok).toBe(true)
       return
@@ -44,72 +49,13 @@ describe.skipIf(!runLiveFinal)("live isolated Groq final itinerary", () => {
     validateLiveItinerary(oneDay.data.response, 1)
     console.info("Groq live final Test A", {
       result: "passed",
-      strictSchemaAccepted: true,
-      jsonParsed: true,
-      wireNormalized: true,
-      runtimeValidated: true,
-      durationValidated: true,
+      ...oneDay.data.diagnostic,
       inputTokens: oneDay.data.usage?.inputTokens,
       outputTokens: oneDay.data.usage?.outputTokens,
       totalTokens: oneDay.data.usage?.totalTokens,
       tokenLimitPerMinute: oneDay.data.rateLimit?.limitTokensPerMinute,
       remainingTokens: oneDay.data.rateLimit?.remainingTokens,
-      rateLimited: false,
-    })
-
-    const remainingTokens = oneDay.data.rateLimit?.remainingTokens
-    const conservativeThreeDayAllowance =
-      (oneDay.data.usage?.inputTokens ?? 2_000) +
-      getGroqFinalMaxCompletionTokens(3)
-
-    if (
-      remainingTokens === undefined ||
-      remainingTokens < conservativeThreeDayAllowance
-    ) {
-      console.info("TEST_B_DEFERRED_RATE_LIMIT_SAFETY", {
-        remainingTokensKnown: remainingTokens !== undefined,
-        requiredAllowance: conservativeThreeDayAllowance,
-      })
-      return
-    }
-
-    const threeDay = await runGroqFinalItinerary({
-      messages: buildGroqFinalMessages(threeDayRequirements),
-      durationDays: 3,
-    })
-
-    if (!threeDay.ok && threeDay.code === "rate_limited") {
-      console.info("TEST_B_DEFERRED_RATE_LIMIT_SAFETY", {
-        rateLimited: true,
-        retryAfterSeconds: threeDay.retryAfterSeconds,
-      })
-      return
-    }
-
-    if (!threeDay.ok) {
-      console.info("Groq live final Test B", {
-        result: "failed",
-        code: threeDay.code,
-        retryAfterSeconds: threeDay.retryAfterSeconds,
-        rateLimited: false,
-      })
-      expect(threeDay.ok).toBe(true)
-      return
-    }
-
-    validateLiveItinerary(threeDay.data.response, 3)
-    console.info("Groq live final Test B", {
-      result: "passed",
-      strictSchemaAccepted: true,
-      jsonParsed: true,
-      wireNormalized: true,
-      runtimeValidated: true,
-      durationValidated: true,
-      inputTokens: threeDay.data.usage?.inputTokens,
-      outputTokens: threeDay.data.usage?.outputTokens,
-      totalTokens: threeDay.data.usage?.totalTokens,
-      tokenLimitPerMinute: threeDay.data.rateLimit?.limitTokensPerMinute,
-      remainingTokens: threeDay.data.rateLimit?.remainingTokens,
+      resetTokensSeconds: oneDay.data.rateLimit?.resetTokensSeconds,
       rateLimited: false,
     })
   }, 120_000)
@@ -181,17 +127,8 @@ function validateLiveItinerary(
 
 const oneDayRequirements = {
   source: "Dhaka",
-  destination: "Sylhet",
+  destination: "Cox's Bazar",
   durationDays: 1,
-  budgetTier: "mid-range",
-  groupSize: 2,
-  groupType: "couple",
-} satisfies FinalItineraryRequirements
-
-const threeDayRequirements = {
-  source: "Dhaka",
-  destination: "Tokyo",
-  durationDays: 3,
   budgetTier: "mid-range",
   groupSize: 2,
   groupType: "couple",

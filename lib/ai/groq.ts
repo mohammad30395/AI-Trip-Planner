@@ -50,12 +50,65 @@ type GroqFailureCode =
   | "output_truncated"
   | "rate_limited"
 
+type GroqFinalDiagnosticStage =
+  | "CONFIG"
+  | "MODEL_ACCESS"
+  | "REQUEST_BUILD"
+  | "PROVIDER_REQUEST"
+  | "PROVIDER_RESPONSE"
+  | "CONTENT_EXTRACTION"
+  | "JSON_PARSE"
+  | "WIRE_NORMALIZATION"
+  | "RUNTIME_VALIDATION"
+  | "DURATION_VALIDATION"
+  | "SUCCESS"
+
+type GroqFinalDiagnosticCode =
+  | "configuration"
+  | "request_rejected"
+  | "unsupported_parameter"
+  | "authentication_error"
+  | "permission_error"
+  | "model_or_endpoint_not_found"
+  | "request_too_large"
+  | "structured_output_or_semantic_failure"
+  | "rate_limited"
+  | "capacity_exceeded"
+  | "request_cancelled"
+  | "provider_error"
+  | "provider_timeout"
+  | "empty_response"
+  | "invalid_json"
+  | "schema_validation"
+  | "duration_validation"
+  | "output_truncated"
+  | "success"
+
+type GroqFinalDiagnostic = {
+  normalizedFailureCode: GroqFinalDiagnosticCode
+  stage: GroqFinalDiagnosticStage
+  strictSchemaReachedProvider: boolean
+  responseFormatAccepted?: boolean
+  providerContentReturned: boolean
+  httpStatus?: number
+  providerErrorCategory?: GroqFinalDiagnosticCode
+  providerErrorType?: string
+  finishReason?: string
+  retryAfterSeconds?: number
+  rateLimit?: GroqRateLimit
+  jsonParsed: boolean
+  wireNormalized: boolean
+  runtimeValidated: boolean
+  durationValidated: boolean
+}
+
 type GroqFailure = {
   ok: false
   code: GroqFailureCode
   error: string
   missingVariables?: string[]
   retryAfterSeconds?: number
+  diagnostic?: GroqFinalDiagnostic
 }
 
 type GroqCallResult<T> =
@@ -104,6 +157,7 @@ type GroqUsage = {
 type GroqRateLimit = {
   limitTokensPerMinute?: number
   remainingTokens?: number
+  resetTokensSeconds?: number
 }
 
 type GroqFinalItineraryResult = {
@@ -111,6 +165,7 @@ type GroqFinalItineraryResult = {
   modelReturned: boolean
   usage?: GroqUsage
   rateLimit?: GroqRateLimit
+  diagnostic: GroqFinalDiagnostic
 }
 
 type GroqStructuredOutputRequest = {
@@ -208,7 +263,10 @@ async function runGroqFinalItinerary(
   const config = getGroqConfig()
 
   if (!config.ok) {
-    return config
+    return {
+      ...config,
+      diagnostic: createGroqFinalDiagnostic("configuration", "CONFIG"),
+    }
   }
 
   const client = createGroqClient(config.data, GROQ_FINAL_ITINERARY_TIMEOUT_MS)
@@ -227,7 +285,6 @@ async function runGroqFinalItinerary(
           },
         },
         temperature: 0.4,
-        reasoning_effort: "low",
         max_completion_tokens:
           request.maxCompletionTokens ??
           getGroqFinalMaxCompletionTokens(request.durationDays),
@@ -239,24 +296,63 @@ async function runGroqFinalItinerary(
     )
     const { data: completion, response } = await completionRequest.withResponse()
     const choice = completion.choices[0]
+    const content = choice?.message.content
+    const providerContentReturned = Boolean(content?.trim())
+    const finishReason = getSafeFinishReason(choice?.finish_reason)
+    const usage = getSafeGroqUsage(completion.usage)
+    const rateLimit = getSafeGroqRateLimit(response.headers)
 
     if (choice?.finish_reason === "length") {
       return groqFailure(
         "output_truncated",
-        "Groq response reached its output limit."
+        "Groq response reached its output limit.",
+        {
+          diagnostic: createGroqFinalDiagnostic(
+            "output_truncated",
+            "PROVIDER_RESPONSE",
+            {
+              strictSchemaReachedProvider: true,
+              responseFormatAccepted: true,
+              providerContentReturned,
+              ...(finishReason !== undefined ? { finishReason } : {}),
+              ...(rateLimit !== undefined ? { rateLimit } : {}),
+            }
+          ),
+        }
       )
     }
 
-    const content = choice?.message.content
-
     if (!content?.trim()) {
-      return groqFailure("empty_response", "Groq returned an empty response.")
+      return groqFailure("empty_response", "Groq returned an empty response.", {
+        diagnostic: createGroqFinalDiagnostic(
+          "empty_response",
+          "PROVIDER_RESPONSE",
+          {
+            strictSchemaReachedProvider: true,
+            responseFormatAccepted: true,
+            ...(finishReason !== undefined ? { finishReason } : {}),
+            ...(rateLimit !== undefined ? { rateLimit } : {}),
+          }
+        ),
+      })
     }
 
     const parsedJson = parseJson(content)
 
     if (!parsedJson.ok) {
-      return parsedJson
+      return groqFailure("invalid_json", parsedJson.error, {
+        diagnostic: createGroqFinalDiagnostic(
+          "invalid_json",
+          "CONTENT_EXTRACTION",
+          {
+            strictSchemaReachedProvider: true,
+            responseFormatAccepted: true,
+            providerContentReturned: true,
+            ...(finishReason !== undefined ? { finishReason } : {}),
+            ...(rateLimit !== undefined ? { rateLimit } : {}),
+          }
+        ),
+      })
     }
 
     const normalizedWireValue = normalizeGroqFinalItineraryWire(parsedJson.data)
@@ -265,7 +361,22 @@ async function runGroqFinalItinerary(
     if (!parsedResponse.ok) {
       return groqFailure(
         "schema_validation",
-        "Groq final itinerary failed runtime validation."
+        "Groq final itinerary failed runtime validation.",
+        {
+          diagnostic: createGroqFinalDiagnostic(
+            "schema_validation",
+            "WIRE_NORMALIZATION",
+            {
+              strictSchemaReachedProvider: true,
+              responseFormatAccepted: true,
+              providerContentReturned: true,
+              finishReason,
+              rateLimit,
+              jsonParsed: true,
+              wireNormalized: true,
+            }
+          ),
+        }
       )
     }
 
@@ -277,12 +388,25 @@ async function runGroqFinalItinerary(
     if (!durationValidation.ok) {
       return groqFailure(
         "schema_validation",
-        "Groq final itinerary failed duration validation."
+        "Groq final itinerary failed duration validation.",
+        {
+          diagnostic: createGroqFinalDiagnostic(
+            "duration_validation",
+            "RUNTIME_VALIDATION",
+            {
+              strictSchemaReachedProvider: true,
+              responseFormatAccepted: true,
+              providerContentReturned: true,
+              finishReason,
+              rateLimit,
+              jsonParsed: true,
+              wireNormalized: true,
+              runtimeValidated: true,
+            }
+          ),
+        }
       )
     }
-
-    const usage = getSafeGroqUsage(completion.usage)
-    const rateLimit = getSafeGroqRateLimit(response.headers)
 
     return {
       ok: true,
@@ -291,10 +415,21 @@ async function runGroqFinalItinerary(
         modelReturned: completion.model.length > 0,
         ...(usage !== undefined ? { usage } : {}),
         ...(rateLimit !== undefined ? { rateLimit } : {}),
+        diagnostic: createGroqFinalDiagnostic("success", "SUCCESS", {
+          strictSchemaReachedProvider: true,
+          responseFormatAccepted: true,
+          providerContentReturned: true,
+          finishReason,
+          rateLimit,
+          jsonParsed: true,
+          wireNormalized: true,
+          runtimeValidated: true,
+          durationValidated: true,
+        }),
       },
     }
   } catch (error) {
-    return normalizeGroqError(error)
+    return normalizeGroqError(error, "PROVIDER_REQUEST")
   }
 }
 
@@ -530,12 +665,22 @@ function isValidStrictCapabilityResponse(value: unknown) {
   )
 }
 
-function normalizeGroqError(error: unknown): GroqFailure {
-  if (error instanceof RateLimitError || getErrorStatus(error) === 429) {
+function normalizeGroqError(
+  error: unknown,
+  finalStage?: GroqFinalDiagnosticStage
+): GroqFailure {
+  const status = getErrorStatus(error)
+  const diagnostic =
+    finalStage === undefined
+      ? undefined
+      : createGroqProviderFailureDiagnostic(error, finalStage)
+
+  if (error instanceof RateLimitError || status === 429) {
     const retryAfterSeconds = getSafeRetryAfterSeconds(error)
 
     return groqFailure("rate_limited", "Groq rate limit was reached.", {
       ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+      ...(diagnostic !== undefined ? { diagnostic } : {}),
     })
   }
 
@@ -544,34 +689,40 @@ function normalizeGroqError(error: unknown): GroqFailure {
     error instanceof APIUserAbortError ||
     isPlatformTimeoutError(error)
   ) {
-    return groqFailure("provider_timeout", "Groq provider request timed out.")
+    return groqFailure("provider_timeout", "Groq provider request timed out.", {
+      ...(diagnostic !== undefined ? { diagnostic } : {}),
+    })
   }
 
   logSafeGroqError(error)
 
-  return groqFailure("provider_error", "Groq provider request failed.")
+  return groqFailure("provider_error", "Groq provider request failed.", {
+    ...(diagnostic !== undefined ? { diagnostic } : {}),
+  })
 }
 
 function getErrorStatus(error: unknown) {
-  return typeof error === "object" &&
+  const status =
+    typeof error === "object" &&
     error !== null &&
     "status" in error &&
     typeof error.status === "number"
     ? error.status
     : undefined
+
+  return status !== undefined && Number.isInteger(status) && status >= 100 && status <= 599
+    ? status
+    : undefined
 }
 
 function getSafeRetryAfterSeconds(error: unknown) {
-  if (
-    typeof error !== "object" ||
-    error === null ||
-    !("headers" in error) ||
-    !(error.headers instanceof Headers)
-  ) {
+  const headers = getErrorHeaders(error)
+
+  if (headers === undefined) {
     return undefined
   }
 
-  const value = error.headers.get("retry-after")
+  const value = headers.get("retry-after")
 
   if (value === null) {
     return undefined
@@ -620,15 +771,45 @@ function getSafeGroqRateLimit(headers: Headers): GroqRateLimit | undefined {
     headers,
     "x-ratelimit-remaining-tokens"
   )
+  const resetTokensSeconds = getSafeResetSeconds(
+    headers.get("x-ratelimit-reset-tokens")
+  )
 
-  if (limitTokensPerMinute === undefined && remainingTokens === undefined) {
+  if (
+    limitTokensPerMinute === undefined &&
+    remainingTokens === undefined &&
+    resetTokensSeconds === undefined
+  ) {
     return undefined
   }
 
   return {
     ...(limitTokensPerMinute !== undefined ? { limitTokensPerMinute } : {}),
     ...(remainingTokens !== undefined ? { remainingTokens } : {}),
+    ...(resetTokensSeconds !== undefined ? { resetTokensSeconds } : {}),
   }
+}
+
+function getSafeResetSeconds(value: string | null) {
+  if (value === null) {
+    return undefined
+  }
+
+  const match = /^(?:(\d+(?:\.\d+)?)m)?(?:(\d+(?:\.\d+)?)s)?$/.exec(
+    value.trim()
+  )
+
+  if (match === null || (match[1] === undefined && match[2] === undefined)) {
+    return undefined
+  }
+
+  const seconds = Number(match[1] ?? 0) * 60 + Number(match[2] ?? 0)
+
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return undefined
+  }
+
+  return Math.min(86_400, Math.ceil(seconds))
 }
 
 function getSafeHeaderInteger(headers: Headers, name: string) {
@@ -654,6 +835,186 @@ function isPlatformTimeoutError(error: unknown) {
   )
 }
 
+function createGroqProviderFailureDiagnostic(
+  error: unknown,
+  stage: GroqFinalDiagnosticStage
+): GroqFinalDiagnostic {
+  const status = getErrorStatus(error)
+  const normalizedFailureCode = getGroqDiagnosticCode(error, status)
+  const retryAfterSeconds = getSafeRetryAfterSeconds(error)
+  const headers = getErrorHeaders(error)
+  const rateLimit =
+    headers === undefined ? undefined : getSafeGroqRateLimit(headers)
+  const providerErrorType = getSafeProviderErrorType(error)
+
+  return createGroqFinalDiagnostic(normalizedFailureCode, stage, {
+    strictSchemaReachedProvider: status !== undefined,
+    ...(status === 400
+      ? { responseFormatAccepted: false }
+      : status === 422
+        ? { responseFormatAccepted: true }
+        : {}),
+    ...(status !== undefined ? { httpStatus: status } : {}),
+    providerErrorCategory: normalizedFailureCode,
+    ...(providerErrorType !== undefined ? { providerErrorType } : {}),
+    ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
+    ...(rateLimit !== undefined ? { rateLimit } : {}),
+  })
+}
+
+function createGroqFinalDiagnostic(
+  normalizedFailureCode: GroqFinalDiagnosticCode,
+  stage: GroqFinalDiagnosticStage,
+  details: Partial<
+    Omit<GroqFinalDiagnostic, "normalizedFailureCode" | "stage">
+  > = {}
+): GroqFinalDiagnostic {
+  return {
+    normalizedFailureCode,
+    stage,
+    strictSchemaReachedProvider: false,
+    providerContentReturned: false,
+    jsonParsed: false,
+    wireNormalized: false,
+    runtimeValidated: false,
+    durationValidated: false,
+    ...details,
+  }
+}
+
+function getGroqDiagnosticCode(
+  error: unknown,
+  status: number | undefined
+): GroqFinalDiagnosticCode {
+  if (
+    error instanceof APIConnectionTimeoutError ||
+    error instanceof APIUserAbortError ||
+    isPlatformTimeoutError(error)
+  ) {
+    return "provider_timeout"
+  }
+
+  switch (status) {
+    case 400:
+      return isUnsupportedParameterError(error)
+        ? "unsupported_parameter"
+        : "request_rejected"
+    case 401:
+      return "authentication_error"
+    case 403:
+      return "permission_error"
+    case 404:
+      return "model_or_endpoint_not_found"
+    case 413:
+      return "request_too_large"
+    case 422:
+      return "structured_output_or_semantic_failure"
+    case 429:
+      return "rate_limited"
+    case 498:
+      return "capacity_exceeded"
+    case 499:
+      return "request_cancelled"
+    case 500:
+    case 502:
+    case 503:
+      return "provider_error"
+    default:
+      return "provider_error"
+  }
+}
+
+function isUnsupportedParameterError(error: unknown) {
+  const unsupportedParameterNames = new Set([
+    "frequency_penalty",
+    "logit_bias",
+    "logprobs",
+    "messages[].name",
+    "metadata",
+    "n",
+    "presence_penalty",
+    "top_logprobs",
+  ])
+  const param = getStringProperty(error, "param")
+
+  if (param !== undefined && unsupportedParameterNames.has(param)) {
+    return true
+  }
+
+  const code = getStringProperty(error, "code")?.toLowerCase()
+  const message = error instanceof Error ? error.message.toLowerCase() : ""
+
+  return (
+    code === "unsupported_parameter" ||
+    message.includes("unsupported parameter") ||
+    message.includes("parameter is not supported") ||
+    message.includes("unknown parameter") ||
+    message.includes("unrecognized request argument")
+  )
+}
+
+function getSafeProviderErrorType(error: unknown) {
+  const type = getStringProperty(error, "type")
+
+  return type !== undefined && safeGroqProviderErrorTypes.has(type)
+    ? type
+    : undefined
+}
+
+function getStringProperty(
+  error: unknown,
+  property: string
+): string | undefined {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !(property in error)
+  ) {
+    return undefined
+  }
+
+  const value = (error as Record<string, unknown>)[property]
+
+  return typeof value === "string" ? value : undefined
+}
+
+function getErrorHeaders(error: unknown) {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("headers" in error) ||
+    !(error.headers instanceof Headers)
+  ) {
+    return undefined
+  }
+
+  return error.headers
+}
+
+function getSafeFinishReason(value: string | null | undefined) {
+  return value !== undefined && value !== null && safeGroqFinishReasons.has(value)
+    ? value
+    : undefined
+}
+
+const safeGroqProviderErrorTypes = new Set([
+  "api_error",
+  "authentication_error",
+  "invalid_request_error",
+  "not_found_error",
+  "permission_error",
+  "rate_limit_error",
+  "server_error",
+])
+
+const safeGroqFinishReasons = new Set([
+  "stop",
+  "length",
+  "content_filter",
+  "tool_calls",
+  "function_call",
+])
+
 function logSafeGroqError(error: unknown) {
   if (process.env.NODE_ENV !== "development") {
     return
@@ -670,7 +1031,7 @@ function groqFailure(
   error: string,
   details: Pick<
     GroqFailure,
-    "missingVariables" | "retryAfterSeconds"
+    "diagnostic" | "missingVariables" | "retryAfterSeconds"
   > = {}
 ): GroqFailure {
   return {
@@ -696,5 +1057,8 @@ export {
   type GroqCallResult,
   type GroqConversationMessage,
   type GroqFailureCode,
+  type GroqFinalDiagnostic,
+  type GroqFinalDiagnosticCode,
+  type GroqFinalDiagnosticStage,
   type GroqFinalItineraryRequest,
 }

@@ -76,7 +76,12 @@ afterEach(() => {
 
 describe("Groq strict final wire schema", () => {
   test("closes every object and requires every declared property", () => {
-    expectStrictObjects(groqFinalItineraryWireSchema, "root")
+    expect(auditStrictWireSchema(groqFinalItineraryWireSchema)).toEqual({
+      objectNodes: 8,
+      anyOfBranches: 3,
+      problems: [],
+      unsupportedKeywords: [],
+    })
   })
 
   test("represents every application-optional field as nullable", () => {
@@ -207,14 +212,26 @@ describe("isolated Groq final itinerary adapter", () => {
         rateLimit: {
           limitTokensPerMinute: 8_000,
           remainingTokens: 6_200,
+          resetTokensSeconds: 8,
+        },
+        diagnostic: {
+          normalizedFailureCode: "success",
+          stage: "SUCCESS",
+          strictSchemaReachedProvider: true,
+          responseFormatAccepted: true,
+          providerContentReturned: true,
+          finishReason: "stop",
+          jsonParsed: true,
+          wireNormalized: true,
+          runtimeValidated: true,
+          durationValidated: true,
         },
       },
     })
-    expect(body).toMatchObject({
+    expect(body).toEqual({
       model: "unit-test-model",
       messages: finalMessages,
       temperature: 0.4,
-      reasoning_effort: "low",
       max_completion_tokens: 1_700,
       response_format: {
         type: "json_schema",
@@ -227,7 +244,11 @@ describe("isolated Groq final itinerary adapter", () => {
     })
     expect(body).not.toHaveProperty("provider")
     expect(body).not.toHaveProperty("reasoning")
+    expect(body).not.toHaveProperty("reasoning_effort")
+    expect(body).not.toHaveProperty("include_reasoning")
     expect(body).not.toHaveProperty("tools")
+    expect(body).not.toHaveProperty("stream")
+    expect(body).not.toHaveProperty("search_settings")
     expect(openAiMocks.clientOptions[0]).toEqual({
       apiKey: "unit-test-secret",
       baseURL: "https://api.groq.com/openai/v1",
@@ -242,6 +263,12 @@ describe("isolated Groq final itinerary adapter", () => {
     await expect(runFinal(1)).resolves.toMatchObject({
       ok: false,
       code: "invalid_json",
+      diagnostic: {
+        normalizedFailureCode: "invalid_json",
+        stage: "CONTENT_EXTRACTION",
+        providerContentReturned: true,
+        jsonParsed: false,
+      },
     })
   })
 
@@ -251,6 +278,11 @@ describe("isolated Groq final itinerary adapter", () => {
     await expect(runFinal(1)).resolves.toMatchObject({
       ok: false,
       code: "empty_response",
+      diagnostic: {
+        normalizedFailureCode: "empty_response",
+        stage: "PROVIDER_RESPONSE",
+        providerContentReturned: false,
+      },
     })
   })
 
@@ -262,6 +294,11 @@ describe("isolated Groq final itinerary adapter", () => {
     await expect(runFinal(1)).resolves.toMatchObject({
       ok: false,
       code: "schema_validation",
+      diagnostic: {
+        normalizedFailureCode: "schema_validation",
+        stage: "WIRE_NORMALIZATION",
+        runtimeValidated: false,
+      },
     })
   })
 
@@ -287,6 +324,12 @@ describe("isolated Groq final itinerary adapter", () => {
     await expect(runFinal(3)).resolves.toMatchObject({
       ok: false,
       code: "schema_validation",
+      diagnostic: {
+        normalizedFailureCode: "duration_validation",
+        stage: "RUNTIME_VALIDATION",
+        runtimeValidated: true,
+        durationValidated: false,
+      },
     })
   })
 
@@ -296,6 +339,11 @@ describe("isolated Groq final itinerary adapter", () => {
     await expect(runFinal(1)).resolves.toMatchObject({
       ok: false,
       code: "output_truncated",
+      diagnostic: {
+        normalizedFailureCode: "output_truncated",
+        stage: "PROVIDER_RESPONSE",
+        finishReason: "length",
+      },
     })
   })
 
@@ -303,11 +351,19 @@ describe("isolated Groq final itinerary adapter", () => {
     const headers = new Headers({ "retry-after": "30" })
     mockFinalFailure(new RateLimitError(429, undefined, "rate limited", headers))
 
-    await expect(runFinal(1)).resolves.toEqual({
+    await expect(runFinal(1)).resolves.toMatchObject({
       ok: false,
       code: "rate_limited",
       error: "Groq rate limit was reached.",
       retryAfterSeconds: 30,
+      diagnostic: {
+        normalizedFailureCode: "rate_limited",
+        stage: "PROVIDER_REQUEST",
+        httpStatus: 429,
+        providerErrorCategory: "rate_limited",
+        strictSchemaReachedProvider: true,
+        retryAfterSeconds: 30,
+      },
     })
     expect(openAiMocks.chatCreate).toHaveBeenCalledOnce()
   })
@@ -315,10 +371,15 @@ describe("isolated Groq final itinerary adapter", () => {
   test("normalizes the SDK timeout class", async () => {
     mockFinalFailure(new APIConnectionTimeoutError())
 
-    await expect(runFinal(1)).resolves.toEqual({
+    await expect(runFinal(1)).resolves.toMatchObject({
       ok: false,
       code: "provider_timeout",
       error: "Groq provider request timed out.",
+      diagnostic: {
+        normalizedFailureCode: "provider_timeout",
+        stage: "PROVIDER_REQUEST",
+        strictSchemaReachedProvider: false,
+      },
     })
   })
 
@@ -327,12 +388,63 @@ describe("isolated Groq final itinerary adapter", () => {
 
     const result = await runFinal(1)
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       ok: false,
       code: "provider_error",
       error: "Groq provider request failed.",
+      diagnostic: {
+        normalizedFailureCode: "provider_error",
+        stage: "PROVIDER_REQUEST",
+      },
     })
     expect(JSON.stringify(result)).not.toContain("unit-test-secret")
+  })
+
+  test.each([
+    [400, "request_rejected"],
+    [401, "authentication_error"],
+    [403, "permission_error"],
+    [404, "model_or_endpoint_not_found"],
+    [413, "request_too_large"],
+    [422, "structured_output_or_semantic_failure"],
+    [429, "rate_limited"],
+    [498, "capacity_exceeded"],
+    [499, "request_cancelled"],
+    [500, "provider_error"],
+    [502, "provider_error"],
+    [503, "provider_error"],
+  ] as const)(
+    "maps HTTP %i to the safe %s diagnostic",
+    async (status, normalizedFailureCode) => {
+      mockFinalFailure(providerFailure(status))
+
+      await expect(runFinal(1)).resolves.toMatchObject({
+        ok: false,
+        diagnostic: {
+          normalizedFailureCode,
+          stage: "PROVIDER_REQUEST",
+          httpStatus: status,
+          providerErrorCategory: normalizedFailureCode,
+          providerErrorType: "invalid_request_error",
+          strictSchemaReachedProvider: true,
+          providerContentReturned: false,
+        },
+      })
+    }
+  )
+
+  test("distinguishes a safely recognizable unsupported parameter rejection", async () => {
+    mockFinalFailure(
+      providerFailure(400, "The parameter is not supported by this endpoint.")
+    )
+
+    await expect(runFinal(1)).resolves.toMatchObject({
+      ok: false,
+      diagnostic: {
+        normalizedFailureCode: "unsupported_parameter",
+        httpStatus: 400,
+      },
+    })
   })
 
   test("uses a duration-aware budget that never exceeds the application cap", () => {
@@ -375,6 +487,7 @@ function mockFinalCompletion(content: string, finishReason = "stop") {
         headers: {
           "x-ratelimit-limit-tokens": "8000",
           "x-ratelimit-remaining-tokens": "6200",
+          "x-ratelimit-reset-tokens": "7.66s",
         },
       }),
       request_id: null,
@@ -382,9 +495,17 @@ function mockFinalCompletion(content: string, finishReason = "stop") {
   })
 }
 
-function mockFinalFailure(error: Error) {
+function mockFinalFailure(error: unknown) {
   openAiMocks.chatCreate.mockReturnValueOnce({
     withResponse: vi.fn().mockRejectedValue(error),
+  })
+}
+
+function providerFailure(status: number, message = "provider failure") {
+  return Object.assign(new Error(message), {
+    status,
+    type: "invalid_request_error",
+    headers: new Headers(),
   })
 }
 
@@ -398,44 +519,82 @@ function getFirstChatRequest() {
   return request as Record<string, unknown>
 }
 
-function expectStrictObjects(value: unknown, path: string) {
-  if (!isObject(value)) {
-    return
+function auditStrictWireSchema(value: unknown) {
+  const report = {
+    objectNodes: 0,
+    anyOfBranches: 0,
+    problems: [] as string[],
+    unsupportedKeywords: [] as string[],
   }
+  const supportedKeywords = new Set([
+    "additionalProperties",
+    "anyOf",
+    "enum",
+    "items",
+    "properties",
+    "required",
+    "type",
+  ])
 
-  if (value.type === "object") {
-    expect(value.additionalProperties, `${path}.additionalProperties`).toBe(false)
-    expect(value.properties, `${path}.properties`).toSatisfy(isObject)
+  function visit(node: unknown, path: string) {
+    if (!isObject(node)) {
+      return
+    }
 
-    if (isObject(value.properties)) {
-      expect(
-        [...asStringArray(value.required)].sort(),
-        `${path}.required`
-      ).toEqual(Object.keys(value.properties).sort())
-
-      for (const [key, property] of Object.entries(value.properties)) {
-        expectStrictObjects(property, `${path}.${key}`)
+    for (const keyword of Object.keys(node)) {
+      if (!supportedKeywords.has(keyword)) {
+        report.unsupportedKeywords.push(`${path}.${keyword}`)
       }
+    }
+
+    if (node.type === "object") {
+      report.objectNodes += 1
+
+      if (!isObject(node.properties)) {
+        report.problems.push(`${path}.properties missing`)
+      } else {
+        const propertyKeys = Object.keys(node.properties).sort()
+        const requiredKeys = readStringArray(node.required)?.sort()
+
+        if (requiredKeys === undefined) {
+          report.problems.push(`${path}.required missing or invalid`)
+        } else if (JSON.stringify(requiredKeys) !== JSON.stringify(propertyKeys)) {
+          report.problems.push(`${path}.required does not match properties`)
+        }
+
+        for (const [key, property] of Object.entries(node.properties)) {
+          visit(property, `${path}.${key}`)
+        }
+      }
+
+      if (node.additionalProperties !== false) {
+        report.problems.push(`${path}.additionalProperties is not false`)
+      }
+    }
+
+    if ("items" in node) {
+      visit(node.items, `${path}[]`)
+    }
+
+    if (Array.isArray(node.anyOf)) {
+      report.anyOfBranches += node.anyOf.length
+      node.anyOf.forEach((variant, index) =>
+        visit(variant, `${path}.anyOf.${index}`)
+      )
     }
   }
 
-  if ("items" in value) {
-    expectStrictObjects(value.items, `${path}[]`)
-  }
+  visit(value, "root")
+  report.unsupportedKeywords.sort()
 
-  if (Array.isArray(value.anyOf)) {
-    value.anyOf.forEach((variant, index) =>
-      expectStrictObjects(variant, `${path}.anyOf.${index}`)
-    )
-  }
+  return report
 }
 
-function asStringArray(value: unknown) {
-  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
-    throw new Error("Expected a string array.")
-  }
-
-  return value
+function readStringArray(value: unknown) {
+  return Array.isArray(value) &&
+    value.every((item) => typeof item === "string")
+    ? [...value]
+    : undefined
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
