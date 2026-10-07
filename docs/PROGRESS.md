@@ -2612,3 +2612,26 @@ Next:
 Next:
 - Investigate the rejected strict schema offline before authorizing another
   live final-generation request. Do not cut over final generation yet.
+
+## Provider Migration Step 4A.2 - Strict-Schema Isolation Harness
+
+- Added an explicitly guarded, no-retry Groq schema-probe harness covering a
+  known-good control, nullable string, the current nullable enum, its documented
+  `anyOf` alternative, the discriminated place shape, the exact production
+  place subtree, and the full current wire schema.
+- Added offline coverage for the exact probe schemas and bounded diagnostic
+  sanitization. Normal `npm test` runs make no live provider requests.
+- Ran the guarded harness once with a hard six-generation-request ceiling. The
+  test completed, but the runner suppressed its passing-test diagnostic lines,
+  so the exact probe outcomes and request count were not recoverable locally.
+  No second live run was made under the milestone request ceiling.
+- Hardened future probe reporting to write only the sanitized result records
+  directly to the test process diagnostic stream.
+- The production Groq wire schema, normalizer, final adapter, shared contract,
+  and both production route assignments remain unchanged because no rejected
+  construct plus accepted replacement was conclusively captured.
+
+Next:
+- With a newly authorized request budget, run the hardened schema-probe harness
+  once and preserve its sanitized result records before considering a wire
+  schema change.
