@@ -190,8 +190,11 @@ describe("Groq isolated server adapter", () => {
     openAiMocks.chatCreate.mockResolvedValueOnce(
       completion(JSON.stringify({ ok: true, message: "Strict output works." }))
     )
+    const observeProviderOutcome = vi.fn()
 
-    const result = await runGroqStrictCapabilitySmoke()
+    const result = await runGroqStrictCapabilitySmoke(undefined, {
+      observeProviderOutcome,
+    })
     const body = getFirstChatRequest()
 
     expect(result).toMatchObject({
@@ -214,6 +217,107 @@ describe("Groq isolated server adapter", () => {
         },
       },
     })
+    expect(body).toMatchObject({
+      model: "unit-test-model",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Return only data matching the supplied JSON schema for a provider capability test.",
+        },
+        {
+          role: "user",
+          content:
+            "Return ok as true and a very short message confirming strict structured output.",
+        },
+      ],
+      max_completion_tokens: 256,
+    })
+    expect(body).not.toHaveProperty("temperature")
+    expect(body).not.toHaveProperty("reasoning_effort")
+    expect(body).not.toHaveProperty("include_reasoning")
+    expect(body).not.toHaveProperty("stream")
+    expect(body).not.toHaveProperty("tools")
+    expect(observeProviderOutcome).toHaveBeenCalledOnce()
+    expect(observeProviderOutcome).toHaveBeenCalledWith({
+      ok: true,
+      finishReason: "stop",
+    })
+  })
+
+  test("can isolate only the strict capability completion-token budget", async () => {
+    openAiMocks.chatCreate.mockResolvedValueOnce(
+      completion(JSON.stringify({ ok: true, message: "Strict output works." }))
+    )
+
+    await runGroqStrictCapabilitySmoke(undefined, {
+      maxCompletionTokens: 128,
+    })
+
+    const body = getFirstChatRequest()
+    expect(body).toHaveProperty("max_completion_tokens", 128)
+    expect(body).not.toHaveProperty("temperature")
+    expect(body).not.toHaveProperty("reasoning_effort")
+    expect(body).not.toHaveProperty("include_reasoning")
+  })
+
+  test("can isolate only the strict schema and its runtime validator", async () => {
+    const nullableSchema = {
+      type: "object",
+      properties: {
+        ok: { type: "boolean" },
+        message: { type: ["string", "null"], minLength: 1 },
+      },
+      required: ["ok", "message"],
+      additionalProperties: false,
+    }
+    openAiMocks.chatCreate.mockResolvedValueOnce(
+      completion(JSON.stringify({ ok: true, message: null }))
+    )
+
+    const result = await runGroqStrictCapabilitySmoke(undefined, {
+      schema: nullableSchema,
+      validateResponse: (value) => {
+        if (typeof value !== "object" || value === null) {
+          return false
+        }
+
+        const response = value as Record<string, unknown>
+        return response.ok === true && response.message === null
+      },
+    })
+    const body = getFirstChatRequest()
+
+    expect(result).toMatchObject({ ok: true, data: { validated: true } })
+    expect(body).toMatchObject({
+      model: "unit-test-model",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Return only data matching the supplied JSON schema for a provider capability test.",
+        },
+        {
+          role: "user",
+          content:
+            "Return ok as true and a very short message confirming strict structured output.",
+        },
+      ],
+      max_completion_tokens: 256,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "groq_strict_capability_smoke",
+          strict: true,
+          schema: nullableSchema,
+        },
+      },
+    })
+    expect(body).not.toHaveProperty("temperature")
+    expect(body).not.toHaveProperty("reasoning_effort")
+    expect(body).not.toHaveProperty("include_reasoning")
+    expect(body).not.toHaveProperty("stream")
+    expect(body).not.toHaveProperty("tools")
   })
 
   test("returns invalid_json for malformed provider content", async () => {

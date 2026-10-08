@@ -2660,3 +2660,71 @@ Next:
 Next:
 - Re-establish a passing tiny strict control with Groq before resuming final
   schema bisection.
+
+## Provider Migration Step 4A.2S - Historical Strict-Control Reproduction
+
+- Reconstructed the successful Step-2 strict capability request from commit
+  `c99b866` and the unchanged production helper: Chat Completions, the closed
+  `ok`/`message` schema with `message.minLength: 1`, strict mode, the original
+  system/user messages, 256 completion tokens, omitted temperature,
+  `reasoning_effort`, and `include_reasoning`, 30-second timeout, and no retries.
+- Compared it with the failed Step-4A.2R control. The actual differences were
+  messages, schema name, `minLength: 1`, explicit temperature 0, 128 rather
+  than 256 completion tokens, and direct test-client response handling.
+- Added test-only, bounded `failed_generation` classification and append-only
+  evidence at `/tmp/groq-strict-control-report.jsonl`. Reasoning traces are not
+  previewed, and secrets, headers, account metadata, and raw provider bodies are
+  not persisted.
+- Made exactly two new tiny control requests. The exact historical 256-token
+  request succeeded with HTTP 200, `stop`, 209 input tokens, 93 output tokens,
+  and 302 total tokens. The one-variable differential changed only
+  `max_completion_tokens` to 128 and also succeeded with HTTP 200, `stop`, 209
+  input tokens, 110 output tokens, and 319 total tokens.
+- Both records had no `failed_generation`. The two JSONL records matched the two
+  provider requests, and no retry occurred. The 128-token budget alone is
+  therefore not the prior control failure's cause; the exact cause remains
+  `UNKNOWN` among the remaining request differences or provider intermittency.
+- No final schema or itinerary request was sent. No production wire schema,
+  shared contract, provider route, frontend, Convex, or OpenRouter behavior was
+  changed.
+
+Next:
+- Resume strict-schema validation using the now-proven historical control
+  configuration as the baseline.
+
+## Provider Migration Step 4A.2T - Baseline-Locked Strict-Schema Phase 1
+
+- Locked all three probes to the recovered Step-2 request configuration:
+  Chat Completions, `openai/gpt-oss-20b`, the historical system/user messages
+  and schema name, strict mode, 256 completion tokens, omitted temperature and
+  reasoning fields, a 30-second timeout, and no retries.
+- Added offline fixtures and deterministic request snapshots for the unchanged
+  historical control, a nullable `message` type union that preserves
+  `minLength: 1`, and an independently derived minimal `anyOf` string/null
+  variant. Tests prove B and C differ from A only at the schema field.
+- Added narrowly scoped test-only schema/validator injection to the existing
+  strict capability helper. Production callers supply neither option, and
+  mocked request inspection confirms the outgoing request changes only at the
+  intended response schema.
+- Made exactly three sequential live requests with stop-on-failure behavior.
+  Probe A passed with HTTP 200, `stop`, and token usage 209/127/336. Probe B
+  passed with HTTP 200, `stop`, and usage 211/86/297. Probe C passed with HTTP
+  200, `stop`, and usage 218/74/292. Every response parsed and passed its
+  runtime validator; no retry, provider error, or `failed_generation` occurred.
+- Persisted exactly three sanitized records for three provider requests at
+  `/tmp/groq-strict-schema-phase1.jsonl`. No rate-limit headers were available
+  on the successful SDK responses, so those fields are explicitly null.
+- This establishes acceptance of the tested tiny nullable union and minimal
+  `anyOf` constructs under the historical baseline. It does not identify the
+  Step-4A.2R failure or validate the production final schema.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  final wire schema, shared application contract, final route, frontend,
+  Convex, dependency, or itinerary-generation behavior changed.
+- Final verification passed: 187 offline tests with 8 opt-in tests skipped,
+  ESLint, strict TypeScript, the Next.js 16.3.2 production build, and whitespace
+  validation for tracked and newly added files.
+
+Next:
+- If separately authorized, validate one additional isolated final-schema
+  subtree at a time using this locked request baseline. Do not cut the final
+  production route over yet.

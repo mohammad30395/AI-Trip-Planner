@@ -142,6 +142,26 @@ type GroqStrictCapabilityResult = {
   modelReturned: boolean
 }
 
+type GroqStrictCapabilityProviderObservation =
+  | {
+      ok: true
+      finishReason?: string
+      usage?: GroqUsage
+    }
+  | {
+      ok: false
+      error: unknown
+    }
+
+type GroqStrictCapabilityDiagnosticOptions = {
+  maxCompletionTokens?: number
+  schema?: Record<string, unknown>
+  validateResponse?: (value: unknown) => boolean
+  observeProviderOutcome?: (
+    observation: GroqStrictCapabilityProviderObservation
+  ) => void
+}
+
 type GroqFinalItineraryRequest = {
   messages: GroqConversationMessage[]
   durationDays: number
@@ -175,6 +195,9 @@ type GroqStructuredOutputRequest = {
   strict: boolean
   maxCompletionTokens: number
   temperature?: number
+  observeProviderOutcome?: (
+    observation: GroqStrictCapabilityProviderObservation
+  ) => void
 }
 
 type GroqStructuredOutput = {
@@ -500,7 +523,8 @@ async function runGroqConversationSmoke(
 }
 
 async function runGroqStrictCapabilitySmoke(
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  diagnosticOptions?: GroqStrictCapabilityDiagnosticOptions
 ): Promise<GroqCallResult<GroqStrictCapabilityResult>> {
   const completion = await runGroqStructuredOutput(
     {
@@ -517,9 +541,15 @@ async function runGroqStrictCapabilitySmoke(
         },
       ],
       schemaName: "groq_strict_capability_smoke",
-      schema: groqStrictCapabilitySchema,
+      schema: diagnosticOptions?.schema ?? groqStrictCapabilitySchema,
       strict: true,
-      maxCompletionTokens: 256,
+      maxCompletionTokens: diagnosticOptions?.maxCompletionTokens ?? 256,
+      ...(diagnosticOptions?.observeProviderOutcome !== undefined
+        ? {
+            observeProviderOutcome:
+              diagnosticOptions.observeProviderOutcome,
+          }
+        : {}),
     },
     signal
   )
@@ -534,7 +564,10 @@ async function runGroqStrictCapabilitySmoke(
     return parsedJson
   }
 
-  if (!isValidStrictCapabilityResponse(parsedJson.data)) {
+  const validateResponse =
+    diagnosticOptions?.validateResponse ?? isValidStrictCapabilityResponse
+
+  if (!validateResponse(parsedJson.data)) {
     return groqFailure(
       "schema_validation",
       "Groq strict capability response failed validation."
@@ -587,6 +620,16 @@ async function runGroqStructuredOutput(
     )
     const choice = completion.choices[0]
 
+    request.observeProviderOutcome?.({
+      ok: true,
+      ...(getSafeFinishReason(choice?.finish_reason) !== undefined
+        ? { finishReason: getSafeFinishReason(choice?.finish_reason) }
+        : {}),
+      ...(getSafeGroqUsage(completion.usage) !== undefined
+        ? { usage: getSafeGroqUsage(completion.usage) }
+        : {}),
+    })
+
     if (choice?.finish_reason === "length") {
       return groqFailure(
         "output_truncated",
@@ -608,6 +651,7 @@ async function runGroqStructuredOutput(
       },
     }
   } catch (error) {
+    request.observeProviderOutcome?.({ ok: false, error })
     return normalizeGroqError(error)
   }
 }
@@ -1061,4 +1105,6 @@ export {
   type GroqFinalDiagnosticCode,
   type GroqFinalDiagnosticStage,
   type GroqFinalItineraryRequest,
+  type GroqStrictCapabilityDiagnosticOptions,
+  type GroqStrictCapabilityProviderObservation,
 }
