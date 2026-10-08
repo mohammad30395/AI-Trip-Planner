@@ -3186,3 +3186,77 @@ Next:
   benchmark must treat generation failures separately from rate limits and
   must revisit one-day repeatability alongside higher durations. Production
   Groq final-route integration remains premature.
+
+## 2026-10-08 — Step 4A.4A Groq Free API duration feasibility screening
+
+- Started from clean `main` checkpoint `1d8c0d6` (`update-4a.3b`) with all
+  Step 4A.3, 4A.3A, and 4A.3B evidence preserved.
+- Confirmed the isolated Groq final generator still uses
+  `min(4800, 1200 + durationDays * 500)`, producing default completion budgets
+  of 1,700/2,200/2,700/3,700 for 1/2/3/5 days. The one-day default was already
+  below two prior successful completion counts and is now also below the new
+  2,914-token one-day observation. Production defaults were not changed.
+- Retained the proven 3,500-token one-day experimental cap and added 550 tokens
+  per extra requested day for test-only budgets of 3,500/4,050/4,600/5,700.
+  The increment approximates one complete representative day's visible JSON,
+  while the one-day base retains room for the model's variable reasoning and
+  generation overhead.
+- The complete schema plus prompt estimate remained 1,401 input tokens for all
+  four one-digit durations. Estimated maximum request sizes were
+  4,901/5,451/6,001/7,101 tokens, leaving 3,099/2,549/1,999/899 tokens under the
+  observed 8,000 TPM limit. The five-day plan retained the required minimum
+  800-token planning margin.
+- Added valid complete 1/2/3/5-day offline fixtures. Every fixture passed the
+  exported strict wire schema, null normalization, canonical application
+  parser, exact sequential-duration validator, day/activity structure checks,
+  forbidden metadata checks, coherence checks, and storage transformation.
+- Added a separately gated test-only live harness capped at four sequential
+  calls. It uses the real adapter, schema, prompt builder, validators, storage
+  transformation, safe error observer, 90-second timeout, zero SDK retries,
+  and at least 75 seconds between request starts. It stops expansion on known
+  capacity, authentication, rate-limit, schema, timeout, or provider blockers.
+- Made exactly four authorized provider requests in order: one, two, three,
+  and five days. No hidden preflight, retry, OpenRouter fallback, Convex write,
+  production-route call, or concurrent request occurred.
+- The one-day request passed the full pipeline with HTTP 200, `stop`, usage
+  1,193/2,914/4,107 input/output/total tokens, and 3,854 ms latency. It produced
+  exactly one valid sequential day and retained 6,574 of 8,000 rate-limit
+  tokens with an eleven-second reset.
+- The two-day request passed the full pipeline with HTTP 200, `stop`, usage
+  1,193/1,572/2,765 tokens, and 2,645 ms latency. It produced exactly two valid
+  sequential days and retained 3,893 rate-limit tokens with a 31-second reset.
+- The three-day request passed the full pipeline with HTTP 200, `stop`, usage
+  1,193/3,163/4,356 tokens, and 4,972 ms latency. It produced exactly three
+  valid sequential days and retained 6,546 rate-limit tokens with an
+  eleven-second reset.
+- The five-day request returned HTTP 400 `invalid_request_error` /
+  `json_validate_failed` after 4,967 ms. `failed_generation` was present but
+  not persisted. No safe parameter, schema path, completion-exhaustion signal,
+  unsupported-schema signal, finish reason, or usage counts were available.
+  Rate-limit headers showed 3,644 tokens remaining and a 33-second reset, so
+  this was not classified as rate limiting.
+- The one-, two-, and three-day candidates are empirically feasible because
+  each produced one full-pipeline success. Five days is not yet demonstrated,
+  but its single stochastic generation failure does not prove incompatibility
+  or a duration maximum. The 1,572-to-3,163 completion-token range across
+  successful durations also shows that token use was not monotonic with days.
+- Wrote exactly four sanitized records for four calls to
+  `/tmp/groq-final-duration-screening-step4a4a.jsonl` under run identifier
+  `step4a4a-duration-screening-run-1`. No prompt, response body, full itinerary,
+  provider message, reasoning trace, credential, or authorization data was
+  persisted.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  production adapter, default budget, schema, contract, route, frontend,
+  duration limit, Convex code, or dependency changed.
+
+Result:
+- `FEASIBLE_THROUGH_THREE_DAYS_IN_SINGLE_SCREEN`: 1, 2, and 3 days each passed
+  once. The five-day observation was a non-exhaustion `json_validate_failed`
+  failure and remains inconclusive.
+
+Next:
+- In a separately authorized milestone, test the missing four-day bridge and
+  then run targeted repeatability around the highest promising neighboring
+  durations. If four days succeeds, compare three and four days repeatedly; if
+  it fails, establish three-day repeatability with two days as a control. Do
+  not set a user-facing maximum or cut over the final route from this screen.
