@@ -156,6 +156,7 @@ type GroqStrictCapabilityProviderObservation =
 type GroqStrictCapabilityDiagnosticOptions = {
   maxCompletionTokens?: number
   schema?: Record<string, unknown>
+  userMessage?: string
   validateResponse?: (value: unknown) => boolean
   observeProviderOutcome?: (
     observation: GroqStrictCapabilityProviderObservation
@@ -537,6 +538,7 @@ async function runGroqStrictCapabilitySmoke(
         {
           role: "user",
           content:
+            diagnosticOptions?.userMessage ??
             "Return ok as true and a very short message confirming strict structured output.",
         },
       ],

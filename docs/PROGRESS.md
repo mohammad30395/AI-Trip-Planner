@@ -2812,3 +2812,50 @@ Next:
   reproduce this minimal place probe and compare it with the same schema under
   one minimally aligned place-object prompt to isolate the prompt/schema
   mismatch without changing the schema or token budget.
+
+## Provider Migration Step 4A.2W - Minimal Place Prompt Alignment
+
+- Added the authorized diagnostic-only `userMessage` option to
+  `runGroqStrictCapabilitySmoke`. Omitting it retains the exact historical user
+  message; no production route or caller supplies the option. Mocked full-body
+  comparison proves an override changes only `messages[1].content`, while
+  existing schema and validator overrides continue to work.
+- Reused the committed Step-4A.2V nullable-enum control and exact minimal
+  `specific_place` schema. Probe B used the historical prompt. Probe C used the
+  byte-identical schema and changed only the synthetic user-message content.
+  The aligned prompt is longer, so semantic alignment and input tokenization
+  cannot be separated by this experiment.
+- Added offline coverage for committed fixture recovery, schema fingerprints,
+  A/B schema-only differences, the exact B/C message-only difference, locked
+  provider settings, infrastructure stop conditions, three-call accounting,
+  diagnostic parsing, and sanitization without persisted prompt text.
+- Made exactly three sequential live requests with no retries. Probe A passed
+  with HTTP 200, `stop`, and usage 217/131/348. Probe B reproduced HTTP 400
+  `invalid_request_error` / `json_validate_failed` using the historical prompt.
+  Probe C returned the same HTTP 400 type/code under the aligned prompt.
+- Probes B and C shared schema fingerprint `1f4a13a193a75838`. Probe B had an
+  empty `failed_generation` and retained 7,161 of 8,000 tokens. Probe C's
+  bounded failure summary explicitly indicated completion-token exhaustion
+  before a valid document, with 6,642 tokens remaining and an eleven-second
+  reset. Neither error returned parseable content, usage counts, or a finish
+  reason.
+- Classified the result as the brief's both-fail outcome. Prompt alignment did
+  not correlate with successful generation under the fixed 256-token budget,
+  and the minimal place schema remains unvalidated. Nested-structure handling,
+  prompt interaction, completion capacity, and provider variability remain
+  possible contributors; no single cause is proven.
+- Preserved prior reports and wrote exactly three sanitized records for three
+  calls to `/tmp/groq-strict-schema-phase4.jsonl` under run identifier
+  `step4a2w-phase4-run-1`.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  final wire schema, shared contract, final route, frontend, Convex,
+  dependency, or itinerary-generation behavior changed.
+- Final verification passed: 214 offline tests with 11 opt-in tests skipped,
+  ESLint, strict TypeScript, the Next.js 16.3.2 production build, and whitespace
+  validation for tracked and newly added files.
+
+Next:
+- Do not advance to the complete place `anyOf`. If separately authorized, run
+  a single-variable completion-budget differential for the identical aligned
+  minimal-place request, using the failed 256-token request as the control and
+  one cautiously increased budget as the candidate.

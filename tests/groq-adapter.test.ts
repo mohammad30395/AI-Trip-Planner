@@ -320,6 +320,48 @@ describe("Groq isolated server adapter", () => {
     expect(body).not.toHaveProperty("tools")
   })
 
+  test("changes only the strict capability user message when overridden", async () => {
+    const alignedUserMessage =
+      "Return a synthetic confirmation containing every required field."
+    openAiMocks.chatCreate.mockResolvedValue(
+      completion(JSON.stringify({ ok: true, message: "Confirmed" }))
+    )
+
+    await runGroqStrictCapabilitySmoke()
+    await runGroqStrictCapabilitySmoke(undefined, {
+      userMessage: alignedUserMessage,
+    })
+
+    const historicalRequest = getChatRequest(0)
+    const alignedRequest = getChatRequest(1)
+    const expectedAlignedRequest = structuredClone(historicalRequest)
+
+    if (!Array.isArray(expectedAlignedRequest.messages)) {
+      throw new Error("Expected messages in the strict capability request.")
+    }
+
+    expectedAlignedRequest.messages[1] = {
+      role: "user",
+      content: alignedUserMessage,
+    }
+
+    expect(alignedRequest).toEqual(expectedAlignedRequest)
+    expect(historicalRequest).toMatchObject({
+      messages: [
+        {
+          role: "system",
+          content:
+            "Return only data matching the supplied JSON schema for a provider capability test.",
+        },
+        {
+          role: "user",
+          content:
+            "Return ok as true and a very short message confirming strict structured output.",
+        },
+      ],
+    })
+  })
+
   test("returns invalid_json for malformed provider content", async () => {
     openAiMocks.chatCreate.mockResolvedValueOnce(completion("not-json"))
 
@@ -445,7 +487,11 @@ function runProductionConversation() {
 }
 
 function getFirstChatRequest() {
-  const request: unknown = openAiMocks.chatCreate.mock.calls[0]?.[0]
+  return getChatRequest(0)
+}
+
+function getChatRequest(callIndex: number) {
+  const request: unknown = openAiMocks.chatCreate.mock.calls[callIndex]?.[0]
 
   if (typeof request !== "object" || request === null || Array.isArray(request)) {
     throw new Error("Expected a chat completion request object.")
