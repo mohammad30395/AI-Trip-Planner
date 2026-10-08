@@ -2728,3 +2728,44 @@ Next:
 - If separately authorized, validate one additional isolated final-schema
   subtree at a time using this locked request baseline. Do not cut the final
   production route over yet.
+
+## Provider Migration Step 4A.2U - Nullable Enum Strict-Schema Validation
+
+- Reused the exact accepted Step-4A.2T nullable-string fixture and locked
+  request configuration: Chat Completions, `openai/gpt-oss-20b`, historical
+  messages and schema name, strict mode, 256 completion tokens, omitted
+  temperature and reasoning fields, 30-second timeout, and no retries.
+- Added a candidate derived directly from that control whose only structural
+  difference is `properties.message.enum: ["Confirmed", null]`. The nullable
+  type union and `minLength: 1` remain unchanged.
+- Confirmed against the current Groq Structured Outputs documentation that the
+  model supports strict mode and that enum and nullable union constructs are in
+  the documented supported subset.
+- Added offline fixture, complete-request equality, exact schema-diff, response
+  validation, stop-sequence, diagnostic parsing, persistence, and sanitization
+  coverage. The enum validator accepts both `"Confirmed"` and `null`, and
+  rejects unsupported strings, empty strings, and unexpected properties.
+- Made exactly two sequential live requests. The nullable-string control passed
+  with HTTP 200, `stop`, and token usage 211/140/351. The nullable-enum probe
+  passed with HTTP 200, `stop`, and usage 217/164/381. Both outputs parsed and
+  passed runtime validation; no retry, provider error, or `failed_generation`
+  occurred.
+- Preserved the three-record Phase-1 report and persisted exactly two new
+  sanitized records for two requests at
+  `/tmp/groq-strict-schema-phase2.jsonl`. Successful responses exposed no
+  rate-limit headers, so those fields are explicitly null.
+- This establishes acceptance of the tested tiny nullable enum under the
+  locked baseline. It does not identify the Step-4A.2R failure, validate nested
+  place objects, validate the full final schema, or authorize production
+  cutover.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  production adapter, final wire schema, shared contract, route, frontend,
+  Convex, dependency, or itinerary-generation behavior changed.
+- Final verification passed: 193 offline tests with 9 opt-in tests skipped,
+  ESLint, strict TypeScript, the Next.js 16.3.2 production build, and whitespace
+  validation for tracked and newly added files.
+
+Next:
+- If separately authorized, validate the smallest discriminated strict object
+  used by the place wire shape before testing any larger subtree. Do not run a
+  full final-itinerary request or change production routing.
