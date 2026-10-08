@@ -21,8 +21,8 @@ type FinalResult = Awaited<
   ReturnType<typeof import("@/lib/ai/groq").runGroqFinalItinerary>
 >
 
-type ScreeningDuration = 1 | 2 | 3 | 5
-type ScreeningAttemptNumber = 1 | 2 | 3 | 4
+type ScreeningDuration = 1 | 2 | 3 | 4 | 5
+type ScreeningAttemptNumber = 1 | 2 | 3 | 4 | 5
 
 type DurationBudgetPlan = {
   durationDays: ScreeningDuration
@@ -381,7 +381,7 @@ function createGroqFinalDurationScreeningRecord({
 }
 
 function getDurationScreeningContinuation(
-  record: GroqFinalDurationScreeningRecord,
+  record: Pick<GroqFinalDurationScreeningRecord, "outcome" | "rateLimit">,
   nextPlan: DurationBudgetPlan | undefined
 ): DurationScreeningContinuation {
   if (nextPlan === undefined) {
@@ -569,11 +569,11 @@ function parseGroqFinalDurationScreeningRecord(
 }
 
 function isScreeningDuration(value: unknown): value is ScreeningDuration {
-  return value === 1 || value === 2 || value === 3 || value === 5
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5
 }
 
 function isAttemptNumber(value: unknown): value is ScreeningAttemptNumber {
-  return value === 1 || value === 2 || value === 3 || value === 4
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5
 }
 
 function isOutcome(value: unknown): value is DurationScreeningOutcome {
