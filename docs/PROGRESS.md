@@ -2859,3 +2859,50 @@ Next:
   a single-variable completion-budget differential for the identical aligned
   minimal-place request, using the failed 256-token request as the control and
   one cautiously increased budget as the candidate.
+
+## Provider Migration Step 4A.2X - Minimal Place Completion-Budget Differential
+
+- Reused the exact committed Step-4A.2W nullable-enum control, aligned prompt,
+  and minimal `specific_place` schema. The candidate schema fingerprint
+  remained `1f4a13a193a75838`; no schema, prompt, model, schema-name, strict-mode,
+  timeout, retry, reasoning, temperature, tool, streaming, or invocation
+  setting changed between the aligned candidates.
+- The existing diagnostic helper already supported an isolated
+  `maxCompletionTokens` override, so no production adapter change was needed.
+  Added mocked complete-request comparison proving that omitting the override
+  retains 256 and that the 512 request differs only at
+  `max_completion_tokens`.
+- Added offline fixture-recovery, fingerprint, complete-request differential,
+  validator, stop-sequence, three-call ceiling, diagnostic completeness,
+  accounting, and redaction coverage. Ordinary tests keep the live Phase-5
+  harness disabled.
+- Made exactly three sequential live requests with zero retries. Probe A passed
+  with HTTP 200, `stop`, and usage 217/111/328. Probe B reproduced HTTP 400
+  `invalid_request_error` / `json_validate_failed` at 256 tokens, with no
+  parseable output, finish reason, or usage counts. Its `failed_generation`
+  was present but empty and did not independently expose an exhaustion marker;
+  7,144 of 8,000 rate-limit tokens remained with a seven-second reset.
+- Probe C used the byte-identical aligned prompt and schema with only the
+  completion budget increased to 512. It passed with HTTP 200, `stop`, and
+  usage 363/246/609. The output parsed, satisfied the full experimental schema,
+  used the correct `specific_place` discriminator, and included every required
+  field.
+- This Case-A result demonstrates that the exact minimal-place schema is usable
+  under the tested 512-token configuration and makes completion capacity a
+  plausible contributor to the earlier generation failure. It does not prove
+  that 512 was necessary or that completion exhaustion solely caused the
+  original Step-4A.2R failure because independent model calls can vary.
+- Preserved all earlier reports and wrote exactly three sanitized records for
+  three calls to `/tmp/groq-strict-schema-phase5.jsonl` under run identifier
+  `step4a2x-phase5-run-1`.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  production adapter, final wire schema, shared contract, route, frontend,
+  Convex, dependency, or itinerary-generation behavior changed.
+- Final verification passed: 221 offline tests with 12 opt-in tests skipped,
+  ESLint, strict TypeScript, the Next.js 16.3.2 production build, tracked and
+  newly added file whitespace validation, and source/evidence secret checks.
+
+Next:
+- If separately authorized, validate the full three-variant place `anyOf` with
+  the exact isolated methodology and an evidence-backed 512-token budget. Do
+  not run a full final-itinerary request or change production routing yet.

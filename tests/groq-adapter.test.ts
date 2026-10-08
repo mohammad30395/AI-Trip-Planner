@@ -261,6 +261,50 @@ describe("Groq isolated server adapter", () => {
     expect(body).not.toHaveProperty("include_reasoning")
   })
 
+  test("changes only max_completion_tokens across complete diagnostic requests", async () => {
+    const schema = {
+      type: "object",
+      properties: {
+        ok: { type: "boolean" },
+        message: { type: ["string", "null"], enum: ["Confirmed", null] },
+      },
+      required: ["ok", "message"],
+      additionalProperties: false,
+    }
+    const userMessage = "Return ok true and message Confirmed."
+    const validateResponse = (value: unknown) => {
+      if (typeof value !== "object" || value === null) {
+        return false
+      }
+
+      const response = value as Record<string, unknown>
+      return response.ok === true && response.message === "Confirmed"
+    }
+    openAiMocks.chatCreate.mockResolvedValue(
+      completion(JSON.stringify({ ok: true, message: "Confirmed" }))
+    )
+
+    await runGroqStrictCapabilitySmoke(undefined, {
+      schema,
+      userMessage,
+      validateResponse,
+    })
+    await runGroqStrictCapabilitySmoke(undefined, {
+      schema,
+      userMessage,
+      validateResponse,
+      maxCompletionTokens: 512,
+    })
+
+    const request256 = getChatRequest(0)
+    const request512 = getChatRequest(1)
+    const expected512 = structuredClone(request256)
+    expected512.max_completion_tokens = 512
+
+    expect(request256.max_completion_tokens).toBe(256)
+    expect(request512).toEqual(expected512)
+  })
+
   test("can isolate only the strict schema and its runtime validator", async () => {
     const nullableSchema = {
       type: "object",
