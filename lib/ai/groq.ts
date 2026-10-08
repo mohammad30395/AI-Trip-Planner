@@ -169,6 +169,31 @@ type GroqFinalItineraryRequest = {
   maxCompletionTokens?: number
 }
 
+type GroqFinalProviderErrorCategory =
+  | "SCHEMA_REQUEST_REJECTED"
+  | "JSON_GENERATION_VALIDATION_FAILED"
+  | "COMPLETION_EXHAUSTION_INDICATED"
+  | "CONFIGURATION_ERROR"
+  | "PROVIDER_RATE_LIMITED"
+  | "PROVIDER_UNAVAILABLE"
+  | "UNKNOWN"
+
+type GroqFinalProviderErrorMetadata = {
+  httpStatus: number | null
+  providerErrorType: string | null
+  providerErrorCode: string | null
+  providerErrorParameter: string | null
+  schemaPath: string | null
+  category: GroqFinalProviderErrorCategory
+  failedGenerationPresent: boolean
+  generationExhaustionIndicated: boolean
+  unsupportedSchemaStructureIndicated: boolean
+}
+
+type GroqFinalDiagnosticOptions = {
+  observeProviderError?: (metadata: GroqFinalProviderErrorMetadata) => void
+}
+
 type GroqUsage = {
   inputTokens: number
   outputTokens: number
@@ -282,7 +307,8 @@ async function runGroqConversationStep(
 
 async function runGroqFinalItinerary(
   request: GroqFinalItineraryRequest,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  diagnosticOptions?: GroqFinalDiagnosticOptions
 ): Promise<GroqCallResult<GroqFinalItineraryResult>> {
   const config = getGroqConfig()
 
@@ -453,6 +479,10 @@ async function runGroqFinalItinerary(
       },
     }
   } catch (error) {
+    safelyObserveGroqFinalProviderError(
+      diagnosticOptions?.observeProviderError,
+      error
+    )
     return normalizeGroqError(error, "PROVIDER_REQUEST")
   }
 }
@@ -908,6 +938,265 @@ function createGroqProviderFailureDiagnostic(
   })
 }
 
+function safelyObserveGroqFinalProviderError(
+  observer:
+    | ((metadata: GroqFinalProviderErrorMetadata) => void)
+    | undefined,
+  error: unknown
+) {
+  if (observer === undefined) {
+    return
+  }
+
+  try {
+    observer(extractSafeGroqFinalProviderErrorMetadata(error))
+  } catch {
+    // A local diagnostic observer must never change adapter behavior.
+  }
+}
+
+function extractSafeGroqFinalProviderErrorMetadata(
+  error: unknown
+): GroqFinalProviderErrorMetadata {
+  const providerError = getObjectProperty(error, "error")
+  const providerErrorCode = getFirstSafeProviderErrorCode(error, providerError)
+  const providerErrorParameter = getFirstSafeProviderErrorParameter(
+    error,
+    providerError
+  )
+  const message =
+    getStringProperty(providerError, "message") ??
+    getStringProperty(error, "message")
+  const schemaPath =
+    getFirstSafeSchemaPath(providerError) ??
+    extractSafeSchemaPathFromMessage(message)
+  const failedGeneration = getFailedGenerationValue(error, providerError)
+  const failedGenerationPresent = failedGeneration.present
+  const generationExhaustionIndicated =
+    failedGenerationPresent &&
+    failedGenerationIndicatesExhaustion(failedGeneration.value)
+  const unsupportedSchemaStructureIndicated =
+    providerErrorCode === "invalid_schema" ||
+    providerErrorCode === "unsupported_parameter" ||
+    (schemaPath !== undefined && messageIndicatesSchemaRejection(message))
+  const httpStatus = getErrorStatus(error)
+
+  return {
+    httpStatus: httpStatus ?? null,
+    providerErrorType: getSafeProviderErrorType(error) ?? null,
+    providerErrorCode: providerErrorCode ?? null,
+    providerErrorParameter: providerErrorParameter ?? null,
+    schemaPath: schemaPath ?? null,
+    category: classifySafeGroqFinalProviderError({
+      error,
+      httpStatus,
+      providerErrorCode,
+      generationExhaustionIndicated,
+      unsupportedSchemaStructureIndicated,
+    }),
+    failedGenerationPresent,
+    generationExhaustionIndicated,
+    unsupportedSchemaStructureIndicated,
+  }
+}
+
+function classifySafeGroqFinalProviderError({
+  error,
+  httpStatus,
+  providerErrorCode,
+  generationExhaustionIndicated,
+  unsupportedSchemaStructureIndicated,
+}: {
+  error: unknown
+  httpStatus: number | undefined
+  providerErrorCode: string | undefined
+  generationExhaustionIndicated: boolean
+  unsupportedSchemaStructureIndicated: boolean
+}): GroqFinalProviderErrorCategory {
+  if (generationExhaustionIndicated) {
+    return "COMPLETION_EXHAUSTION_INDICATED"
+  }
+  if (providerErrorCode === "json_validate_failed") {
+    return "JSON_GENERATION_VALIDATION_FAILED"
+  }
+  if (unsupportedSchemaStructureIndicated) {
+    return "SCHEMA_REQUEST_REJECTED"
+  }
+  if (httpStatus === 401 || httpStatus === 403 || httpStatus === 404) {
+    return "CONFIGURATION_ERROR"
+  }
+  if (httpStatus === 429) {
+    return "PROVIDER_RATE_LIMITED"
+  }
+  if (
+    error instanceof APIConnectionTimeoutError ||
+    error instanceof APIUserAbortError ||
+    isPlatformTimeoutError(error) ||
+    (httpStatus !== undefined && httpStatus >= 500)
+  ) {
+    return "PROVIDER_UNAVAILABLE"
+  }
+  return "UNKNOWN"
+}
+
+function getFirstSafeProviderErrorCode(
+  error: unknown,
+  providerError: Record<string, unknown> | undefined
+) {
+  const values = [
+    getStringProperty(error, "code"),
+    getStringProperty(providerError, "code"),
+  ]
+
+  return values.find(
+    (value): value is string =>
+      value !== undefined && safeGroqFinalProviderErrorCodes.has(value)
+  )
+}
+
+function getFirstSafeProviderErrorParameter(
+  error: unknown,
+  providerError: Record<string, unknown> | undefined
+) {
+  const values = [
+    getStringProperty(error, "param"),
+    getStringProperty(providerError, "param"),
+  ]
+
+  return values.find(
+    (value): value is string =>
+      value !== undefined && safeGroqFinalProviderErrorParameters.has(value)
+  )
+}
+
+function getFirstSafeSchemaPath(
+  providerError: Record<string, unknown> | undefined
+) {
+  for (const property of [
+    "schema_path",
+    "schemaPath",
+    "property_path",
+    "propertyPath",
+  ]) {
+    const path = normalizeSafeSchemaPath(
+      getStringProperty(providerError, property)
+    )
+    if (path !== undefined) {
+      return path
+    }
+  }
+
+  return undefined
+}
+
+function extractSafeSchemaPathFromMessage(message: string | undefined) {
+  if (message === undefined) {
+    return undefined
+  }
+
+  const directPath =
+    /(?:schema[_ ]?path|property[_ ]?path|at path)\s*(?:=|:)\s*["']?([#$]?[A-Za-z0-9_./\[\]-]{1,240})/i.exec(
+      message
+    )?.[1]
+  const normalizedDirectPath = normalizeSafeSchemaPath(directPath)
+
+  if (normalizedDirectPath !== undefined) {
+    return normalizedDirectPath
+  }
+
+  const context = /\bcontext\s*=\s*\(([^)]{1,220})\)/i.exec(message)?.[1]
+  if (context === undefined) {
+    return undefined
+  }
+
+  const tokens = Array.from(
+    context.matchAll(/["']([A-Za-z_][A-Za-z0-9_]*|\d+)["']/g),
+    (match) => match[1]
+  )
+  if (
+    tokens.length === 0 ||
+    tokens.some(
+      (token) =>
+        token === undefined ||
+        (!/^\d+$/.test(token) && !safeGroqSchemaPathTokens.has(token))
+    )
+  ) {
+    return undefined
+  }
+
+  return `$.${tokens.join(".")}`
+}
+
+function normalizeSafeSchemaPath(value: string | undefined) {
+  const path = value?.trim()
+  if (
+    path === undefined ||
+    path.length === 0 ||
+    path.length > 240 ||
+    !/^[A-Za-z0-9_$#./\[\]-]+$/.test(path)
+  ) {
+    return undefined
+  }
+
+  const tokens = path.match(/[A-Za-z_][A-Za-z0-9_]*|\d+/g) ?? []
+  if (
+    tokens.length === 0 ||
+    tokens.some(
+      (token) =>
+        !/^\d+$/.test(token) && !safeGroqSchemaPathTokens.has(token)
+    )
+  ) {
+    return undefined
+  }
+
+  return path
+}
+
+function getFailedGenerationValue(
+  error: unknown,
+  providerError: Record<string, unknown> | undefined
+) {
+  if (providerError !== undefined && "failed_generation" in providerError) {
+    return { present: true, value: providerError.failed_generation }
+  }
+
+  const outer = getObject(error)
+  if (outer !== undefined && "failed_generation" in outer) {
+    return { present: true, value: outer.failed_generation }
+  }
+
+  return { present: false, value: undefined }
+}
+
+function failedGenerationIndicatesExhaustion(value: unknown) {
+  if (typeof value !== "string") {
+    return false
+  }
+
+  return /(?:max(?:imum)?[\s_-]*(?:completion[\s_-]*)?tokens?|token[\s_-]*limit|budget[\s_-]*exhausted|finish_reason["']?\s*:\s*["']length)/i.test(
+    value.slice(0, 1_000)
+  )
+}
+
+function messageIndicatesSchemaRejection(message: string | undefined) {
+  return (
+    message !== undefined &&
+    /(?:invalid|unsupported|not supported)[^\n]{0,80}(?:schema|response[_ ]?format)|(?:schema|response[_ ]?format)[^\n]{0,80}(?:invalid|unsupported|not supported)/i.test(
+      message.slice(0, 1_000)
+    )
+  )
+}
+
+function getObjectProperty(value: unknown, property: string) {
+  return getObject(getObject(value)?.[property])
+}
+
+function getObject(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
 function createGroqFinalDiagnostic(
   normalizedFailureCode: GroqFinalDiagnosticCode,
   stage: GroqFinalDiagnosticStage,
@@ -1053,6 +1342,69 @@ const safeGroqProviderErrorTypes = new Set([
   "server_error",
 ])
 
+const safeGroqFinalProviderErrorCodes = new Set([
+  "context_length_exceeded",
+  "invalid_schema",
+  "json_validate_failed",
+  "model_decommissioned",
+  "model_not_found",
+  "rate_limit_exceeded",
+  "unsupported_parameter",
+])
+
+const safeGroqFinalProviderErrorParameters = new Set([
+  "max_completion_tokens",
+  "messages",
+  "model",
+  "response_format",
+  "response_format.json_schema",
+  "response_format.json_schema.schema",
+  "temperature",
+])
+
+const safeGroqSchemaPathTokens = new Set([
+  "additionalProperties",
+  "address",
+  "addressHint",
+  "anyOf",
+  "area",
+  "areaHint",
+  "activities",
+  "budgetTier",
+  "dayNumber",
+  "description",
+  "destination",
+  "destinationHint",
+  "duration",
+  "durationDays",
+  "enum",
+  "estimatedPriceText",
+  "groupSize",
+  "groupType",
+  "hotels",
+  "items",
+  "itinerary",
+  "json_schema",
+  "kind",
+  "name",
+  "originHint",
+  "place",
+  "practicalNotes",
+  "priceTier",
+  "properties",
+  "required",
+  "response_format",
+  "root",
+  "schema",
+  "source",
+  "summary",
+  "timeOfDay",
+  "timeWindow",
+  "title",
+  "travelPlan",
+  "type",
+])
+
 const safeGroqFinishReasons = new Set([
   "stop",
   "length",
@@ -1105,8 +1457,11 @@ export {
   type GroqFailureCode,
   type GroqFinalDiagnostic,
   type GroqFinalDiagnosticCode,
+  type GroqFinalDiagnosticOptions,
   type GroqFinalDiagnosticStage,
   type GroqFinalItineraryRequest,
+  type GroqFinalProviderErrorCategory,
+  type GroqFinalProviderErrorMetadata,
   type GroqStrictCapabilityDiagnosticOptions,
   type GroqStrictCapabilityProviderObservation,
 }

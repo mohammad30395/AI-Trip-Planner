@@ -57,7 +57,18 @@ import {
   getGroqFinalMaxCompletionTokens,
   GROQ_FINAL_MAX_COMPLETION_TOKENS_CAP,
   runGroqFinalItinerary,
+  type GroqFinalProviderErrorMetadata,
 } from "@/lib/ai/groq"
+import {
+  buildGroqFinalMessages,
+  completeOneDayWireFixture,
+  oneDayExperimentalCompletionBudget,
+  oneDayRequirements,
+} from "@/tests/helpers/groq-final-one-day"
+import {
+  getStep4A3ClientSnapshot,
+  getStep4A3OutgoingRequestSnapshot,
+} from "@/tests/helpers/groq-final-400-diagnostic"
 
 const originalGroqApiKey = process.env.GROQ_API_KEY
 const originalGroqModel = process.env.GROQ_MODEL
@@ -191,6 +202,35 @@ describe("Groq wire-to-application normalization", () => {
 })
 
 describe("isolated Groq final itinerary adapter", () => {
+  test("reconstructs the exact Step 4A.3 request without changing SDK options", async () => {
+    mockFinalCompletion(JSON.stringify(completeOneDayWireFixture))
+    const observer = vi.fn()
+
+    const result = await runGroqFinalItinerary(
+      {
+        messages: buildGroqFinalMessages(oneDayRequirements),
+        durationDays: 1,
+        maxCompletionTokens: oneDayExperimentalCompletionBudget,
+      },
+      undefined,
+      { observeProviderError: observer }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(observer).not.toHaveBeenCalled()
+    expect(getFirstChatRequest()).toEqual(
+      getStep4A3OutgoingRequestSnapshot("unit-test-model")
+    )
+    expect(openAiMocks.chatCreate.mock.calls[0]?.[1]).toEqual({
+      signal: undefined,
+      timeout: 90_000,
+    })
+    expect(openAiMocks.clientOptions[0]).toEqual({
+      apiKey: "unit-test-secret",
+      ...getStep4A3ClientSnapshot(),
+    })
+  })
+
   test("sends the strict wire schema with bounded Groq-native options", async () => {
     mockFinalCompletion(JSON.stringify(wireItinerary(1)))
 
@@ -447,6 +487,176 @@ describe("isolated Groq final itinerary adapter", () => {
     })
   })
 
+  test("extracts only allowlisted structured provider error metadata", async () => {
+    const observer = vi.fn<(metadata: GroqFinalProviderErrorMetadata) => void>()
+    mockFinalFailure(
+      detailedProviderFailure({
+        message: `arbitrary ${process.env.GROQ_API_KEY}`,
+        code: "json_validate_failed",
+        param: "response_format",
+        schemaPath: "$.properties.itinerary.items.properties.activities",
+        failedGeneration:
+          "max completion tokens reached before generating a valid document",
+      })
+    )
+
+    const result = await runGroqFinalItinerary(
+      {
+        messages: finalMessages,
+        durationDays: 1,
+      },
+      undefined,
+      { observeProviderError: observer }
+    )
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "provider_error",
+      error: "Groq provider request failed.",
+      diagnostic: {
+        normalizedFailureCode: "request_rejected",
+        httpStatus: 400,
+      },
+    })
+    expect(observer).toHaveBeenCalledOnce()
+    expect(observer).toHaveBeenCalledWith({
+      httpStatus: 400,
+      providerErrorType: "invalid_request_error",
+      providerErrorCode: "json_validate_failed",
+      providerErrorParameter: "response_format",
+      schemaPath: "$.properties.itinerary.items.properties.activities",
+      category: "COMPLETION_EXHAUSTION_INDICATED",
+      failedGenerationPresent: true,
+      generationExhaustionIndicated: true,
+      unsupportedSchemaStructureIndicated: false,
+    })
+    expect(JSON.stringify(observer.mock.calls)).not.toContain("unit-test-secret")
+    expect(JSON.stringify(observer.mock.calls)).not.toContain(
+      "max completion tokens reached"
+    )
+  })
+
+  test("extracts an allowlisted schema path from a message and discards the message", async () => {
+    const observer = vi.fn<(metadata: GroqFinalProviderErrorMetadata) => void>()
+    mockFinalFailure(
+      detailedProviderFailure({
+        message:
+          "Invalid response schema at path: $.properties.hotels.items.properties.address",
+        code: "invalid_schema",
+        param: "response_format.json_schema.schema",
+      })
+    )
+
+    await runGroqFinalItinerary(
+      { messages: finalMessages, durationDays: 1 },
+      undefined,
+      { observeProviderError: observer }
+    )
+
+    expect(observer).toHaveBeenCalledWith({
+      httpStatus: 400,
+      providerErrorType: "invalid_request_error",
+      providerErrorCode: "invalid_schema",
+      providerErrorParameter: "response_format.json_schema.schema",
+      schemaPath: "$.properties.hotels.items.properties.address",
+      category: "SCHEMA_REQUEST_REJECTED",
+      failedGenerationPresent: false,
+      generationExhaustionIndicated: false,
+      unsupportedSchemaStructureIndicated: true,
+    })
+    expect(JSON.stringify(observer.mock.calls)).not.toContain(
+      "Invalid response schema"
+    )
+  })
+
+  test("discards unknown codes, paths, parameters, and arbitrary failed content", async () => {
+    const observer = vi.fn<(metadata: GroqFinalProviderErrorMetadata) => void>()
+    mockFinalFailure(
+      detailedProviderFailure({
+        message: `private ${process.env.GROQ_API_KEY}`,
+        code: "private_code",
+        param: "private_parameter",
+        schemaPath: "$.properties.privateSecret",
+        failedGeneration: "<think>private reasoning trace</think>",
+      })
+    )
+
+    await runGroqFinalItinerary(
+      { messages: finalMessages, durationDays: 1 },
+      undefined,
+      { observeProviderError: observer }
+    )
+
+    expect(observer).toHaveBeenCalledWith({
+      httpStatus: 400,
+      providerErrorType: "invalid_request_error",
+      providerErrorCode: null,
+      providerErrorParameter: null,
+      schemaPath: null,
+      category: "UNKNOWN",
+      failedGenerationPresent: true,
+      generationExhaustionIndicated: false,
+      unsupportedSchemaStructureIndicated: false,
+    })
+    const serialized = JSON.stringify(observer.mock.calls)
+    expect(serialized).not.toContain("unit-test-secret")
+    expect(serialized).not.toContain("private reasoning")
+    expect(serialized).not.toContain("private_code")
+    expect(serialized).not.toContain("private_parameter")
+  })
+
+  test("represents missing provider fields as unavailable", async () => {
+    const observer = vi.fn<(metadata: GroqFinalProviderErrorMetadata) => void>()
+    mockFinalFailure(
+      Object.assign(new Error("discard this message"), {
+        status: 400,
+        headers: new Headers(),
+      })
+    )
+
+    await runGroqFinalItinerary(
+      { messages: finalMessages, durationDays: 1 },
+      undefined,
+      { observeProviderError: observer }
+    )
+
+    expect(observer).toHaveBeenCalledWith({
+      httpStatus: 400,
+      providerErrorType: null,
+      providerErrorCode: null,
+      providerErrorParameter: null,
+      schemaPath: null,
+      category: "UNKNOWN",
+      failedGenerationPresent: false,
+      generationExhaustionIndicated: false,
+      unsupportedSchemaStructureIndicated: false,
+    })
+  })
+
+  test("ignores diagnostic observer failures and preserves normalized behavior", async () => {
+    mockFinalFailure(providerFailure(400))
+
+    const result = await runGroqFinalItinerary(
+      { messages: finalMessages, durationDays: 1 },
+      undefined,
+      {
+        observeProviderError: () => {
+          throw new Error("local observer failed")
+        },
+      }
+    )
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "provider_error",
+      error: "Groq provider request failed.",
+      diagnostic: {
+        normalizedFailureCode: "request_rejected",
+        httpStatus: 400,
+      },
+    })
+  })
+
   test("uses a duration-aware budget that never exceeds the application cap", () => {
     expect(getGroqFinalMaxCompletionTokens(1)).toBe(1_700)
     expect(getGroqFinalMaxCompletionTokens(3)).toBe(2_700)
@@ -505,6 +715,40 @@ function providerFailure(status: number, message = "provider failure") {
   return Object.assign(new Error(message), {
     status,
     type: "invalid_request_error",
+    headers: new Headers(),
+  })
+}
+
+function detailedProviderFailure({
+  message,
+  code,
+  param,
+  schemaPath,
+  failedGeneration,
+}: {
+  message: string
+  code?: string
+  param?: string
+  schemaPath?: string
+  failedGeneration?: string
+}) {
+  const providerError = {
+    message,
+    type: "invalid_request_error",
+    ...(code !== undefined ? { code } : {}),
+    ...(param !== undefined ? { param } : {}),
+    ...(schemaPath !== undefined ? { schema_path: schemaPath } : {}),
+    ...(failedGeneration !== undefined
+      ? { failed_generation: failedGeneration }
+      : {}),
+  }
+
+  return Object.assign(new Error(message), {
+    status: 400,
+    type: "invalid_request_error",
+    code,
+    param,
+    error: providerError,
     headers: new Headers(),
   })
 }

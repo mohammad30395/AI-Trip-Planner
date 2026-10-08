@@ -3056,3 +3056,71 @@ Next:
   safe structured error code and schema/property path for this full-schema
   HTTP 400, without persisting its message or making automatic retries. Use
   that evidence to choose the smallest isolated correction or comparison.
+
+## 2026-10-08 — Step 4A.3A full final HTTP 400 diagnostic
+
+- Started from clean `main` checkpoint `a3feb32` (`update-4a.3`) with the
+  Step 4A.3 evidence preserved.
+- Confirmed from the installed OpenAI SDK that provider HTTP errors retain the
+  structured Groq error body on `APIError.error` and expose top-level `status`,
+  `type`, `code`, and `param`. The existing `normalizeGroqError` path retained
+  status, an allowlisted type, rate-limit headers, and a broad category but
+  discarded the provider code, parameter, schema path, and any safe indication
+  of completion exhaustion.
+- Added an optional local diagnostic observer as the third argument to the
+  existing isolated `runGroqFinalItinerary`. It receives only newly constructed
+  allowlisted metadata after an SDK error; the raw error never leaves the
+  adapter. Observer exceptions are ignored so existing return behavior remains
+  unchanged. No production route supplies the observer.
+- Provider codes and request parameters use exact allowlists. Schema paths must
+  contain only known final-schema and JSON-Schema tokens. Arbitrary messages
+  are discarded after transient classification/path inspection.
+  `failed_generation` content is never returned, logged, or persisted; it is
+  inspected only to produce presence and completion-exhaustion booleans.
+- Proved offline that the reproduction request is byte-structure equivalent at
+  the application object level to Step 4A.3: same model, messages, complete
+  exported schema, schema name, strict mode, temperature 0.4, 3,500 completion
+  tokens, omitted reasoning settings, 90-second timeout, zero retries, and the
+  same `chat.completions.create(...).withResponse()` invocation. The observer
+  adds no outgoing request field.
+- Added mocked coverage for safe structured extraction, restrictive embedded
+  schema-path extraction, missing-field representation, arbitrary code/path/
+  parameter rejection, secret/reasoning/failed-content discard, unchanged
+  normalized failures, observer failure isolation, exact request equivalence,
+  one-record persistence, and report parsing.
+- After all offline gates passed, made exactly one authorized reproduction with
+  no precheck, retry, or fallback. It unexpectedly succeeded with HTTP 200,
+  finish reason `stop`, 1,193 input tokens, 1,551 output tokens, 2,744 total
+  tokens, and 2,237 ms latency. Rate-limit headers reported 8,000 TPM, 6,571
+  remaining, and an 11-second reset.
+- The successful strict response passed JSON parsing, strict-wire acceptance,
+  null normalization, the canonical application parser, exact one-day duration
+  validation, and the existing storage transformation. Exactly one itinerary
+  day was produced. The complete generated itinerary was not persisted.
+- Wrote exactly one sanitized record to
+  `/tmp/groq-final-400-diagnostic.jsonl` under run identifier
+  `step4a3a-final-400-run-1`. The record contains no prompt, response body,
+  provider message, `failed_generation`, reasoning, credential, or personal
+  data.
+- The prior Step 4A.3 HTTP 400 cause remains `UNKNOWN` because its detailed
+  error was discarded and the exact single reproduction succeeded. The success
+  shows that the request and full strict schema are not deterministically
+  rejected; it does not prove repeatable reliability.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  schema, shared contract, frontend, Convex, dependency, model, prompt, budget,
+  timeout, retry behavior, or production response changed.
+- Final post-run verification passed: 255 offline tests with 14 opt-in tests
+  skipped, ESLint, strict TypeScript, the Next.js 16.3.2 production build,
+  tracked and newly added file whitespace checks, source/report secret checks,
+  and production-route isolation checks. The live flag was disabled, so these
+  checks made no additional provider requests.
+
+Result:
+- `SUCCESSFUL_GENERATION` for the one authorized Step 4A.3A reproduction.
+  The historical Step 4A.3 HTTP 400 remains unclassified beyond its previously
+  observed generic request rejection.
+
+Next:
+- Retain the safe diagnostic observer for a separately authorized one-day
+  repeatability milestone. Do not change the schema or move to `strict: false`
+  based on one historical failure followed by one successful exact reproduction.
