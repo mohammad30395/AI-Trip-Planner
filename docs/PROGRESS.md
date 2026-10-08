@@ -2906,3 +2906,45 @@ Next:
 - If separately authorized, validate the full three-variant place `anyOf` with
   the exact isolated methodology and an evidence-backed 512-token budget. Do
   not run a full final-itinerary request or change production routing yet.
+
+## Provider Migration Step 4A.2Y - Full Three-Variant Place anyOf Validation
+
+- Reused the exact accepted Step-4A.2X aligned `specific_place` fixture as the
+  control, including schema fingerprint `1f4a13a193a75838`, the committed
+  aligned prompt, strict mode, and 512 completion tokens.
+- Derived the candidate directly from
+  `itinerary[].activities[].place` in the exported Groq final wire schema. The
+  exact `anyOf` retains the closed `specific_place`, `generic_activity`, and
+  `transport` branches; all six branch properties remain required, the latter
+  two require `name: null`, and all four hint properties remain nullable.
+- The candidate root preserved `ok`, the nullable-enum `message`, required
+  `place`, and the closed-object constraint. Its deterministic fingerprint is
+  `da1a8dda005763d4`.
+- Added offline provenance, all-branch representative validation, invalid
+  discriminator/name/required-field/extra-property rejection, complete mocked
+  SDK request comparison, two-call stop behavior, diagnostic accounting, and
+  redaction coverage. The complete request bodies differ only at
+  `response_format.json_schema.schema.properties.place`.
+- Made exactly two sequential live requests with zero retries. Probe A passed
+  with HTTP 200, `stop`, selected `specific_place`, and usage 363/216/579.
+  Probe B also passed with HTTP 200, `stop`, selected `specific_place`, and
+  usage 548/268/816. Both outputs parsed and passed their complete runtime
+  validators; neither returned an error or `failed_generation`.
+- Classified Probe B as `FULL_PLACE_ANYOF_ACCEPTED`. This demonstrates that the
+  exact complete union can generate one valid observed `specific_place`
+  response. It does not establish live generation coverage for
+  `generic_activity` or `transport`.
+- Preserved all earlier reports and wrote exactly two sanitized records for two
+  calls to `/tmp/groq-strict-schema-phase6.jsonl` under run identifier
+  `step4a2y-phase6-run-1`.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  production adapter, final wire schema, shared contract, route, frontend,
+  Convex, dependency, or itinerary-generation behavior changed.
+- Final verification passed: 229 offline tests with 13 opt-in tests skipped,
+  ESLint, strict TypeScript, the Next.js 16.3.2 production build, tracked and
+  newly added file whitespace validation, and source/evidence secret checks.
+
+Next:
+- If separately authorized, validate `generic_activity` and `transport` as two
+  isolated full-union requests with exact branch-aligned synthetic prompts.
+  Do not advance to activity wrappers or full itinerary generation yet.
