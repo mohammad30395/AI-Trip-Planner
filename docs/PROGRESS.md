@@ -3124,3 +3124,65 @@ Next:
 - Retain the safe diagnostic observer for a separately authorized one-day
   repeatability milestone. Do not change the schema or move to `strict: false`
   based on one historical failure followed by one successful exact reproduction.
+
+## 2026-10-08 — Step 4A.3B one-day final-itinerary repeatability baseline
+
+- Started from clean `main` checkpoint `27e435a` (`update-4a.3a`) with the
+  Step 4A.3 and Step 4A.3A evidence files preserved at one record each.
+- Added only test-side repeatability utilities and a separately gated live
+  harness. No production adapter, route, schema, contract, prompt, model,
+  completion budget, timeout, retry behavior, frontend, Convex code, or
+  dependency changed.
+- Proved offline that every repeatability attempt uses the exact established
+  Step 4A.3A request: `openai/gpt-oss-20b`, the complete exported final wire
+  schema named `groq_final_itinerary_wire_response`, strict mode, the same two
+  messages and one-day input, temperature 0.4, 3,500 completion tokens, no
+  reasoning settings, a 90-second timeout, and zero SDK retries.
+- The harness requires explicit opt-in, runs sequentially, caps attempts at
+  three, waits 75 seconds between eligible request starts, stops on blocking
+  provider/quota conditions, and persists one sanitized record immediately
+  after each attempted call. Ordinary tests keep the live harness disabled.
+- Made exactly three authorized Groq requests with no preflight, retry,
+  fallback, concurrent request, Convex write, or longer-duration generation.
+  The durable report contains exactly three records at
+  `/tmp/groq-final-one-day-repeatability.jsonl` under run identifier
+  `step4a3b-one-day-repeatability-run-1`.
+- Attempt 1 returned HTTP 400 after 6,154 ms with provider type
+  `invalid_request_error`, code `json_validate_failed`, and a present but
+  unpersisted `failed_generation` field. No safe parameter or schema path was
+  supplied, and no explicit completion-exhaustion or unsupported-schema signal
+  was found. Rate-limit metadata reported 8,000 TPM, 6,477 remaining, and a
+  12-second reset.
+- Attempt 2 returned HTTP 200 with finish reason `stop`, usage
+  1,193/1,907/3,100 input/output/total tokens, and 2,842 ms latency. The full
+  strict-response path, normalization, application parser, sequential one-day
+  duration validation, and storage transformation all passed. Rate-limit
+  metadata reported 8,000 TPM, 6,544 remaining, and an 11-second reset.
+- Attempt 3 returned HTTP 200 with finish reason `stop`, usage
+  1,193/1,791/2,984 input/output/total tokens, and 2,283 ms latency. It passed
+  the same complete validation and storage pipeline. Rate-limit metadata
+  reported 8,000 TPM, 6,569 remaining, and an 11-second reset.
+- The controlled sample therefore produced two full-pipeline successes from
+  three requests. This is preliminary evidence that the unchanged one-day
+  request can succeed repeatedly, but the 66.7% observed sample result is not a
+  general reliability estimate and does not support a 90% reliability claim.
+- The new failure is directly classified as a stochastic JSON-generation
+  validation failure for this observation, not deterministic schema rejection,
+  rate limiting, authentication failure, or provider outage. The original
+  Step 4A.3 HTTP 400 remains historically unclassified because its detailed
+  provider error was discarded before the diagnostic observer existed.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. The
+  result does not justify final-route integration or schema/strict-mode/budget
+  changes.
+
+Result:
+- `PRELIMINARY_REPEATABILITY_MIXED`: two of three new controlled requests
+  completed the full one-day pipeline, while one independently failed with
+  `json_validate_failed` under the byte-structure-equivalent request.
+
+Next:
+- The one-day request has enough preliminary success evidence to begin a
+  separately authorized, cautious multi-duration screening benchmark, but the
+  benchmark must treat generation failures separately from rate limits and
+  must revisit one-day repeatability alongside higher durations. Production
+  Groq final-route integration remains premature.
