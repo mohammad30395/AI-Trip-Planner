@@ -2769,3 +2769,46 @@ Next:
 - If separately authorized, validate the smallest discriminated strict object
   used by the place wire shape before testing any larger subtree. Do not run a
   full final-itinerary request or change production routing.
+
+## Provider Migration Step 4A.2V - Minimal Discriminated Place Validation
+
+- Recovered the exact `specific_place` branch from
+  `itinerary[].activities[].place.anyOf[0]` in the isolated Groq wire schema.
+  Its `kind` discriminator uses enum value `specific_place`; the closed object
+  requires `kind`, `name`, `addressHint`, `areaHint`, `originHint`, and
+  `destinationHint`, with all four hint fields represented as nullable strings.
+- Reused the exact successful Step-4A.2U nullable-enum fixture as the control.
+  The candidate preserved `ok` and `message`, added only the extracted place
+  branch at root `properties.place`, and added `place` to the root `required`
+  array. All non-schema request settings remained locked to the historical
+  Chat Completions configuration.
+- Added offline coverage for exact wire-branch provenance, closed/fully required
+  nested structure, complete request equality, structural diffs, correct and
+  incorrect discriminators, missing and unexpected fields, invalid messages,
+  stop-on-failure behavior, and sanitized durable diagnostics.
+- Made exactly two sequential live requests. The nullable-enum control passed
+  with HTTP 200, `stop`, and usage 217/103/320. The minimal place probe returned
+  HTTP 400 `invalid_request_error` / `json_validate_failed`, with no retry,
+  finish reason, response usage, or parseable output available.
+- Probe B retained 7,214 of 8,000 available tokens with a six-second reset. Its
+  `failed_generation` field was present but empty and contained no token-limit
+  marker. This is generation-time JSON-validation evidence rather than an
+  explicit rejected-schema-keyword diagnostic.
+- Classified the minimal place result as `MINIMAL_PLACE_OBJECT_SUSPECT`, not as
+  global incompatibility. The locked historical prompt does not request a
+  place object, so prompt/schema mismatch or stochastic output remains a
+  material confounder alongside possible nested-structure sensitivity.
+- Preserved earlier evidence and wrote exactly two sanitized records for two
+  requests to `/tmp/groq-strict-schema-phase3.jsonl`.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  production adapter, final wire schema, shared contract, route, frontend,
+  Convex, dependency, or itinerary-generation behavior changed.
+- Final verification passed: 206 offline tests with 10 opt-in tests skipped,
+  ESLint, strict TypeScript, the Next.js 16.3.2 production build, and whitespace
+  validation for tracked and newly added files.
+
+Next:
+- Do not advance to the complete place subtree. If separately authorized,
+  reproduce this minimal place probe and compare it with the same schema under
+  one minimally aligned place-object prompt to isolate the prompt/schema
+  mismatch without changing the schema or token budget.
