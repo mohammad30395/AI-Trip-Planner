@@ -2991,3 +2991,68 @@ Next:
 - After full generation works, empirically test multiple trip durations and
   repeatability under a separate live budget before changing the current
   duration maximum anywhere in the application.
+
+## 2026-10-08 — Step 4A.3 full final schema and one-day validation
+
+- Started from clean `main` checkpoint `4e14beb` (`update-4a.2z`).
+- Added an isolated realistic one-day Dhaka to Cox's Bazar wire fixture with
+  two hotels and transport, `specific_place`, and `generic_activity` activity
+  branches. A dependency-free test validator applies the actual exported Groq
+  wire schema rather than a copied replacement.
+- Audited the complete wire schema: 8 closed object nodes, 3 `anyOf` branches,
+  maximum measured schema depth 8, 2,960 serialized bytes, no unsupported
+  project keywords, and no mismatch between declared properties and required
+  keys. Nullable wire fields and all three place discriminators remain
+  unchanged.
+- Verified offline that schema validation, null normalization, the canonical
+  application parser, exact one-day duration validation, forbidden-metadata
+  rejection, and the existing storage transformation all work without a
+  shared contract, Convex, or production route change.
+- Measured the prompt at 1,842 bytes (about 461 tokens), the schema at 2,960
+  bytes (about 740 tokens), and the representative output at 2,101 bytes
+  (about 526 tokens), using a clearly labeled four-bytes-per-token heuristic.
+  The estimated request input including overhead was 1,401 tokens.
+- Kept the production default one-day completion budget at 1,700. Selected the
+  existing test-only override at 3,500 tokens because previous small GPT-OSS
+  strict responses consumed materially more completion tokens than their
+  visible JSON and 1,700 was therefore borderline. Estimated input plus the
+  selected cap was 4,901 tokens, leaving 3,099 tokens below the documented and
+  previously observed 8,000 TPM Free Plan limit.
+- Replaced the old live final harness's model-list precheck with a separately
+  gated, exactly-one-call test. It uses the existing isolated
+  `runGroqFinalItinerary`, its 90-second timeout, zero SDK retries, the complete
+  production wire schema, and no OpenRouter fallback. The report writer refuses
+  to overwrite an existing report and persists no messages or model response.
+- After the full offline gate passed, made exactly one authorized Groq request
+  with no retry. The provider returned HTTP 400 after 4,778 ms with safe type
+  `invalid_request_error` and normalized code `request_rejected`; there was no
+  finish reason, response content, or usage object. Rate-limit headers reported
+  an 8,000-token limit, 6,559 remaining, and an 11-second reset.
+- Because generation never began, JSON parsing, normalization, application
+  validation, duration validation, output-content checks, and storage
+  compatibility could not be demonstrated live. The adapter intentionally
+  discarded the provider's raw message, so no narrower schema path or provider
+  body code is available without a separately authorized diagnostic change.
+- Wrote exactly one sanitized record to
+  `/tmp/groq-final-one-day-validation.jsonl` under run identifier
+  `step4a3-one-day-run-1`. No API key, authorization header, raw reasoning,
+  prompt, complete response, or personal data was persisted.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  production adapter, wire schema, shared contract, route, frontend, Convex,
+  dependency, or application behavior changed.
+- Final post-run verification passed: 246 offline tests with 14 opt-in tests
+  skipped, ESLint, strict TypeScript, the Next.js 16.3.2 production build,
+  tracked and newly added file whitespace checks, and a configured-secret value
+  scan. The live opt-in was disabled for these checks, so they made no further
+  provider requests.
+
+Result:
+- `PROVIDER_REQUEST_REJECTED`. Step 4A.3 does not establish successful one-day
+  final generation and does not justify a production final-route migration or
+  a multi-duration reliability benchmark yet.
+
+Next:
+- In a separately authorized diagnostic milestone, capture only the provider's
+  safe structured error code and schema/property path for this full-schema
+  HTTP 400, without persisting its message or making automatic retries. Use
+  that evidence to choose the smallest isolated correction or comparison.
