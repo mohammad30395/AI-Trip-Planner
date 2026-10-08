@@ -2948,3 +2948,46 @@ Next:
 - If separately authorized, validate `generic_activity` and `transport` as two
   isolated full-union requests with exact branch-aligned synthetic prompts.
   Do not advance to activity wrappers or full itinerary generation yet.
+
+## Provider Migration Step 4A.2Z - Remaining Place Variants Validation
+
+- Reused the exact accepted Phase-6 complete place union for both requests,
+  preserving fingerprint `da1a8dda005763d4`, strict mode, 512 completion
+  tokens, the historical system message, omitted temperature/reasoning fields,
+  a 30-second timeout, and zero SDK retries.
+- Added the exact authorized synthetic prompts for `generic_activity` and
+  `transport`. Complete mocked SDK request comparison proves that the two
+  requests differ only at `messages[1].content`.
+- Added offline provenance, fingerprint, representative-response, wrong-branch,
+  invalid-discriminator/name, missing-field, unexpected-property, transport
+  hint, stop-rule, diagnostic accounting, and redaction coverage. Ordinary
+  tests keep the Phase-7 live harness disabled.
+- Made exactly two sequential live requests with zero retries. The
+  `generic_activity` probe passed with HTTP 200, `stop`, the requested/generated
+  branch `generic_activity`, and usage 546/289/835. The `transport` probe passed
+  with HTTP 200, `stop`, the requested/generated branch `transport`, and usage
+  550/285/835.
+- Both responses parsed and passed their full-union runtime validators. Neither
+  produced a provider error, rate-limit signal, or `failed_generation`.
+- Combined with Step 4A.2Y, every exact place-union branch now has at least one
+  successful live generation under the 512-token configuration. This validates
+  the place union but not the surrounding activity or complete itinerary wire
+  schema.
+- Preserved all earlier reports and wrote exactly two sanitized records for two
+  calls to `/tmp/groq-strict-schema-phase7.jsonl` under run identifier
+  `step4a2z-phase7-run-1`.
+- Preserved `/api/ai-model` on Groq and `/api/ai-itinerary` on OpenRouter. No
+  production adapter, final wire schema, shared contract, route, frontend,
+  Convex, dependency, or itinerary-generation behavior changed.
+- Final verification passed: 237 offline tests with 14 opt-in tests skipped,
+  ESLint, strict TypeScript, the Next.js 16.3.2 production build, tracked and
+  newly added file whitespace validation, and source/evidence secret checks.
+
+Next:
+- In a separately authorized milestone, verify the complete final wire schema,
+  normalization, application runtime validation, and one-day request budget
+  offline, then run one carefully budgeted one-day Groq final-generation test.
+  Preserve OpenRouter production routing until that end-to-end test succeeds.
+- After full generation works, empirically test multiple trip durations and
+  repeatability under a separate live budget before changing the current
+  duration maximum anywhere in the application.
